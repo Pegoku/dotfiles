@@ -94,7 +94,7 @@ export default (props) => {
     //     onChange: (self, newValue) => {
     //         Notifications.dnd = newValue;
     //     },
-    // })
+    // });
     const clearButton = Revealer({
         transition: 'slide_right',
         transitionDuration: userOptions.animations.durationSmall,

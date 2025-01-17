@@ -54,7 +54,7 @@ let configOptions = {
         // 'eDP-1': "brightnessctl",
         // 'DP-1': "ddcutil",
         'controllers': {
-            'default': "auto",
+            'default': "brightnessctl",
         },
     },
     'cheatsheet': {
@@ -104,7 +104,9 @@ let configOptions = {
             'allowNsfw': false,
         },
         'pages': {
-            'order': ["apis", "tools"],
+            // 'order': ["apis", "tools"],
+            'order': ["apis"],
+
             'apis': {
                 // 'order': ["gemini", "gpt", "waifu", "booru"],
                 'order': ["gpt"],

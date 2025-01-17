@@ -129,7 +129,8 @@ export const SearchAndWindows = () => {
             }
             if (userOptions.search.enableFeatures.directorySearch && isDir) {
                 var contents = [];
-                contents = ls({ path: text, silent: true });
+                const searchPath = text;
+                contents = ls({ path: searchPath, silent: true });
                 contents.forEach((item) => {
                     resultsBox.add(DirectoryButton(item));
                 })

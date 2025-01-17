@@ -7,15 +7,26 @@ import Soup from 'gi://Soup?version=3.0';
 import { fileExists } from '../modules/.miscutils/files.js';
 
 const PROVIDERS = Object.assign({ // There's this list hmm https://github.com/zukixa/cool-ai-stuff/
+    // 'openai': {
+    //     'name': 'OpenAI',
+    //     'logo_name': 'openai-symbolic',
+    //     'description': 'ChatGPT 3.5 Turbo.',
+    //     //'base_url': 'https://api.openai.com/v1/chat/completions',
+    //     'base_url': 'https://jamsapi.hackclub.dev/openai/chat/completions',
+    //     'key_get_url': 'https://platform.openai.com/api-keys',
+    //     'key_file': '0',
+    //     'model': 'gpt-3.5-turbo',
+    // },
     'openai': {
         'name': 'OpenAI',
         'logo_name': 'openai-symbolic',
-        'description': 'Official OpenAI API.',
+        'description': 'ChatGPT 4o.',
         //'base_url': 'https://api.openai.com/v1/chat/completions',
-        'base_url': 'https://jamsapi.hackclub.dev/openai/chat/completions',
+        // 'base_url': 'https://jamsapi.hackclub.dev/openai/chat/completions',
+        'base_url': 'http://5.161.100.52:3000/openai/chat/completions',
         'key_get_url': 'https://platform.openai.com/api-keys',
-        'key_file': 'openai_key.txt',
-        'model': 'gpt-3.5-turbo',
+        'key_file': '1',
+        'model': 'gpt-4o',
     }
 // }, userOptions.sidebar.ai.extraGptModels)
 })

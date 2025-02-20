@@ -1,0 +1,154 @@
+{
+    "packages": [
+        {
+            "current_version": "2.1.1",
+            "install_timestamp": 1734033169,
+            "package": {
+                "author": {
+                    "contact": {
+                        "web": "https://github.com/DIaLOGIKa-GmbH"
+                    },
+                    "name": "Tim Goll & Jonas Wenner, DIaLOGIKa GmbH"
+                },
+                "description": "Generates multilayer PCB coils for direct placement or as a footprint",
+                "description_full": "The PCB Coil Creator is an addon that allows you to generate multilayer PCB coils directly within KiCad. It features a UI for configuring parameters like layer count, trace width, and coil dimensions.\n\nThe generated coils can be used as footprints or embedded directly into board designs, making it a versatile tool for various PCB projects.",
+                "identifier": "com.github.DIaLOGIKa-GmbH.kicad-coil-creator",
+                "license": "GPL-3.0",
+                "maintainer": {
+                    "contact": {
+                        "web": "https://github.com/DIaLOGIKa-GmbH"
+                    },
+                    "name": "Tim Goll & Jonas Wenner, DIaLOGIKa GmbH"
+                },
+                "name": "PCB Coil Generator",
+                "resources": {
+                    "homepage": "https://github.com/DIaLOGIKa-GmbH/kicad-coil-creator"
+                },
+                "tags": [
+                    "coils",
+                    "inductors",
+                    "toolkit"
+                ],
+                "type": "plugin",
+                "versions": [
+                    {
+                        "download_sha256": "edfe9aa1334cd64587ee09563f47357e787a07c044a6d6209cf8a7fb0807c9d5",
+                        "download_size": 22804,
+                        "download_url": "https://github.com/DIaLOGIKa-GmbH/kicad-coil-creator/releases/download/v2.1.1/coil_generator_v2.1.1.zip",
+                        "install_size": 53469,
+                        "kicad_version": "8.00",
+                        "platforms": [
+                            "linux",
+                            "macos",
+                            "windows"
+                        ],
+                        "status": "stable",
+                        "version": "2.1.1"
+                    },
+                    {
+                        "download_sha256": "29bd555d1dc0f60797105d947723c83f248fa2af501f95cb418488ddb332c901",
+                        "download_size": 22528,
+                        "download_url": "https://github.com/DIaLOGIKa-GmbH/kicad-coil-creator/releases/download/v2.1.0/coil_generator_v2.1.0.zip",
+                        "install_size": 52383,
+                        "kicad_version": "8.00",
+                        "platforms": [
+                            "linux",
+                            "macos",
+                            "windows"
+                        ],
+                        "status": "stable",
+                        "version": "2.1.0"
+                    },
+                    {
+                        "download_sha256": "065ac4987312ebb6425509d0b1e1c9da5ac531498eb8512beab3864c5496fc8f",
+                        "download_size": 21968,
+                        "download_url": "https://github.com/DIaLOGIKa-GmbH/kicad-coil-creator/releases/download/v2.0.0/coil_generator_v2.0.0.zip",
+                        "install_size": 52636,
+                        "kicad_version": "8.00",
+                        "platforms": [
+                            "linux",
+                            "macos",
+                            "windows"
+                        ],
+                        "status": "stable",
+                        "version": "2.0.0"
+                    },
+                    {
+                        "download_sha256": "8b40bafa272671d433dcb56f2e96107f0afc0acd622089e24195389422837b90",
+                        "download_size": 17346,
+                        "download_url": "https://github.com/DIaLOGIKa-GmbH/kicad-coil-creator/releases/download/v1.0.0/coil_generator_v1.0.0.zip",
+                        "install_size": 38033,
+                        "kicad_version": "7.00",
+                        "platforms": [
+                            "linux",
+                            "macos",
+                            "windows"
+                        ],
+                        "status": "stable",
+                        "version": "1.0.0"
+                    }
+                ]
+            },
+            "pinned": false,
+            "repository_id": "46f88614eade3439",
+            "repository_name": "KiCad official repository"
+        },
+        {
+            "current_version": "5.0.0",
+            "install_timestamp": 1734033126,
+            "package": {
+                "author": {
+                    "contact": {
+                        "github": "https://github.com/bennymeg"
+                    },
+                    "name": "Benny Megidish"
+                },
+                "description": "JLC PCB fabrication toolkit\nAutomate PCB fabrication process in conjunction with JLC PCB",
+                "description_full": "Toolkit for automating PCB fabrication process with KiCad and JLC PCB. \n\n Features: \n• Generates gerber files in correct format for production. \n• Generates BOM file in correct format for production. \n• Generates Pick and Place file in correct format for assembly. \n• Automatic and manual component translations. \n• Many more unique additional features. \n♥ https://github.com/sponsors/bennymeg",
+                "identifier": "com.github.bennymeg.JLC-Plugin-for-KiCad",
+                "license": "Apache-2.0",
+                "maintainer": {
+                    "contact": {
+                        "github": "https://github.com/bennymeg"
+                    },
+                    "name": "Benny Megidish"
+                },
+                "name": "Fabrication Toolkit",
+                "resources": {
+                    "Sponsor": "https://github.com/sponsors/bennymeg",
+                    "homepage": "https://github.com/bennymeg/JLC-Plugin-for-KiCad"
+                },
+                "tags": [
+                    "jlc",
+                    "production",
+                    "fabrication",
+                    "toolkit"
+                ],
+                "type": "plugin",
+                "versions": [
+                    {
+                        "download_sha256": "28659243c313ad031e9c3b04fae1a7d208c697c2921962cc103de5f1f82d2250",
+                        "download_size": 19894,
+                        "download_url": "https://github.com/bennymeg/JLC-Plugin-for-KiCad/releases/download/5.0.0/JLC-Plugin-for-KiCad-5.0.0.zip",
+                        "install_size": 51321,
+                        "kicad_version": "6.00",
+                        "status": "stable",
+                        "version": "5.0.0"
+                    },
+                    {
+                        "download_sha256": "2285113715d24d6e581ee1bee4c8e2fd92ad92bc72737e1dd05f7c05210e0e67",
+                        "download_size": 17732,
+                        "download_url": "https://github.com/bennymeg/JLC-Plugin-for-KiCad/releases/download/4.5.0/JLC-Plugin-for-KiCad-4.5.0.zip",
+                        "install_size": 44106,
+                        "kicad_version": "6.00",
+                        "status": "stable",
+                        "version": "4.5.0"
+                    }
+                ]
+            },
+            "pinned": false,
+            "repository_id": "46f88614eade3439",
+            "repository_name": "KiCad official repository"
+        }
+    ]
+}

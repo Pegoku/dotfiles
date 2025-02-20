@@ -1,0 +1,575 @@
+{
+    "packages": [
+        {
+            "current_version": "2.0.1",
+            "install_timestamp": 1734543327,
+            "package": {
+                "author": {
+                    "contact": {
+                        "email": "info@freerouting.app",
+                        "web": "https://www.freerouting.app/"
+                    },
+                    "name": "Andras Fuchs"
+                },
+                "description": "Freerouting KiCad integration",
+                "description_full": "This is the official KiCad integration for Freerouting, an advanced autorouter.\nIt needs Java JRE 17, download it from https://adoptium.net/temurin/releases .\n",
+                "identifier": "app.freerouting.kicad-plugin",
+                "license": "GPL-3.0",
+                "maintainer": {
+                    "contact": {
+                        "email": "info@freerouting.app"
+                    },
+                    "name": "Andras Fuchs"
+                },
+                "name": "Freerouting",
+                "resources": {
+                    "Github": "https://github.com/freerouting/freerouting/tree/master/integrations/KiCad"
+                },
+                "type": "plugin",
+                "versions": [
+                    {
+                        "download_sha256": "39ce85e2f7221bd7a1d82f54860f00184c4ad55bac955d106231add5e1c2e1b3",
+                        "download_size": 60891211,
+                        "download_url": "https://github.com/freerouting/freerouting/raw/master/integrations/KiCad/kicad-freerouting-2.0.1.zip",
+                        "install_size": 66445534,
+                        "kicad_version": "6.0",
+                        "status": "stable",
+                        "version": "2.0.1"
+                    },
+                    {
+                        "download_sha256": "ad473585cafb13c2fad8dc5e6422eaf455da19ca2e42477c0f21b4b0a63e44cc",
+                        "download_size": 60840861,
+                        "download_url": "https://github.com/freerouting/freerouting/raw/master/integrations/KiCad/kicad-freerouting-2.0.0.zip",
+                        "install_size": 66388137,
+                        "kicad_version": "6.0",
+                        "status": "stable",
+                        "version": "2.0.0"
+                    },
+                    {
+                        "download_sha256": "9806754c2448c6d4d6ea704f2627b2b31448fa39e8c4aa8c400dc19cecda0222",
+                        "download_size": 4568228,
+                        "download_url": "https://github.com/freerouting/freerouting/raw/master/integrations/KiCad/kicad-freerouting-1.9.0.zip",
+                        "install_size": 5086728,
+                        "kicad_version": "6.0",
+                        "status": "stable",
+                        "version": "1.9.0"
+                    },
+                    {
+                        "download_sha256": "ba428e2abe408ea5d3b97b451514b1e6ba5defe04a917e27b48c40e48d0d52b8",
+                        "download_size": 4309439,
+                        "download_url": "https://github.com/freerouting/freerouting/raw/master/integrations/KiCad/kicad-freerouting-1.8.0.zip",
+                        "install_size": 4808684,
+                        "kicad_version": "6.0",
+                        "status": "stable",
+                        "version": "1.8.0"
+                    },
+                    {
+                        "download_sha256": "62dc982998455e097744510b24331f1b33cee49cb90116b680349f6027618cef",
+                        "download_size": 4304221,
+                        "download_url": "https://github.com/freerouting/freerouting/raw/master/integrations/KiCad/kicad-freerouting-1.7.1.zip",
+                        "install_size": 4797518,
+                        "kicad_version": "6.0",
+                        "status": "stable",
+                        "version": "1.7.1"
+                    },
+                    {
+                        "download_sha256": "d737320dcc835c53975d5d4cbb99afe8e05ed015f41858d350ccffbc456cb424",
+                        "download_size": 4304240,
+                        "download_url": "https://github.com/freerouting/freerouting/raw/master/integrations/KiCad/kicad-freerouting-1.7.0.zip",
+                        "install_size": 4797408,
+                        "kicad_version": "6.0",
+                        "status": "stable",
+                        "version": "1.7.0"
+                    },
+                    {
+                        "download_sha256": "5b7b92448851e982dc31d54c344b6bc74e08e109ef67beae83f321aa50ffab58",
+                        "download_size": 4303331,
+                        "download_url": "https://github.com/freerouting/freerouting/raw/master/integrations/KiCad/kicad-freerouting-1.6.6.zip",
+                        "install_size": 4796646,
+                        "kicad_version": "6.0",
+                        "status": "stable",
+                        "version": "1.6.6"
+                    },
+                    {
+                        "download_sha256": "8eccd96f48a5f9f77b2e9c33a9fbcc99c6b12c11fdedb4d19356b7a1216497f7",
+                        "download_size": 4301604,
+                        "download_url": "https://github.com/freerouting/freerouting/raw/master/integrations/KiCad/kicad-freerouting-1.6.5.zip",
+                        "install_size": 4793969,
+                        "kicad_version": "6.0",
+                        "status": "stable",
+                        "version": "1.6.5"
+                    },
+                    {
+                        "download_sha256": "a72f4e5b5cedfee3ecea474315e6fc94e11fcb5480dc77a944dfe67fb2e96367",
+                        "download_size": 4095649,
+                        "download_url": "https://github.com/freerouting/freerouting/raw/master/integrations/KiCad/kicad-freerouting-1.6.2.zip",
+                        "install_size": 4526306,
+                        "kicad_version": "6.0",
+                        "status": "stable",
+                        "version": "1.6.2"
+                    }
+                ]
+            },
+            "pinned": false,
+            "repository_id": "46f88614eade3439",
+            "repository_name": "KiCad official repository"
+        },
+        {
+            "current_version": "2.1.1",
+            "install_timestamp": 1729456630,
+            "package": {
+                "author": {
+                    "contact": {
+                        "web": "https://github.com/DIaLOGIKa-GmbH"
+                    },
+                    "name": "Tim Goll & Jonas Wenner, DIaLOGIKa GmbH"
+                },
+                "description": "Generates multilayer PCB coils for direct placement or as a footprint",
+                "description_full": "The PCB Coil Creator is an addon that allows you to generate multilayer PCB coils directly within KiCad. It features a UI for configuring parameters like layer count, trace width, and coil dimensions.\n\nThe generated coils can be used as footprints or embedded directly into board designs, making it a versatile tool for various PCB projects.",
+                "identifier": "com.github.DIaLOGIKa-GmbH.kicad-coil-creator",
+                "license": "GPL-3.0",
+                "maintainer": {
+                    "contact": {
+                        "web": "https://github.com/DIaLOGIKa-GmbH"
+                    },
+                    "name": "Tim Goll & Jonas Wenner, DIaLOGIKa GmbH"
+                },
+                "name": "PCB Coil Generator",
+                "resources": {
+                    "homepage": "https://github.com/DIaLOGIKa-GmbH/kicad-coil-creator"
+                },
+                "tags": [
+                    "coils",
+                    "inductors",
+                    "toolkit"
+                ],
+                "type": "plugin",
+                "versions": [
+                    {
+                        "download_sha256": "edfe9aa1334cd64587ee09563f47357e787a07c044a6d6209cf8a7fb0807c9d5",
+                        "download_size": 22804,
+                        "download_url": "https://github.com/DIaLOGIKa-GmbH/kicad-coil-creator/releases/download/v2.1.1/coil_generator_v2.1.1.zip",
+                        "install_size": 53469,
+                        "kicad_version": "8.00",
+                        "platforms": [
+                            "linux",
+                            "macos",
+                            "windows"
+                        ],
+                        "status": "stable",
+                        "version": "2.1.1"
+                    },
+                    {
+                        "download_sha256": "29bd555d1dc0f60797105d947723c83f248fa2af501f95cb418488ddb332c901",
+                        "download_size": 22528,
+                        "download_url": "https://github.com/DIaLOGIKa-GmbH/kicad-coil-creator/releases/download/v2.1.0/coil_generator_v2.1.0.zip",
+                        "install_size": 52383,
+                        "kicad_version": "8.00",
+                        "platforms": [
+                            "linux",
+                            "macos",
+                            "windows"
+                        ],
+                        "status": "stable",
+                        "version": "2.1.0"
+                    },
+                    {
+                        "download_sha256": "065ac4987312ebb6425509d0b1e1c9da5ac531498eb8512beab3864c5496fc8f",
+                        "download_size": 21968,
+                        "download_url": "https://github.com/DIaLOGIKa-GmbH/kicad-coil-creator/releases/download/v2.0.0/coil_generator_v2.0.0.zip",
+                        "install_size": 52636,
+                        "kicad_version": "8.00",
+                        "platforms": [
+                            "linux",
+                            "macos",
+                            "windows"
+                        ],
+                        "status": "stable",
+                        "version": "2.0.0"
+                    },
+                    {
+                        "download_sha256": "8b40bafa272671d433dcb56f2e96107f0afc0acd622089e24195389422837b90",
+                        "download_size": 17346,
+                        "download_url": "https://github.com/DIaLOGIKa-GmbH/kicad-coil-creator/releases/download/v1.0.0/coil_generator_v1.0.0.zip",
+                        "install_size": 38033,
+                        "kicad_version": "7.00",
+                        "platforms": [
+                            "linux",
+                            "macos",
+                            "windows"
+                        ],
+                        "status": "stable",
+                        "version": "1.0.0"
+                    }
+                ]
+            },
+            "pinned": false,
+            "repository_id": "46f88614eade3439",
+            "repository_name": "KiCad official repository"
+        },
+        {
+            "current_version": "3.0.0",
+            "install_timestamp": 1729456631,
+            "package": {
+                "author": {
+                    "contact": {
+                        "github": "https://github.com/MitjaNemec"
+                    },
+                    "name": "Mitja Nemec"
+                },
+                "description": "Arrange footprints on a line, circle or grid.",
+                "description_full": "Arrange sequentially numbered footprints or footprints from multiple hierarchical sheets in linear, circular or matrix arrangement. This plugin works on footprints already present in the layout, so that layout and schematics stay in sync.\nThe placement of footprints from multiple hierarchical sheets works well together with ReplicateLayout plugin",
+                "identifier": "com.github.MitjaNemec.PlaceFootprints",
+                "license": "GPL-2.0",
+                "name": "Place Footprints",
+                "resources": {
+                    "homepage": "https://github.com/MitjaNemec/PlaceFootprints"
+                },
+                "tags": [
+                    "pcbnew",
+                    "footprints",
+                    "arrange"
+                ],
+                "type": "plugin",
+                "versions": [
+                    {
+                        "download_sha256": "3a9a1a22369b68c83a585f096de74f5b42176fa91cbb6b7756b060d10d6ec60e",
+                        "download_size": 23871,
+                        "download_url": "https://github.com/MitjaNemec/PlaceFootprints/releases/download/3.0.0/PlaceFootprints-3.0.0-pcm.zip",
+                        "install_size": 93545,
+                        "kicad_version": "7.99",
+                        "kicad_version_max": "8.1",
+                        "platforms": [
+                            "linux",
+                            "macos",
+                            "windows"
+                        ],
+                        "status": "stable",
+                        "version": "3.0.0"
+                    },
+                    {
+                        "download_sha256": "b7c63488bf8f670b3d0a1da32f7a88443ede6c83be6111a1f0d4392e2f2f32f2",
+                        "download_size": 23999,
+                        "download_url": "https://github.com/MitjaNemec/PlaceFootprints/releases/download/2.1.3/PlaceFootprints-2.1.3-pcm.zip",
+                        "install_size": 93076,
+                        "kicad_version": "7.0",
+                        "kicad_version_max": "7.1",
+                        "platforms": [
+                            "linux",
+                            "macos",
+                            "windows"
+                        ],
+                        "status": "stable",
+                        "version": "2.1.3"
+                    },
+                    {
+                        "download_sha256": "a6a838d34fbe07fba0909c22d0bfeed27c5430250dc837f1348c0578237031a8",
+                        "download_size": 22668,
+                        "download_url": "https://github.com/MitjaNemec/PlaceFootprints/releases/download/1.2.12/PlaceFootprints-1.2.12-pcm.zip",
+                        "install_size": 78947,
+                        "kicad_version": "6.0",
+                        "kicad_version_max": "6.1",
+                        "platforms": [
+                            "linux",
+                            "macos",
+                            "windows"
+                        ],
+                        "status": "stable",
+                        "version": "1.2.12"
+                    }
+                ]
+            },
+            "pinned": false,
+            "repository_id": "46f88614eade3439",
+            "repository_name": "KiCad official repository"
+        },
+        {
+            "current_version": "0.1.11",
+            "install_timestamp": 1727191029,
+            "package": {
+                "author": {
+                    "contact": {
+                        "github": "https://github.com/TheJigsApp",
+                        "web": "https://www.thejigsapp.com"
+                    },
+                    "name": "The JigsApp"
+                },
+                "description": "Declaratively place components using a spreadsheet",
+                "description_full": "Flip, mirror, move, rotate, and move components based off inputs from a spreadsheet. Enforce a form-factor, keep mechanical placements under version control, and allow updating of a templated based design. Easily enforce grids or maintain test point patterns.",
+                "identifier": "com.github.TheJigsApp.kicad-parts-placer-pcm",
+                "license": "LGPL-2.1",
+                "maintainer": {
+                    "contact": {
+                        "github": "https://github.com/TheJigsApp",
+                        "web": "https://www.thejigsapp.com"
+                    },
+                    "name": "The JigsApp"
+                },
+                "name": "Parts Placer",
+                "resources": {
+                    "homepage": "https://github.com/TheJigsApp/kicad-parts-placer-pcm"
+                },
+                "type": "plugin",
+                "versions": [
+                    {
+                        "download_sha256": "5218581233047f5b5a766f1196cea764aeff5a3d65a886b240897f0ba45a4c6d",
+                        "download_size": 14983,
+                        "download_url": "https://github.com/TheJigsApp/kicad-parts-placer-pcm/releases/download/v0.1.11/kicad-parts-placer-0.1.11-pcm.zip",
+                        "install_size": 35404,
+                        "kicad_version": "8.0",
+                        "status": "stable",
+                        "version": "0.1.11"
+                    },
+                    {
+                        "download_sha256": "7fd7dcfc4cddcc2cca5a31608a97cdca5a38a5345da20374503d03a96159efba",
+                        "download_size": 13520,
+                        "download_url": "https://github.com/TheJigsApp/kicad-parts-placer-pcm/releases/download/v0.1.2/kicad-parts-placer-0.1.2-pcm.zip",
+                        "install_size": 30689,
+                        "kicad_version": "8.0",
+                        "status": "stable",
+                        "version": "0.1.2"
+                    },
+                    {
+                        "download_sha256": "c03b7f8d9129adffeaa6c3a21f8f10c34366ff0935188c75a434d32ada79befe",
+                        "download_size": 17658,
+                        "download_url": "https://github.com/TheJigsApp/kicad-parts-placer-pcm/releases/download/v0.1.1/kicad-parts-placer-0.1.1-pcm.zip",
+                        "install_size": 39528,
+                        "kicad_version": "8.0",
+                        "status": "stable",
+                        "version": "0.1.1"
+                    }
+                ]
+            },
+            "pinned": false,
+            "repository_id": "46f88614eade3439",
+            "repository_name": "KiCad official repository"
+        },
+        {
+            "current_version": "0.1.11",
+            "install_timestamp": 1727191030,
+            "package": {
+                "author": {
+                    "contact": {
+                        "github": "https://github.com/TheJigsApp",
+                        "web": "https://www.thejigsapp.com"
+                    },
+                    "name": "The JigsApp"
+                },
+                "description": "Generate testpoint reports",
+                "description_full": "Uses the fabrication property of pads to mark them as test points. The plugin reads those properties and generates a spreadsheet with the pad identifiers, nets, characteristics, and position on the board. The report is generated in the standard JigsApp format.",
+                "identifier": "com.github.TheJigsApp.kicadtestpoints-pcm",
+                "license": "LGPL-3.0",
+                "maintainer": {
+                    "contact": {
+                        "github": "https://github.com/TheJigsApp",
+                        "web": "https://www.thejigsapp.com"
+                    },
+                    "name": "The JigsApp"
+                },
+                "name": "KiCAD Testpoints",
+                "resources": {
+                    "homepage": "https://github.com/TheJigsApp/kicad-testpoints-pcm"
+                },
+                "type": "plugin",
+                "versions": [
+                    {
+                        "download_sha256": "7b548576a57534e4370fade2bcc3ecbef79cac99f4a2b83806ea636fe5e7eb11",
+                        "download_size": 16213,
+                        "download_url": "https://github.com/TheJigsApp/kicad-testpoints-pcm/releases/download/v0.1.11/kicadtestpoints-0.1.11-pcm.zip",
+                        "install_size": 29172,
+                        "kicad_version": "8.0",
+                        "status": "stable",
+                        "version": "0.1.11"
+                    },
+                    {
+                        "download_sha256": "87f8a9b4dc2773bc83c3100a2bd9176a3db1f998e0a3e020cf72e18287d0f4b8",
+                        "download_size": 11750,
+                        "download_url": "https://github.com/TheJigsApp/kicad-testpoints-pcm/releases/download/v0.1.8/kicadtestpoints-0.1.8-pcm.zip",
+                        "install_size": 19540,
+                        "kicad_version": "8.0",
+                        "status": "stable",
+                        "version": "0.1.8"
+                    },
+                    {
+                        "download_sha256": "9ffffa4ef07cd2454406b48ee667f7afec7a288678908593cfa7bdb7e2171939",
+                        "download_size": 10766,
+                        "download_url": "https://github.com/TheJigsApp/kicad-testpoints-pcm/releases/download/v0.1.7/kicadtestpoints-0.1.7-pcm.zip",
+                        "install_size": 16282,
+                        "kicad_version": "8.0",
+                        "status": "stable",
+                        "version": "0.1.7"
+                    }
+                ]
+            },
+            "pinned": false,
+            "repository_id": "46f88614eade3439",
+            "repository_name": "KiCad official repository"
+        },
+        {
+            "current_version": "5.0.0",
+            "install_timestamp": 1734543327,
+            "package": {
+                "author": {
+                    "contact": {
+                        "github": "https://github.com/bennymeg"
+                    },
+                    "name": "Benny Megidish"
+                },
+                "description": "JLC PCB fabrication toolkit\nAutomate PCB fabrication process in conjunction with JLC PCB",
+                "description_full": "Toolkit for automating PCB fabrication process with KiCad and JLC PCB. \n\n Features: \n• Generates gerber files in correct format for production. \n• Generates BOM file in correct format for production. \n• Generates Pick and Place file in correct format for assembly. \n• Automatic and manual component translations. \n• Many more unique additional features. \n♥ https://github.com/sponsors/bennymeg",
+                "identifier": "com.github.bennymeg.JLC-Plugin-for-KiCad",
+                "license": "Apache-2.0",
+                "maintainer": {
+                    "contact": {
+                        "github": "https://github.com/bennymeg"
+                    },
+                    "name": "Benny Megidish"
+                },
+                "name": "Fabrication Toolkit",
+                "resources": {
+                    "Sponsor": "https://github.com/sponsors/bennymeg",
+                    "homepage": "https://github.com/bennymeg/JLC-Plugin-for-KiCad"
+                },
+                "tags": [
+                    "jlc",
+                    "production",
+                    "fabrication",
+                    "toolkit"
+                ],
+                "type": "plugin",
+                "versions": [
+                    {
+                        "download_sha256": "28659243c313ad031e9c3b04fae1a7d208c697c2921962cc103de5f1f82d2250",
+                        "download_size": 19894,
+                        "download_url": "https://github.com/bennymeg/JLC-Plugin-for-KiCad/releases/download/5.0.0/JLC-Plugin-for-KiCad-5.0.0.zip",
+                        "install_size": 51321,
+                        "kicad_version": "6.00",
+                        "status": "stable",
+                        "version": "5.0.0"
+                    },
+                    {
+                        "download_sha256": "2285113715d24d6e581ee1bee4c8e2fd92ad92bc72737e1dd05f7c05210e0e67",
+                        "download_size": 17732,
+                        "download_url": "https://github.com/bennymeg/JLC-Plugin-for-KiCad/releases/download/4.5.0/JLC-Plugin-for-KiCad-4.5.0.zip",
+                        "install_size": 44106,
+                        "kicad_version": "6.00",
+                        "status": "stable",
+                        "version": "4.5.0"
+                    }
+                ]
+            },
+            "pinned": false,
+            "repository_id": "46f88614eade3439",
+            "repository_name": "KiCad official repository"
+        },
+        {
+            "current_version": "8.0.5",
+            "install_timestamp": 1722762412,
+            "package": {
+                "author": {
+                    "contact": {
+                        "email": "js.reynaud@gmail.com"
+                    },
+                    "name": "jsreynaud"
+                },
+                "description": "ViaStitching and more tools ",
+                "description_full": "Via stitching action tool and circular zone builder action tool. Use the action menu/toolbar feature.",
+                "identifier": "com.github.jsreynaud.kicad-action-scripts",
+                "license": "GPL-2.0",
+                "name": "kicad-action-scripts",
+                "resources": {
+                    "Github": "https://github.com/jsreynaud/kicad-action-scripts",
+                    "Readme": "https://github.com/jsreynaud/kicad-action-scripts/blob/master/README.md"
+                },
+                "tags": [
+                    "annular",
+                    "pcbnew",
+                    "dxf",
+                    "grid",
+                    "mcad"
+                ],
+                "type": "plugin",
+                "versions": [
+                    {
+                        "download_sha256": "79f0c0b4b0a2d99d1606a3d391139eba3b9990447a9a23f8d9c3fccab0d861c0",
+                        "download_size": 51689,
+                        "download_url": "https://github.com/jsreynaud/kicad-action-scripts/releases/download/v8.0-0.5.0/kicad-action-scripts_v8.0-0.5.0.zip",
+                        "install_size": 286862,
+                        "kicad_version": "8.0",
+                        "kicad_version_max": "8.0",
+                        "platforms": [
+                            "linux",
+                            "macos",
+                            "windows"
+                        ],
+                        "status": "stable",
+                        "version": "8.0.5"
+                    },
+                    {
+                        "download_sha256": "922f5daac3ad5daeb76fb128ff509a108b37ddfcd4d8bf0902a95e1ab7f3c042",
+                        "download_size": 51780,
+                        "download_url": "https://github.com/jsreynaud/kicad-action-scripts/releases/download/v7.0-0.4.0/kicad-action-scripts_v7.0-0.4.0.zip",
+                        "install_size": 288098,
+                        "kicad_version": "7.0",
+                        "kicad_version_max": "7.0",
+                        "platforms": [
+                            "linux",
+                            "macos",
+                            "windows"
+                        ],
+                        "status": "stable",
+                        "version": "7.0.4"
+                    },
+                    {
+                        "download_sha256": "643ea19928db3a8451d044e9cfa42cd3ee452bc8a72bfc6b0d60f68c1748e5cc",
+                        "download_size": 51208,
+                        "download_url": "https://github.com/jsreynaud/kicad-action-scripts/releases/download/v7.0-0.3.0/kicad-action-scripts_v7.0-0.3.0.zip",
+                        "install_size": 276785,
+                        "kicad_version": "7.0",
+                        "kicad_version_max": "7.0",
+                        "platforms": [
+                            "linux",
+                            "macos",
+                            "windows"
+                        ],
+                        "status": "stable",
+                        "version": "7.0.3"
+                    },
+                    {
+                        "download_sha256": "976525775d5a2d74be17bc2f6b23e4a660cd6554686eb8c4990234b052be2ede",
+                        "download_size": 52163,
+                        "download_url": "https://github.com/jsreynaud/kicad-action-scripts/releases/download/v6.0-0.2.0/kicad-action-scripts_v6.0-0.2.0.zip",
+                        "install_size": 276266,
+                        "kicad_version": "6.0",
+                        "kicad_version_max": "6.0",
+                        "platforms": [
+                            "linux",
+                            "macos",
+                            "windows"
+                        ],
+                        "status": "stable",
+                        "version": "6.0.1"
+                    },
+                    {
+                        "download_sha256": "3790d1ca1e4dc9b0d2fa68c61b3afa8453c4bf6a11dc3b46597195b6bf9126c2",
+                        "download_size": 51235,
+                        "download_url": "https://github.com/jsreynaud/kicad-action-scripts/releases/download/v5.1-0.2.0/kicad-action-scripts_v5.1-0.2.0.zip",
+                        "install_size": 297879,
+                        "kicad_version": "5.1",
+                        "kicad_version_max": "5.1",
+                        "platforms": [
+                            "linux",
+                            "macos",
+                            "windows"
+                        ],
+                        "status": "stable",
+                        "version": "5.1.1"
+                    }
+                ]
+            },
+            "pinned": false,
+            "repository_id": "46f88614eade3439",
+            "repository_name": "KiCad official repository"
+        }
+    ]
+}

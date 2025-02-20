@@ -1,5 +1,4 @@
-# Hyprland Rice
-My Hyprland Rice. It just works.
+# Pegoku Dotfiles
 
 ## Screenshots
 ![alt text](image.png)

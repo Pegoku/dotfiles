@@ -288,20 +288,58 @@ export const ChatMessage = (message, modelName = 'Model') => {
         className: `sidebar-chat-message-skeletonline ${extraClassName}`,
     })
     const messageContentBox = MessageContent(message.content);
-    const messageLoadingSkeleton = Box({
-        vertical: true,
-        className: 'spacing-v-5',
-        children: Array.from({ length: 3 }, (_, id) => TextSkeleton(`sidebar-chat-message-skeletonline-offset${id}`)),
-    })
+    // Animated dots while thinking
+    const AnimatedDots = () => {
+        const frames = [
+            '<span rise="-4000">•</span>  •  <span rise="4000">•</span>',
+            '•  <span rise="-4000">•</span>  <span rise="4000">•</span>',
+            '<span rise="4000">•</span>  •  <span rise="-4000">•</span>',
+            '•  <span rise="4000">•</span>  <span rise="-4000">•</span>',
+        ];
+        let i = 0;
+        let timerId = 0;
+        const dotLabel = Label({
+            useMarkup: true,
+            className: 'txt-subtext',
+            label: frames[0],
+        });
+        const container = Box({
+            homogeneous: true,
+            children: [dotLabel],
+            attribute: {
+                start: () => {
+                    if (timerId) return;
+                    timerId = Utils.interval(180, () => {
+                        i = (i + 1) % frames.length;
+                        dotLabel.label = frames[i];
+                    });
+                },
+                stop: () => {
+                    if (!timerId) return;
+                    Utils.clearInterval(timerId);
+                    timerId = 0;
+                }
+            }
+        });
+        return container;
+    };
+    const messageLoadingDots = AnimatedDots();
     const messageArea = Stack({
         homogeneous: message.role !== 'user',
         transition: 'crossfade',
         transitionDuration: userOptions.animations.durationLarge,
         children: {
-            'thinking': messageLoadingSkeleton,
+            'thinking': messageLoadingDots,
             'message': messageContentBox,
         },
         shown: message.thinking ? 'thinking' : 'message',
+    });
+    const metaLabel = Label({
+        xalign: 0,
+        className: 'txt-smallie txt-subtext',
+        wrap: true,
+        label: '',
+        visible: false,
     });
     const thisMessage = Box({
         className: 'sidebar-chat-message',
@@ -322,11 +360,15 @@ export const ChatMessage = (message, modelName = 'Model') => {
                         homogeneous: true,
                         className: 'sidebar-chat-messagearea',
                         children: [messageArea]
-                    })
+                    }),
+                    // Meta (tokens/time) only for assistant
+                    ...(message.role === 'user' ? [] : [metaLabel]),
                 ],
                 setup: (self) => self
                     .hook(message, (self, isThinking) => {
                         messageArea.shown = message.thinking ? 'thinking' : 'message';
+                        if (message.thinking) messageLoadingDots.attribute.start();
+                        else messageLoadingDots.attribute.stop();
                     }, 'notify::thinking')
                     .hook(message, (self) => { // Message update
                         messageContentBox.attribute.fullUpdate(messageContentBox, message.content, message.role != 'user');
@@ -334,6 +376,12 @@ export const ChatMessage = (message, modelName = 'Model') => {
                     .hook(message, (label, isDone) => { // Remove the cursor
                         messageContentBox.attribute.fullUpdate(messageContentBox, message.content, false);
                     }, 'notify::done')
+                    .hook(message, () => { // Meta update
+                        if (message.role === 'user') return;
+                        const meta = (message.meta || '').trim();
+                        metaLabel.visible = meta.length > 0;
+                        metaLabel.label = meta;
+                    }, 'notify::meta')
                 ,
             })
         ]

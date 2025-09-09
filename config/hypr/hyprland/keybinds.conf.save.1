@@ -1,4 +1,4 @@
-# Lines ending with `# [hidden]` won't be shown on cheatsheet
+c# Lines ending with `# [hidden]` won't be shown on cheatsheet
 # Lines starting with #! are section headings
 
 bindl = Alt ,XF86AudioMute, exec, wpctl set-mute @DEFAULT_SOURCE@ toggle # [hidden]
@@ -200,8 +200,7 @@ bind = Shift+Super, X, exec, flatpak run dev.vencord.Vesktop
 #bind = Super, G, exec, env -u WAYLAND_DISPLAY -u QT_QPA_PLATFORM /usr/bin/freecad # Launch FreeCAD
 bind = Super, G, exec, env env -u WAYLAND_DISPLAY -u QT_QPA_PLATFORM freecad # Launch FreeCAD
 # bind = Super, K, exec, bash /usr/share/applications/org.kicad.kicad.desktop 
-bind = Super, K, exec, kicad
-#bind = Super, K, exec, env XDG_SESSION_TYPE=x11 env GDK_BACKEND=x11 sh -c "flatpak run org.kicad.KiCad" # Launch KiCad 
+bind = Super, K, exec, env XDG_SESSION_TYPE=x11 env GDK_BACKEND=x11 sh -c "flatpak run org.kicad.KiCad" # Launch KiCad 
 bind = Super, I, exec, XDG_CURRENT_DESKTOP="gnome" gnome-control-center # Launch GNOME Settings
 bind = Ctrl+Super, V, exec, pavucontrol # Launch pavucontrol (volume mixer)
 # bind = Ctrl+Super+Shift, V, exec, easyeffects # Launch EasyEffects (equalizer & other audio effects)

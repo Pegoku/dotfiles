@@ -5,29 +5,29 @@ import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
 import Soup from 'gi://Soup?version=3.0';
 import { fileExists } from '../modules/.miscutils/files.js';
+const ByteArray = imports.byteArray;
 
 const PROVIDERS = Object.assign({ // There's this list hmm https://github.com/zukixa/cool-ai-stuff/
-    // 'openai': {
-    //     'name': 'OpenAI',
-    //     'logo_name': 'openai-symbolic',
-    //     'description': 'ChatGPT 3.5 Turbo.',
-    //     //'base_url': 'https://api.openai.com/v1/chat/completions',
-    //     'base_url': 'https://jamsapi.hackclub.dev/openai/chat/completions',
-    //     'key_get_url': 'https://platform.openai.com/api-keys',
-    //     'key_file': '0',
-    //     'model': 'gpt-3.5-turbo',
-    // },
-    'openai': {
-        'name': 'OpenAI',
+    'openai-5-mini': {
+        'name': 'ChatGPT 5-mini - OpenAI',
         'logo_name': 'openai-symbolic',
-        'description': 'ChatGPT 4o.',
+        'description': 'ChatGPT 5-mini.',
         //'base_url': 'https://api.openai.com/v1/chat/completions',
-        // 'base_url': 'https://jamsapi.hackclub.dev/openai/chat/completions',
         'base_url': 'http://5.161.100.52:3000/openai/chat/completions',
         'key_get_url': 'https://platform.openai.com/api-keys',
         'key_file': '1',
-        'model': 'gpt-4o',
-    }
+        'model': 'gpt-5-mini',
+    },
+    'openai-5': {
+        'name': 'ChatGPT 5 - OpenAI',
+        'logo_name': 'openai-symbolic',
+        'description': 'ChatGPT 5.',
+        //'base_url': 'https://api.openai.com/v1/chat/completions',
+        'base_url': 'http://5.161.100.52:3000/openai/chat/completions',
+        'key_get_url': 'https://platform.openai.com/api-keys',
+        'key_file': '1',
+        'model': 'gpt-5',
+    },
 // }, userOptions.sidebar.ai.extraGptModels)
 })
 
@@ -49,6 +49,7 @@ class GPTMessage extends Service {
                 'content': ['string'],
                 'thinking': ['boolean'],
                 'done': ['boolean'],
+                'meta': ['string'],
             });
     }
 
@@ -56,6 +57,7 @@ class GPTMessage extends Service {
     _content = '';
     _thinking;
     _done = false;
+    _meta = '';
 
     constructor(role, content, thinking = true, done = false) {
         super();
@@ -76,6 +78,13 @@ class GPTMessage extends Service {
         this._content = content;
         this.notify('content')
         this.emit('changed')
+    }
+
+    get meta() { return this._meta }
+    set meta(value) {
+        this._meta = value ?? '';
+        this.notify('meta');
+        this.emit('changed');
     }
 
     get label() { return this._parserState.parsed + this._parserState.stack.join('') }
@@ -111,7 +120,9 @@ class GPTService extends Service {
     }
 
     _assistantPrompt = true;
-    _currentProvider = userOptions.ai.defaultGPTProvider;
+    _currentProvider = userOptions.ai.defaultGPTProvider in PROVIDERS
+        ? userOptions.ai.defaultGPTProvider
+        : Object.keys(PROVIDERS)[0];
     _requestCount = 0;
     _temperature = userOptions.ai.defaultTemperature;
     _messages = [];
@@ -187,15 +198,24 @@ class GPTService extends Service {
                 const [bytes] = stream.read_line_finish(res);
                 const line = this._decoder.decode(bytes);
                 if (line && line != '') {
-                    let data = line.substr(6);
+                    let data = line.startsWith('data: ') ? line.substr(6) : line;
                     if (data == '[DONE]') return;
                     try {
                         const result = JSON.parse(data);
                         if (result.choices[0].finish_reason === 'stop') {
                             aiResponse.done = true;
+                            // time meta if available
+                            if (aiResponse._startMono) {
+                                const endMono = GLib.get_monotonic_time();
+                                const elapsedMs = Math.max(0, Math.round((endMono - aiResponse._startMono) / 1000));
+                                const timeStr = `${(elapsedMs / 1000).toFixed(1)}s`;
+                                aiResponse.meta = `time: ${timeStr}`;
+                            }
                             return;
                         }
-                        aiResponse.addDelta(result.choices[0].delta.content);
+                        const delta = result?.choices?.[0]?.delta?.content ?? '';
+                        if (delta && delta.length > 0)
+                            aiResponse.addDelta(delta);
                         // print(result.choices[0])
                     }
                     catch {
@@ -221,7 +241,7 @@ class GPTService extends Service {
             messages: this._messages.map(msg => { let m = { role: msg.role, content: msg.content }; return m; }),
             temperature: this._temperature,
             // temperature: 2, // <- Nuts
-            stream: true,
+            stream: false,
         };
         const proxyResolver = new Gio.SimpleProxyResolver({ 'default-proxy': userOptions.ai.proxyUrl });
         const session = new Soup.Session({ 'proxy-resolver': proxyResolver });
@@ -231,13 +251,43 @@ class GPTService extends Service {
         });
         message.request_headers.append('Authorization', `Bearer ${this._key}`);
         message.set_request_body_from_bytes('application/json', new GLib.Bytes(JSON.stringify(body)));
+    const startMono = GLib.get_monotonic_time();
+    aiResponse._startMono = startMono;
+        // For non-stream responses, read full body and parse JSON.
+        session.send_and_read_async(message, GLib.PRIORITY_DEFAULT, null, (sess, res) => {
+            try {
+                const bytes = sess.send_and_read_finish(res);
+                const uint8 = ByteArray.fromGBytes(bytes);
+                const text = this._decoder.decode(uint8);
+                const result = JSON.parse(text);
+                const content = result?.choices?.[0]?.message?.content ?? '';
+                aiResponse.thinking = false;
+                aiResponse.content = content;
+                aiResponse.done = true;
 
-        session.send_async(message, GLib.DEFAULT_PRIORITY, null, (_, result) => {
-            const stream = session.send_finish(result);
-            this.readResponse(new Gio.DataInputStream({
-                close_base_stream: true,
-                base_stream: stream
-            }), aiResponse);
+                const endMono = GLib.get_monotonic_time();
+                const elapsedMs = Math.max(0, Math.round((endMono - startMono) / 1000));
+                const usage = result?.usage ?? {};
+                const pt = usage.prompt_tokens ?? usage.input_tokens ?? 0;
+                const ct = usage.completion_tokens ?? usage.output_tokens ?? 0;
+                const tt = usage.total_tokens ?? (pt + ct);
+                const timeStr = `${(elapsedMs / 1000).toFixed(1)}s`;
+                aiResponse.meta = tt > 0 ? `time: ${timeStr} • tokens: ${tt} (in ${pt} + out ${ct})` : `time: ${timeStr}`;
+            }
+            catch (e) {
+                // Fallback to streaming parser if provider returns SSE
+                try {
+                    const stream = session.send_finish(res);
+                    this.readResponse(new Gio.DataInputStream({
+                        close_base_stream: true,
+                        base_stream: stream
+                    }), aiResponse);
+                } catch (e2) {
+                    aiResponse.thinking = false;
+                    aiResponse.content = `Error: failed to parse response.`;
+                    aiResponse.done = true;
+                }
+            }
         });
         this._messages.push(aiResponse);
         this.emit('newMsg', this._messages.length - 1);

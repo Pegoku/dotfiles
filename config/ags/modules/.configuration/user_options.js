@@ -8,7 +8,7 @@ let configOptions = {
     // General stuff
     'ai': {
         'defaultGPTProvider': "openai",
-        'defaultTemperature': 0.9,
+        'defaultTemperature': 1,
         'enhancements': true,
         'useHistory': true,
         'safety': true,

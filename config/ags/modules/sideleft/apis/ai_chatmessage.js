@@ -341,6 +341,26 @@ export const ChatMessage = (message, modelName = 'Model') => {
         label: '',
         visible: false,
     });
+    const copyBtn = Button({
+        className: 'sidebar-chat-codeblock-topbar-btn',
+        child: Box({
+            className: 'spacing-h-5',
+            children: [
+                MaterialIcon('content_copy', 'small'),
+                Label({ label: 'Copy' }),
+            ]
+        }),
+        tooltipText: 'Copy message',
+        onClicked: () => {
+            const text = message?.content ?? '';
+            execAsync(['wl-copy', text]).catch(print);
+        },
+    });
+    const actionsBar = Box({
+        className: 'spacing-h-5',
+        children: [copyBtn],
+        visible: message.role !== 'system' && Boolean(message.content),
+    });
     const thisMessage = Box({
         className: 'sidebar-chat-message',
         homogeneous: true,
@@ -361,8 +381,8 @@ export const ChatMessage = (message, modelName = 'Model') => {
                         className: 'sidebar-chat-messagearea',
                         children: [messageArea]
                     }),
-                    // Meta (tokens/time) only for assistant
-                    ...(message.role === 'user' ? [] : [metaLabel]),
+                    // Meta (tokens/time) and actions only for assistant
+                    ...(message.role === 'user' ? [] : [metaLabel, actionsBar]),
                 ],
                 setup: (self) => self
                     .hook(message, (self, isThinking) => {
@@ -372,10 +392,9 @@ export const ChatMessage = (message, modelName = 'Model') => {
                     }, 'notify::thinking')
                     .hook(message, (self) => { // Message update
                         messageContentBox.attribute.fullUpdate(messageContentBox, message.content, message.role != 'user');
+                        // Show or hide the actions bar when assistant content updates
+                        actionsBar.visible = (message.role !== 'system') && !!message.content;
                     }, 'notify::content')
-                    .hook(message, (label, isDone) => { // Remove the cursor
-                        messageContentBox.attribute.fullUpdate(messageContentBox, message.content, false);
-                    }, 'notify::done')
                     .hook(message, () => { // Meta update
                         if (message.role === 'user') return;
                         const meta = (message.meta || '').trim();

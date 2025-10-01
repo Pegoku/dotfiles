@@ -176,22 +176,22 @@ const GPTSettings = () => MarginRevealer({
                 },
             }),
             ConfigGap({ vertical: true, size: 10 }), // Note: size can only be 5, 10, or 15 
-            Box({
-                vertical: true,
-                hpack: 'fill',
-                className: 'sidebar-chat-settings-toggles',
-                children: [
-                    ConfigToggle({
-                        icon: 'model_training',
-                        name: 'Enhancements',
-                        desc: 'Tells the model:\n- It\'s a Linux sidebar assistant\n- Be brief and use bullet points',
-                        initValue: GPTService.assistantPrompt,
-                        onChange: (self, newValue) => {
-                            GPTService.assistantPrompt = newValue;
-                        },
-                    }),
-                ]
-            })
+            // Box({
+            //     vertical: true,
+            //     hpack: 'fill',
+            //     className: 'sidebar-chat-settings-toggles',
+            //     children: [
+            //         ConfigToggle({
+            //             icon: 'model_training',
+            //             name: 'Enhancements',
+            //             desc: 'Tells the model:\n- It\'s a Linux sidebar assistant\n- Be brief and use bullet points',
+            //             initValue: GPTService.assistantPrompt,
+            //             onChange: (self, newValue) => {
+            //                 GPTService.assistantPrompt = newValue;
+            //             },
+            //         }),
+            //     ]
+            // })
         ]
     })
 });
@@ -269,6 +269,7 @@ export const chatGPTCommands = Box({
     className: 'spacing-h-5',
     children: [
         Box({ hexpand: true }),
+        
         CommandButton('/key'),
         CommandButton('/model'),
         CommandButton('/clear'),

@@ -12,6 +12,11 @@ const PROVIDERS = Object.assign({
     // Built-in providers can go here if needed
 }, userOptions?.ai?.extraGptModels || {})
 
+// Simple debug toggle (enable by adding ai.debug = true in user options)
+const DEBUG = !!userOptions?.ai?.debug;
+function dbg(...args) { if (DEBUG) print('[AI DEBUG]', ...args); }
+dbg('Loaded providers:', Object.keys(PROVIDERS));
+
 // Custom prompt
 const initMessages =
     [
@@ -128,6 +133,12 @@ class GPTService extends Service {
         else this._messages = [];
 
         this.emit('initialized');
+        dbg('GPTService initialized', {
+            assistantPrompt: this._assistantPrompt,
+            provider: this._currentProvider,
+            model: PROVIDERS[this._currentProvider]?.model,
+            keyPresent: this._key.length > 0,
+        });
     }
 
     get modelName() { return PROVIDERS[this._currentProvider]['model'] }
@@ -137,6 +148,11 @@ class GPTService extends Service {
         this._currentProvider = value;
         this.emit('providerChanged');
         this._initChecks();
+        dbg('Provider changed', {
+            provider: this._currentProvider,
+            model: PROVIDERS[this._currentProvider]?.model,
+            base_url: PROVIDERS[this._currentProvider]?.base_url,
+        });
     }
     get providers() { return PROVIDERS }
 
@@ -178,11 +194,13 @@ class GPTService extends Service {
                 if (!stream) return;
                 const [bytes] = stream.read_line_finish(res);
                 const line = this._decoder.decode(bytes);
+                if (line && line.length > 0) dbg('SSE line', line.slice(0, 160));
                 if (line && line != '') {
                     let data = line.startsWith('data: ') ? line.substr(6) : line;
                     if (data == '[DONE]') return;
                     try {
                         const result = JSON.parse(data);
+                        dbg('Parsed SSE JSON delta', Object.keys(result));
                         if (result.choices[0].finish_reason === 'stop') {
                             aiResponse.done = true;
                             // time meta if available
@@ -217,6 +235,17 @@ class GPTService extends Service {
         this.emit('newMsg', this._messages.length - 1);
         const aiResponse = new GPTMessage('assistant', '', true, false)
 
+        // Safety: if no providers configured, mark response as error
+        if (!this._currentProvider || !PROVIDERS[this._currentProvider]) {
+            aiResponse.thinking = false;
+            aiResponse.content = 'Error: No AI providers configured. Add ai.extraGptModels in user_options.js';
+            aiResponse.done = true;
+            this._messages.push(aiResponse);
+            this.emit('newMsg', this._messages.length - 1);
+            dbg('Abort send - no provider');
+            return;
+        }
+
         const body = {
             model: PROVIDERS[this._currentProvider]['model'],
             messages: this._messages.map(msg => { let m = { role: msg.role, content: msg.content }; return m; }),
@@ -224,22 +253,47 @@ class GPTService extends Service {
             // temperature: 2, // <- Nuts
             stream: false,
         };
-        const proxyResolver = new Gio.SimpleProxyResolver({ 'default-proxy': userOptions.ai?.proxyUrl });
-        const session = new Soup.Session({ 'proxy-resolver': proxyResolver });
+        dbg('Sending request', {
+            provider: this._currentProvider,
+            url: PROVIDERS[this._currentProvider]['base_url'],
+            model: body.model,
+            messagesCount: body.messages.length,
+            temperature: body.temperature,
+            streaming: body.stream,
+        });
+        let session;
+        const proxyUrl = userOptions.ai?.proxyUrl;
+        if (proxyUrl && typeof proxyUrl === 'string' && proxyUrl.trim().length > 0) {
+            try {
+                const proxyResolver = new Gio.SimpleProxyResolver({ 'default-proxy': proxyUrl.trim() });
+                session = new Soup.Session({ 'proxy-resolver': proxyResolver });
+                dbg('Using proxy', proxyUrl.trim());
+            } catch (e) {
+                // Fallback silently without proxy if invalid
+                session = new Soup.Session();
+                dbg('Invalid proxy, falling back (error):', e?.message || e);
+            }
+        } else {
+            session = new Soup.Session();
+        }
         const message = new Soup.Message({
             method: 'POST',
             uri: this._url,
         });
         message.request_headers.append('Authorization', `Bearer ${this._key}`);
         message.set_request_body_from_bytes('application/json', new GLib.Bytes(JSON.stringify(body)));
-    const startMono = GLib.get_monotonic_time();
-    aiResponse._startMono = startMono;
+        const startMono = GLib.get_monotonic_time();
+        aiResponse._startMono = startMono;
         // For non-stream responses, read full body and parse JSON.
         session.send_and_read_async(message, GLib.PRIORITY_DEFAULT, null, (sess, res) => {
             try {
                 const bytes = sess.send_and_read_finish(res);
                 const uint8 = ByteArray.fromGBytes(bytes);
                 const text = this._decoder.decode(uint8);
+                dbg('HTTP response raw length', text.length);
+                let statusCode = 0;
+                try { statusCode = message.get_status ? message.get_status() : (message.status_code || 0); } catch { }
+                dbg('HTTP status', statusCode);
                 const result = JSON.parse(text);
                 const content = result?.choices?.[0]?.message?.content ?? '';
                 aiResponse.thinking = false;
@@ -254,8 +308,10 @@ class GPTService extends Service {
                 const tt = usage.total_tokens ?? (pt + ct);
                 const timeStr = `${(elapsedMs / 1000).toFixed(1)}s`;
                 aiResponse.meta = tt > 0 ? `time: ${timeStr} • tokens: ${tt} (in ${pt} + out ${ct})` : `time: ${timeStr}`;
+                dbg('Parsed JSON completion', { tokens: { prompt: pt, completion: ct, total: tt }, time: timeStr });
             }
             catch (e) {
+                dbg('Non-JSON or streaming response, attempting streaming fallback', e?.message || e);
                 // Fallback to streaming parser if provider returns SSE
                 try {
                     const stream = session.send_finish(res);
@@ -263,7 +319,9 @@ class GPTService extends Service {
                         close_base_stream: true,
                         base_stream: stream
                     }), aiResponse);
+                    dbg('Streaming fallback started');
                 } catch (e2) {
+                    dbg('Streaming fallback failed', e2?.message || e2);
                     aiResponse.thinking = false;
                     aiResponse.content = `Error: failed to parse response.`;
                     aiResponse.done = true;
@@ -272,6 +330,7 @@ class GPTService extends Service {
         });
         this._messages.push(aiResponse);
         this.emit('newMsg', this._messages.length - 1);
+        dbg('Assistant placeholder message appended (waiting response)');
     }
 }
 

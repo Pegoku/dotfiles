@@ -343,12 +343,38 @@ export const chatGPTView = Box({
                     const viewport = scrolledWindow.child;
                     viewport.set_focus_vadjustment(new Gtk.Adjustment(undefined));
                 })
-                // Always scroll to bottom with new content
                 const adjustment = scrolledWindow.get_vadjustment();
-                adjustment.connect("changed", () => {
-                    if(!chatEntry.hasFocus) return;
-                    adjustment.set_value(adjustment.get_upper() - adjustment.get_page_size());
-                })
+                let userScrolledUp = false;
+                const BOTTOM_THRESHOLD = 30; // px tolerance to still auto-scroll
+
+                function atBottom() {
+                    const val = adjustment.get_value();
+                    const bottom = adjustment.get_upper() - adjustment.get_page_size();
+                    return (bottom - val) < BOTTOM_THRESHOLD;
+                }
+
+                // Detect manual scroll intent: if user scrolls and is not at bottom afterwards, disable auto-scroll
+                scrolledWindow.connect('scroll-event', () => {
+                    // Delay check until after GTK updates value
+                    Utils.timeout(1, () => {
+                        userScrolledUp = !atBottom();
+                    });
+                    return false; // don't block
+                });
+
+                // Re-enable auto-scroll if user navigates back near bottom
+                adjustment.connect('value-changed', () => {
+                    if (atBottom()) userScrolledUp = false;
+                });
+
+                // Hook into new messages: only auto-scroll if user not scrolled up
+                GPTService.connect('newMsg', () => {
+                    if (!userScrolledUp) {
+                        Utils.timeout(5, () => {
+                            adjustment.set_value(adjustment.get_upper() - adjustment.get_page_size());
+                        });
+                    }
+                });
             }
         })
     ]

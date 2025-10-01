@@ -14,6 +14,20 @@ let configOptions = {
         'safety': true,
         'writingCursor': " ...", // Warning: Using weird characters can mess up Markdown rendering
         'proxyUrl': null, // Can be "socks5://127.0.0.1:9050" or "http://127.0.0.1:8080" for example. Leave it blank if you don't need it.
+        // Custom GPT-style model providers (merged from user overrides)
+        // Structure:
+        //  'extraGptModels': {
+        //      'provider-id': {
+        //          'name': 'Display Name',
+        //          'logo_name': 'icon-name',
+        //          'description': 'Short description',
+        //          'base_url': 'https://example.com/chat/completions',
+        //          'key_get_url': 'https://example.com/keys',
+        //          'key_file': 'my_api_key.txt',
+        //          'model': 'model-name'
+        //      }
+        //  }
+        'extraGptModels': {},
     },
     'animations': {
         'choreographyDelay': 35,
@@ -228,26 +242,48 @@ let configOptions = {
 
 // Override defaults with user's options
 let optionsOkay = true;
-function overrideConfigRecursive(userOverrides, configOptions = {}, check = true) {
-    for (const [key, value] of Object.entries(userOverrides)) {
-        if (configOptions[key] === undefined && check) {
-            optionsOkay = false;
+const unknownKeys = [];
+
+function overrideConfigRecursive(userValues, target, check = true, path = '') {
+    if (!userValues || typeof userValues !== 'object') return;
+    for (const [key, value] of Object.entries(userValues)) {
+        const currentPath = path ? `${path}.${key}` : key;
+
+        // Fast path merge for extraGptModels (never strict-check keys of individual providers)
+        if (key === 'extraGptModels' && typeof value === 'object' && !Array.isArray(value)) {
+            if (!target[key] || typeof target[key] !== 'object') target[key] = {};
+            // Each provider id becomes its own object
+            for (const [providerId, providerObj] of Object.entries(value)) {
+                // Shallow copy provider object; we don't strict-check unknown fields inside
+                target[key][providerId] = { ...(target[key][providerId] || {}), ...providerObj };
+            }
+            continue;
         }
-        else if (typeof value === 'object' && !(value instanceof Array)) {
-            if (key === "substitutions" || key === "regexSubstitutions" || key === "extraGptModels") {
-                overrideConfigRecursive(value, configOptions[key], false);
-            } else overrideConfigRecursive(value, configOptions[key]);
+
+        if (target[key] === undefined && check) {
+            optionsOkay = false;
+            unknownKeys.push(currentPath);
+            continue; // Still record it but don't attempt deep merge to avoid errors
+        }
+
+        if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
+            overrideConfigRecursive(value, target[key], !(key === 'substitutions' || key === 'regexSubstitutions'), currentPath);
         } else {
-            configOptions[key] = value;
+            target[key] = value;
         }
     }
 }
+
 overrideConfigRecursive(userOverrides, configOptions);
-if (!optionsOkay) Utils.timeout(2000, () => Utils.execAsync(['notify-send',
-    'Update your user options',
-    'One or more config options don\'t exist',
-    '-a', 'ags',
-]).catch(print))
+
+if (!optionsOkay) {
+    const detail = unknownKeys.length > 0 ? unknownKeys.slice(0, 10).join('\n') + (unknownKeys.length > 10 ? '\n...' : '') : '';
+    Utils.timeout(2000, () => Utils.execAsync(['notify-send',
+        'Update your user options',
+        `One or more config options don't exist${detail ? `:\n${detail}` : ''}`,
+        '-a', 'ags',
+    ]).catch(print))
+}
 
 globalThis['userOptions'] = configOptions;
 export default configOptions;

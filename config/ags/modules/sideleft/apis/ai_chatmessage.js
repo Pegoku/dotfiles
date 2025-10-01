@@ -3,11 +3,12 @@ import GtkSource from "gi://GtkSource?version=3.0";
 import App from 'resource:///com/github/Aylur/ags/app.js';
 import Widget from 'resource:///com/github/Aylur/ags/widget.js';
 import * as Utils from 'resource:///com/github/Aylur/ags/utils.js';
-const { Box, Button, Label, Icon, Scrollable, Stack } = Widget;
+const { Box, Button, Label, Icon, Scrollable, Stack, Revealer } = Widget;
 const { execAsync, exec } = Utils;
 import { MaterialIcon } from '../../.commonwidgets/materialicon.js';
 import md2pango from '../../.miscutils/md2pango.js';
 import { darkMode } from "../../.miscutils/system.js";
+import { setupCursorHoverInfo } from '../../.widgetutils/cursorhover.js';
 
 const LATEX_DIR = `${GLib.get_user_cache_dir()}/ags/media/latex`;
 const CUSTOM_SOURCEVIEW_SCHEME_PATH = `${App.configDir}/assets/themes/sourceviewtheme${darkMode.value ? '' : '-light'}.xml`;
@@ -287,7 +288,49 @@ export const ChatMessage = (message, modelName = 'Model') => {
     const TextSkeleton = (extraClassName = '') => Box({
         className: `sidebar-chat-message-skeletonline ${extraClassName}`,
     })
-    const messageContentBox = MessageContent(message.content);
+
+    // Helper to extract <think>...</think> content (if present) and the main answer
+    const parseThinking = (raw) => {
+        if (!raw) return { answer: '', thinking: '' };
+        const regex = /<think>([\s\S]*?)<\/think>/i;
+        const match = raw.match(regex);
+        if (!match) return { answer: raw, thinking: '' };
+        const thinking = match[1].trim();
+        const answer = raw.replace(regex, '').trimStart();
+        return { answer, thinking };
+    };
+
+    // Initial parse
+    let { answer: initialAnswer, thinking: initialThinking } = parseThinking(message.content);
+
+    const messageContentBox = MessageContent(initialAnswer);
+    const thinkingContentBox = MessageContent(initialThinking);
+
+    // Thinking collapsible UI (hidden if no thinking block)
+    const ARROW_CLOSED = '▶'; // closed state (like HTML <summary>)
+    const ARROW_OPEN = '▼';   // open state
+    const thinkingArrow = Label({ className: 'txt-smallie txt-subtext', label: ARROW_CLOSED });
+    const thinkingHeader = Button({
+        className: 'sidebar-chat-thinking-toggle txt-subtext txt-smallie',
+        visible: initialThinking.length > 0,
+        child: Box({ className: 'spacing-h-5', children: [
+            Label({ label: 'Thinking', className: 'txt-subtext txt-smallie' }),
+            thinkingArrow,
+        ] }),
+        onClicked: (self) => {
+            thinkingRevealer.revealChild = !thinkingRevealer.revealChild;
+            thinkingArrow.label = thinkingRevealer.revealChild ? ARROW_OPEN : ARROW_CLOSED;
+        },
+        setup: setupCursorHoverInfo,
+    });
+    const thinkingRevealer = Revealer({
+        revealChild: false,
+        transition: 'slide_down',
+        transitionDuration: userOptions.animations.durationLarge,
+        child: Box({ className: 'sidebar-chat-thinking-area', children: [thinkingContentBox] }),
+        visible: initialThinking.length > 0,
+    });
+
     // Animated dots while thinking
     const AnimatedDots = () => {
         const frames = [
@@ -381,6 +424,9 @@ export const ChatMessage = (message, modelName = 'Model') => {
                         className: 'sidebar-chat-messagearea',
                         children: [messageArea]
                     }),
+                    // Collapsible thinking trace (if provided by model)
+                    thinkingHeader,
+                    thinkingRevealer,
                     // Meta (tokens/time) and actions only for assistant
                     ...(message.role === 'user' ? [] : [metaLabel, actionsBar]),
                 ],
@@ -389,9 +435,22 @@ export const ChatMessage = (message, modelName = 'Model') => {
                         messageArea.shown = message.thinking ? 'thinking' : 'message';
                         if (message.thinking) messageLoadingDots.attribute.start();
                         else messageLoadingDots.attribute.stop();
+                        // Remove cursor when done thinking
+                        if (!message.thinking) {
+                            // Re-render without writing cursor
+                            const { answer, thinking } = parseThinking(message.content);
+                            messageContentBox.attribute.fullUpdate(messageContentBox, answer, false);
+                        }
                     }, 'notify::thinking')
                     .hook(message, (self) => { // Message update
-                        messageContentBox.attribute.fullUpdate(messageContentBox, message.content, message.role != 'user');
+                        const { answer, thinking } = parseThinking(message.content);
+                        // Update main answer (cursor only while still thinking)
+                        messageContentBox.attribute.fullUpdate(messageContentBox, answer, (message.role != 'user') && message.thinking);
+                        // Update thinking section if appears later during stream
+                        const hasThinking = thinking.length > 0;
+                        thinkingHeader.visible = hasThinking;
+                        thinkingRevealer.visible = hasThinking;
+                        if (hasThinking) thinkingContentBox.attribute.fullUpdate(thinkingContentBox, thinking, false);
                         // Show or hide the actions bar when assistant content updates
                         actionsBar.visible = (message.role !== 'system') && !!message.content;
                     }, 'notify::content')

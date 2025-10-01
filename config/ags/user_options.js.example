@@ -1,0 +1,44 @@
+// For every option, see ~/.config/ags/modules/.configuration/user_options.js
+// (vscode users ctrl+click this: file://./modules/.configuration/user_options.js)
+// (vim users: `:vsp` to split window, move cursor to this path, press `gf`. `Ctrl-w` twice to switch between)
+//   options listed in this file will override the default ones in the above file
+
+const userConfigOptions = {
+    'search': {
+        'enableFeatures': {
+            'actions': true,
+            'commands': true,
+            'mathResults': true,
+            'directorySearch': true,
+            'aiSearch': false,
+            'webSearch': true,
+        },
+        'engineBaseUrl': "https://search.brave.com/search?q=",
+        'excludedSites': [""],
+    },
+    'ai': {
+        'proxyUrl': null, // Can be "socks5://127.0.0.1:9050" or "http://127.0.0.1:8080" for example. Leave it blank if you don't need it.
+        'extraGptModels': {
+            'openai-5': {
+                'name': 'ChatGPT 5 - OpenAI',
+                'logo_name': 'openai-symbolic',
+                'description': 'ChatGPT 5.',
+                'base_url': 'https://api.openai.com/v1/chat/completions',
+                'key_get_url': 'https://platform.openai.com/api-keys',
+                'key_file': '1',
+                'model': 'gpt-5',
+            },
+            'openai-5-mini': {
+                'name': 'ChatGPT 5-mini - OpenAI',
+                'logo_name': 'openai-symbolic',
+                'description': 'ChatGPT 5-mini.',
+                'base_url': 'https://api.openai.com/v1/chat/completions',
+                'key_get_url': 'https://platform.openai.com/api-keys',
+                'key_file': '1',
+                'model': 'gpt-5-mini',
+            },
+        },
+    },
+}
+
+export default userConfigOptions;

@@ -5,31 +5,12 @@ import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
 import Soup from 'gi://Soup?version=3.0';
 import { fileExists } from '../modules/.miscutils/files.js';
+import userOptions from '../user_options.js';
 const ByteArray = imports.byteArray;
 
-const PROVIDERS = Object.assign({ // There's this list hmm https://github.com/zukixa/cool-ai-stuff/
-    'openai-5-mini': {
-        'name': 'ChatGPT 5-mini - OpenAI',
-        'logo_name': 'openai-symbolic',
-        'description': 'ChatGPT 5-mini.',
-        //'base_url': 'https://api.openai.com/v1/chat/completions',
-        'base_url': 'http://5.161.100.52:3000/openai/chat/completions',
-        'key_get_url': 'https://platform.openai.com/api-keys',
-        'key_file': '1',
-        'model': 'gpt-5-mini',
-    },
-    'openai-5': {
-        'name': 'ChatGPT 5 - OpenAI',
-        'logo_name': 'openai-symbolic',
-        'description': 'ChatGPT 5.',
-        //'base_url': 'https://api.openai.com/v1/chat/completions',
-        'base_url': 'http://5.161.100.52:3000/openai/chat/completions',
-        'key_get_url': 'https://platform.openai.com/api-keys',
-        'key_file': '1',
-        'model': 'gpt-5',
-    },
-// }, userOptions.sidebar.ai.extraGptModels)
-})
+const PROVIDERS = Object.assign({
+    // Built-in providers can go here if needed
+}, userOptions?.ai?.extraGptModels || {})
 
 // Custom prompt
 const initMessages =
@@ -243,7 +224,7 @@ class GPTService extends Service {
             // temperature: 2, // <- Nuts
             stream: false,
         };
-        const proxyResolver = new Gio.SimpleProxyResolver({ 'default-proxy': userOptions.ai.proxyUrl });
+        const proxyResolver = new Gio.SimpleProxyResolver({ 'default-proxy': userOptions.ai?.proxyUrl });
         const session = new Soup.Session({ 'proxy-resolver': proxyResolver });
         const message = new Soup.Message({
             method: 'POST',

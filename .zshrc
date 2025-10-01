@@ -187,6 +187,14 @@ function convertIMGFunc(){
 magick $1* $1.png 
 }
 
+function rn(){
+    g++ $1.cpp -o $1 && ./$1
+}
+
+function r(){
+    gcc $1.c -o $1 && ./$1
+}
+
 export PHPENV_ROOT="/home/pegoku/.phpenv"
 if [ -d "${PHPENV_ROOT}" ]; then
   export PATH="${PHPENV_ROOT}/bin:${PATH}"

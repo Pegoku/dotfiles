@@ -53,7 +53,8 @@ function detectMediaSource(link) {
     return domain;
 }
 
-const DEFAULT_MUSIC_FONT = 'Gabarito, sans-serif';
+// const DEFAULT_MUSIC_FONT = 'Gabarito, sans-serif';
+const DEFAULT_MUSIC_FONT = 'JetBrains Mono, monospace';
 function getTrackfont(player) {
     const title = player.trackTitle;
     const artists = player.trackArtists.join(' ');

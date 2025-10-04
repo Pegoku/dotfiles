@@ -167,7 +167,11 @@ export const IconTabContainer = ({
 }
 
 export const ExpandingIconTabContainer = ({
-    icons, names, children, className = '',
+    icons, names,
+    children = [],
+    // Optional lazy children creators to defer heavy widget construction until first reveal
+    childrenGetters = null,
+    className = '',
     setup = () => { }, onChange = () => { },
     tabsHpack = 'center', tabSwitcherClassName = '',
     transitionDuration = userOptions.animations.durationLarge,
@@ -175,7 +179,9 @@ export const ExpandingIconTabContainer = ({
 }) => {
     const shownIndex = Variable(0);
     let previousShownIndex = 0;
-    const count = Math.min(icons.length, names.length, children.length);
+    const usingLazy = Array.isArray(childrenGetters) && childrenGetters.length > 0;
+    const childCount = usingLazy ? childrenGetters.length : children.length;
+    const count = Math.min(icons.length, names.length, childCount);
     const tabs = Box({
         hpack: tabsHpack,
         className: `spacing-h-5 ${tabSwitcherClassName}`,
@@ -237,14 +243,35 @@ export const ExpandingIconTabContainer = ({
             })
         })]
     });
+    // If using lazy children, create lightweight placeholders now and swap in real content on first show
+    const contentPlaceholders = usingLazy
+        ? Array.from({ length: count }, () => Box({ vertical: true }))
+        : children;
+
+    const contentLoaded = usingLazy ? Array.from({ length: count }, () => false) : null;
+
     const contentStack = Stack({
         transition: 'slide_left_right',
         transitionDuration: transitionDuration,
-        children: children.reduce((acc, currentValue, index) => {
+        children: contentPlaceholders.reduce((acc, currentValue, index) => {
             acc[index] = currentValue;
             return acc;
         }, {}),
         setup: (self) => self.hook(shownIndex, (self) => {
+            // Lazy instantiate content for current tab if needed
+            if (usingLazy && contentLoaded && shownIndex.value < contentPlaceholders.length && !contentLoaded[shownIndex.value]) {
+                try {
+                    const slot = contentPlaceholders[shownIndex.value];
+                    const create = childrenGetters[shownIndex.value];
+                    if (typeof create === 'function') {
+                        // Replace placeholder's children without rebuilding the whole stack
+                        slot.children = [create()];
+                        contentLoaded[shownIndex.value] = true;
+                    }
+                } catch (e) {
+                    try { print(e); } catch (_) { }
+                }
+            }
             self.shown = `${shownIndex.value}`;
         }),
     });
@@ -260,6 +287,15 @@ export const ExpandingIconTabContainer = ({
             self.pack_start(tabSection, false, false, 0);
             self.pack_end(contentStack, true, true, 0);
             setup(self);
+            // Ensure first tab content is realized on init when using lazy loading
+            if (usingLazy && contentLoaded && shownIndex.value < contentPlaceholders.length && !contentLoaded[shownIndex.value]) {
+                const slot = contentPlaceholders[shownIndex.value];
+                const create = childrenGetters[shownIndex.value];
+                if (typeof create === 'function') {
+                    slot.children = [create()];
+                    contentLoaded[shownIndex.value] = true;
+                }
+            }
             self.hook(shownIndex, (self) => onChange(self, shownIndex.value));
         },
         ...rest,

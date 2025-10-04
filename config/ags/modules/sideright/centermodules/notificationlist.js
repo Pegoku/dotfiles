@@ -10,6 +10,11 @@ import Notification from '../../.commonwidgets/notification.js';
 import { ConfigToggle } from '../../.commonwidgets/configwidgets.js';
 
 export default (props) => {
+    let configuredMax = 20;
+    try { configuredMax = userOptions.performance.maxInitialNotifs; } catch { /* ignore */ }
+    if (typeof configuredMax !== 'number' || isNaN(configuredMax)) configuredMax = 20;
+    const MAX_INITIAL_NOTIFS = Math.max(10, Math.min(50, configuredMax));
+    let showAll = false;
     const notifEmptyContent = Box({
         homogeneous: true,
         children: [Box({
@@ -34,14 +39,12 @@ export default (props) => {
         className: 'spacing-v-5-revealer',
         setup: (self) => self
             .hook(Notifications, (box, id) => {
-                if (box.get_children().length == 0) { // On init there's no notif, or 1st notif
-                    Notifications.notifications
-                        .forEach(n => {
-                            box.pack_end(Notification({
-                                notifObject: n,
-                                isPopup: false,
-                            }), false, false, 0)
-                        });
+                if (box.get_children().length == 0) { // initial fill
+                    const notifs = Notifications.notifications;
+                    const initial = showAll ? notifs : notifs.slice(-MAX_INITIAL_NOTIFS);
+                    initial.forEach(n => {
+                        box.pack_end(Notification({ notifObject: n, isPopup: false }), false, false, 0)
+                    });
                     box.show_all();
                     return;
                 }
@@ -110,6 +113,24 @@ export default (props) => {
             }
         })
     })
+    const showAllButton = Revealer({
+        transition: 'slide_right',
+        transitionDuration: userOptions.animations.durationSmall,
+        setup: (self) => self.hook(Notifications, (self) => {
+            const count = Notifications.notifications.length;
+            self.revealChild = !showAll && count > MAX_INITIAL_NOTIFS;
+        }),
+    child: ListActionButton('unfold_more', 'Show all', () => {
+            showAll = true;
+            // rebuild list fully
+            const kids = notificationList.get_children();
+            for (const k of kids) k.destroy();
+            Notifications.notifications.forEach(n => {
+                notificationList.pack_end(Notification({ notifObject: n, isPopup: false }), false, false, 0)
+            });
+            notificationList.show_all();
+        })
+    })
     const notifCount = Label({
         attribute: {
             updateCount: (self) => {
@@ -136,6 +157,7 @@ export default (props) => {
             silenceButton,
             // silenceToggle,
             // Box({ hexpand: true }),
+            showAllButton,
             clearButton,
         ]
     });

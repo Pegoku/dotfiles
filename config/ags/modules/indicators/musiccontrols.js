@@ -20,14 +20,20 @@ var lastCoverPath = '';
 
 function isRealPlayer(player) {
     return (
-        // Remove unecessary native buses from browsers if there's plasma integration
-        !(hasPlasmaIntegration && player.busName.startsWith('org.mpris.MediaPlayer2.firefox')) &&
-        !(hasPlasmaIntegration && player.busName.startsWith('org.mpris.MediaPlayer2.chromium')) &&
+        // Allow browser MPRIS sessions (Firefox/Chromium) so YouTube shows up
         // playerctld just copies other buses and we don't need duplicates
         !player.busName.startsWith('org.mpris.MediaPlayer2.playerctld') &&
         // Non-instance mpd bus
         !(player.busName.endsWith('.mpd') && !player.busName.endsWith('MediaPlayer2.mpd')) &&
-        !(player.trackTitle == "")
+        // Hide players with empty or placeholder title (after a brief debounce to allow metadata)
+        (() => {
+            const t = (player.trackTitle || '').trim();
+            if (t.length > 0 && t.toLowerCase() !== 'unknown title') return true;
+            // Give MPRIS metadata up to 1200ms to fill in; if it stays unknown/empty, filter out
+            try { Utils.timeout(1200, () => {}); } catch (_) {}
+            const t2 = (player.trackTitle || '').trim();
+            return t2.length > 0 && t2.toLowerCase() !== 'unknown title';
+        })()
     );
 }
 
@@ -100,8 +106,17 @@ const TrackTitle = ({ player, ...rest }) => Label({
     // wrap: true,
     className: 'osd-music-title',
     setup: (self) => self.hook(player, (self) => {
-        // Player name
-        self.label = player.trackTitle.length > 0 ? trimTrackTitle(player.trackTitle) : 'No media';
+        // Player title; hide if it's the placeholder 'Unknown title'
+        const raw = player.trackTitle || '';
+        const normalized = raw.trim();
+        const isUnknown = normalized.toLowerCase() === 'unknown title';
+        if (normalized.length === 0 || isUnknown) {
+            self.label = '';
+            self.visible = false;
+        } else {
+            self.label = trimTrackTitle(normalized);
+            self.visible = true;
+        }
         // Font based on track/artist
         const fontForThisTrack = getTrackfont(player);
         self.css = `font-family: ${fontForThisTrack}, ${DEFAULT_MUSIC_FONT};`;
@@ -402,13 +417,18 @@ export default () => Revealer({
     revealChild: false,
     child: Box({
         children: Mpris.bind("players")
-            .as(players => players.map((player) => (isRealPlayer(player) ? MusicControlsWidget(player) : null)))
-            
+            .as(players => players
+                .filter(p => isRealPlayer(p))
+                .filter(p => (p.trackTitle || '').trim().toLowerCase() !== 'unknown title')
+                .map((player) => MusicControlsWidget(player)))
     }),
     setup: (self) => self.hook(showMusicControls, (revealer) => {
         revealer.child = Box({
             children: Mpris.bind("players")
-                .as(players => players.map((player) => (isRealPlayer(player) ? MusicControlsWidget(player) : null)))
+                .as(players => players
+                    .filter(p => isRealPlayer(p))
+                    .filter(p => (p.trackTitle || '').trim().toLowerCase() !== 'unknown title')
+                    .map((player) => MusicControlsWidget(player)))
         });
         revealer.revealChild = showMusicControls.value;
         console.log('showMusicControls', showMusicControls.value);

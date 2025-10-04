@@ -11,15 +11,16 @@ import { languages } from './statusicons_languages.js';
 
 // A guessing func to try to support langs not listed in data/languages.js
 function isLanguageMatch(abbreviation, word) {
-    const lowerAbbreviation = abbreviation.toLowerCase();
-    const lowerWord = word.toLowerCase();
+    const lowerAbbreviation = typeof abbreviation === 'string' ? abbreviation.toLowerCase() : '';
+    const lowerWord = typeof word === 'string' ? word.toLowerCase() : '';
+    if (!lowerAbbreviation || !lowerWord)
+        return false;
     let j = 0;
     for (let i = 0; i < lowerWord.length; i++) {
         if (lowerWord[i] === lowerAbbreviation[j]) {
             j++;
-        }
-        if (j === lowerAbbreviation.length) {
-            return true;
+            if (j === lowerAbbreviation.length)
+                return true;
         }
     }
     return false;
@@ -204,15 +205,22 @@ export const NetworkIndicator = () => Widget.Stack({
 const HyprlandXkbKeyboardLayout = async ({ useFlag } = {}) => {
     try {
         const Hyprland = (await import('resource:///com/github/Aylur/ags/service/hyprland.js')).default;
-        var languageStackArray = [];
+    var languageStackArray = [];
+    var availableLayouts = [];
 
         const updateCurrentKeyboards = () => {
             var initLangs = [];
-            JSON.parse(Utils.exec('hyprctl -j devices')).keyboards
-                .forEach(keyboard => {
-                    initLangs.push(...keyboard.layout.split(',').map(lang => lang.trim()));
+            try {
+                const devices = JSON.parse(Utils.exec('hyprctl -j devices'));
+                devices.keyboards.forEach(keyboard => {
+                    const parts = String(keyboard.layout || '').split(',').map(l => l.trim()).filter(Boolean);
+                    initLangs.push(...parts);
                 });
+            } catch (e) {
+                initLangs = [];
+            }
             initLangs = [...new Set(initLangs)];
+            availableLayouts = initLangs.slice();
             languageStackArray = Array.from({ length: initLangs.length }, (_, i) => {
                 const lang = languages.find(lang => lang.layout == initLangs[i]);
                 // if (!lang) return [
@@ -252,14 +260,15 @@ const HyprlandXkbKeyboardLayout = async ({ useFlag } = {}) => {
                 if (!kbName) {
                     return;
                 }
-                var lang = languages.find(lang => layoutName.includes(lang.name));
-                if (lang) {
-                    widgetContent.shown = lang.layout;
+                const layoutStr = String(layoutName || '');
+                const foundLangSpec = languages.find(l => layoutStr.includes(l.name));
+                if (foundLangSpec) {
+                    widgetContent.shown = foundLangSpec.layout;
                 }
                 else { // Attempt to support langs not listed
-                    lang = languageStackArray.find(lang => isLanguageMatch(lang[0], layoutName));
-                    if (!lang) stack.shown = 'undef';
-                    else stack.shown = lang[0];
+                    const matchLayout = availableLayouts.find(l => isLanguageMatch(l, layoutStr));
+                    if (!matchLayout) stack.shown = 'undef';
+                    else stack.shown = matchLayout;
                 }
             }, 'keyboard-layout'),
         });

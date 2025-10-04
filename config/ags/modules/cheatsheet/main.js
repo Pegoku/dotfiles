@@ -89,7 +89,7 @@ const SheetContent = (id) => {
         transitionDuration: userOptions.animations.durationLarge * 1.4,
         icons: cheatsheets.map((api) => api.materialIcon),
         names: cheatsheets.map((api) => api.name),
-        children: cheatsheets.map((api) => api.contentWidget()),
+    childrenGetters: cheatsheets.map((api) => () => api.contentWidget()),
         onChange: (self, id) => {
             self.shown = cheatsheets[id].name;
         }

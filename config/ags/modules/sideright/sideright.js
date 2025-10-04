@@ -31,28 +31,28 @@ const centerWidgets = [
     {
         name: 'Notifications',
         materialIcon: 'notifications',
-        contentWidget: ModuleNotificationList,
+        getter: () => ModuleNotificationList(),
     },
     {
         name: 'Audio controls',
         materialIcon: 'volume_up',
-        contentWidget: ModuleAudioControls,
+        getter: () => ModuleAudioControls(),
     },
     {
         name: 'Bluetooth',
         materialIcon: 'bluetooth',
-        contentWidget: ModuleBluetooth,
+        getter: () => ModuleBluetooth(),
     },
     {
         name: 'Wifi networks',
         materialIcon: 'wifi',
-        contentWidget: ModuleWifiNetworks,
+        getter: () => ModuleWifiNetworks(),
         onFocus: () => execAsync('nmcli dev wifi list').catch(print),
     },
     {
         name: 'Live config',
         materialIcon: 'tune',
-        contentWidget: ModuleConfigure,
+        getter: () => ModuleConfigure(),
     },
 ];
 
@@ -122,13 +122,20 @@ const togglesBox = Widget.Box({
     children: [
         ToggleIconWifi(),
         ToggleIconBluetooth(),
-        // await ModuleRawInput(),
-        // await HyprToggleIcon('touchpad_mouse', 'No touchpad while typing', 'input:touchpad:disable_while_typing', {}),
-        await ModuleNightLight(),
-        await ModuleInvertColors(),
         ModuleIdleInhibitor(),
-        await ModuleCloudflareWarp(),
-    ]
+    ],
+    setup: async (self) => {
+        // Defer heavy/IO checks so the sidebar opens instantly
+        const items = await Promise.all([
+            ModuleNightLight().catch(() => null),
+            ModuleInvertColors().catch(() => null),
+            ModuleCloudflareWarp().catch(() => null),
+        ]);
+        for (const w of items) {
+            if (w) self.pack_end(w, false, false, 0);
+        }
+        self.show_all();
+    }
 })
 
 export const sidebarOptionsStack = ExpandingIconTabContainer({
@@ -136,7 +143,7 @@ export const sidebarOptionsStack = ExpandingIconTabContainer({
     tabSwitcherClassName: 'sidebar-icontabswitcher',
     icons: centerWidgets.map((api) => api.materialIcon),
     names: centerWidgets.map((api) => api.name),
-    children: centerWidgets.map((api) => api.contentWidget()),
+    childrenGetters: centerWidgets.map((api) => api.getter),
     onChange: (self, id) => {
         self.shown = centerWidgets[id].name;
         if (centerWidgets[id].onFocus) centerWidgets[id].onFocus();

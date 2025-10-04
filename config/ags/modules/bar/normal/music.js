@@ -142,10 +142,10 @@ export default () => {
         maxWidthChars: 1, // Doesn't matter, just needs to be non negative
         setup: (self) => self.hook(Mpris, label => {
             const players = Mpris.players;
-            console.log('Players:', players);
+            // console.log('Players:', players);
             let validTrackFound = false;
             for (const player of players) {
-                console.log(`Player: ${player.name}, Track Title: ${player.trackTitle}`);
+                // console.log(`Player: ${player.name}, Track Title: ${player.trackTitle}`);
                 const trimmedTitle = trimTrackTitle(player.trackTitle);
                 if (trimmedTitle) {
                     label.label = `${trimmedTitle} • ${player.trackArtists.join(', ')}`;

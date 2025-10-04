@@ -6,6 +6,24 @@ import { TabContainer } from '../.commonwidgets/tabcontainer.js';
 import Todo from "../../services/todo.js";
 import { setupCursorHover } from '../.widgetutils/cursorhover.js';
 
+// Local state for filtering and sorting
+let filterText = '';
+let sortMode = 'alpha-asc'; // 'alpha-asc' | 'alpha-desc'
+
+const normalize = (s) => (s || '').toString().toLowerCase();
+
+function applyFilterAndSort(tasks, isDone) {
+    const ft = normalize(filterText);
+    let arr = tasks.filter(t => t.done === isDone && (ft === '' || normalize(t.content).includes(ft)));
+    arr.sort((a, b) => {
+        const A = normalize(a.content);
+        const B = normalize(b.content);
+        const cmp = A.localeCompare(B);
+        return sortMode === 'alpha-desc' ? -cmp : cmp;
+    });
+    return arr;
+}
+
 const TodoListItem = (task, id, isDone, isEven = false) => {
     const taskName = Widget.Label({
         hexpand: true,
@@ -32,9 +50,9 @@ const TodoListItem = (task, id, isDone, isEven = false) => {
                     })
                     Utils.timeout(350, () => {
                         if (isDone)
-                            Todo.uncheck(id);
+                            Todo.uncheck(task.id ?? id);
                         else
-                            Todo.check(id);
+                            Todo.check(task.id ?? id);
                     })
                 },
                 setup: setupCursorHover,
@@ -51,7 +69,7 @@ const TodoListItem = (task, id, isDone, isEven = false) => {
                         widgetRevealer.revealChild = false;
                     })
                     Utils.timeout(350, () => {
-                        Todo.remove(id);
+                        Todo.remove(task.id ?? id);
                     })
                 },
                 setup: setupCursorHover,
@@ -94,10 +112,8 @@ const todoItems = (isDone) => Widget.Scrollable({
         className: 'spacing-v-5',
         setup: (self) => self
             .hook(Todo, (self) => {
-                self.children = Todo.todo_json.map((task, i) => {
-                    if (task.done != isDone) return null;
-                    return TodoListItem(task, i, isDone);
-                })
+                const items = applyFilterAndSort(Todo.todo_json, isDone);
+                self.children = items.map((task, i) => TodoListItem(task, task.id ?? i, isDone));
                 if (self.children.length == 0) {
                     self.homogeneous = true;
                     self.children = [
@@ -108,7 +124,7 @@ const todoItems = (isDone) => Widget.Scrollable({
                             className: 'txt txt-subtext',
                             children: [
                                 MaterialIcon(`${isDone ? 'checklist' : 'check_circle'}`, 'gigantic'),
-                                Label({ label: `${isDone ? 'Finished tasks will go here' : 'Nothing here!'}` })
+                                Label({ label: ftLabel(isDone) })
                             ]
                         })
                     ]
@@ -123,7 +139,97 @@ const todoItems = (isDone) => Widget.Scrollable({
     }
 });
 
+function ftLabel(isDone) {
+    const hasFilter = normalize(filterText) !== '';
+    if (hasFilter) return 'No tasks match your search';
+    return `${isDone ? 'Finished tasks will go here' : 'Nothing here!'}`;
+}
+
+const SearchSortControls = () => {
+    // Search button and entry (like New task controls)
+    const searchButton = Revealer({
+        transition: 'slide_left',
+        transitionDuration: userOptions.animations.durationLarge,
+        revealChild: true,
+        child: Button({
+            className: 'txt-norm icon-material sidebar-todo-add',
+            halign: 'start',
+            vpack: 'center',
+            label: 'search',
+            setup: setupCursorHover,
+            onClicked: () => {
+                searchButton.revealChild = false;
+                searchEntryRevealer.revealChild = true;
+                searchCancel.revealChild = true;
+                searchEntry.grab_focus();
+            }
+        })
+    });
+    const searchCancel = Revealer({
+        transition: 'slide_right',
+        transitionDuration: userOptions.animations.durationLarge,
+        revealChild: false,
+        child: Button({
+            className: 'txt-norm icon-material sidebar-todo-add',
+            halign: 'start',
+            vpack: 'center',
+            label: 'close',
+            setup: setupCursorHover,
+            onClicked: () => {
+                searchEntryRevealer.revealChild = false;
+                searchCancel.revealChild = false;
+                searchButton.revealChild = true;
+                filterText = '';
+                Todo.refresh();
+            }
+        })
+    });
+    const searchEntry = Widget.Entry({
+        vpack: 'center',
+        className: 'txt-small sidebar-todo-entry',
+        placeholderText: 'Filter tasks...',
+        onChange: ({ text }) => { filterText = text; Todo.refresh(); },
+    });
+    const searchEntryRevealer = Revealer({
+        transition: 'slide_right',
+        transitionDuration: userOptions.animations.durationLarge,
+        revealChild: false,
+        child: searchEntry,
+    });
+
+    // Sort toggle button (alpha asc/desc) with correct icons
+    const sortArrowIcon = MaterialIcon(sortMode === 'alpha-asc' ? 'expand_less' : 'expand_more', 'norm', { vpack: 'center' });
+    const sortButton = Button({
+        className: 'txt-norm sidebar-todo-add',
+        halign: 'start',
+        vpack: 'center',
+        child: Box({
+            className: 'spacing-h-3',
+            children: [
+                MaterialIcon('sort_by_alpha', 'norm', { vpack: 'center' }),
+                sortArrowIcon,
+            ]
+        }),
+        setup: (btn) => {
+            setupCursorHover(btn);
+            btn.hook(Todo, () => {}, 'updated'); // keep lifecycle similar
+        },
+        onClicked: () => {
+            sortMode = sortMode === 'alpha-asc' ? 'alpha-desc' : 'alpha-asc';
+            // update arrow icon to reflect direction
+            sortArrowIcon.label = (sortMode === 'alpha-asc') ? 'expand_less' : 'expand_more';
+            Todo.refresh();
+        }
+    });
+
+    return Box({
+        className: 'spacing-h-5',
+        children: [searchCancel, searchEntryRevealer, searchButton, sortButton]
+    });
+}
+
 const UndoneTodoList = () => {
+    const searchSort = SearchSortControls();
     const newTaskButton = Revealer({
         transition: 'slide_left',
         transitionDuration: userOptions.animations.durationLarge,
@@ -201,6 +307,7 @@ const UndoneTodoList = () => {
         vertical: true,
         className: 'spacing-v-5',
         setup: (box) => {
+            box.pack_start(searchSort, false, false, 0);
             box.pack_start(todoItems(false), true, true, 0);
             box.pack_start(Box({
                 setup: (self) => {
@@ -214,11 +321,23 @@ const UndoneTodoList = () => {
     });
 }
 
+const DoneTodoList = () => {
+    const searchSort = SearchSortControls();
+    return Box({
+        vertical: true,
+        className: 'spacing-v-5',
+        setup: (box) => {
+            box.pack_start(searchSort, false, false, 0);
+            box.pack_start(todoItems(true), true, true, 0);
+        },
+    });
+}
+
 export const TodoWidget = () => TabContainer({
     icons: ['format_list_bulleted', 'task_alt'],
     names: ['Unfinished', 'Done'],
     children: [
         UndoneTodoList(),
-        todoItems(true),
+        DoneTodoList(),
     ]
 })

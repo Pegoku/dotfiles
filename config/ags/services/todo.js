@@ -13,9 +13,33 @@ class TodoService extends Service {
 
     _todoPath = '';
     _todoJson = [];
+    _vikunjaEnabled = false;
+    _vikunjaServer = '';
+    _vikunjaToken = '';
+    _vikunjaProjectId = null;
 
-    refresh(value) {
-        this.emit('updated', value);
+    async _curlJson(method, url, bodyObj = null) {
+        try {
+            const args = ['curl', '-sS', '-X', method, url,
+                '-H', `Authorization: Bearer ${this._vikunjaToken}`,
+                '-H', 'Content-Type: application/json',
+                '-w', 'HTTPSTATUS:%{http_code}'];
+            if (bodyObj) args.push('-d', JSON.stringify(bodyObj));
+            const resp = await execAsync(args);
+            const split = resp.split('HTTPSTATUS:');
+            const body = split[0] ?? '';
+            const status = parseInt((split[1] || '0').trim()) || 0;
+            let json;
+            try { json = body ? JSON.parse(body) : null; } catch { json = null; }
+            return { status, body, json };
+        } catch (e) {
+            print(e);
+            return { status: 0, body: '', json: null };
+        }
+    }
+
+    refresh() {
+        this.emit('updated');
     }
 
     connectWidget(widget, callback) {
@@ -31,44 +55,131 @@ class TodoService extends Service {
             .catch(print);
     }
 
-    add(content) {
-        this._todoJson.push({ content, done: false });
-        this._save();
+    async add(content) {
+        if (this._vikunjaEnabled) {
+            try {
+                const url = `${this._vikunjaServer}/api/v1/projects/${this._vikunjaProjectId}/tasks`;
+                // console.log('Adding task to Vikunja:', content);
+                // console.log('Using URL:', url);
+                // Prefer list_id (compatible with older & newer naming)
+                let res = await this._curlJson('PUT', url, { title: content, project_id: this._vikunjaProjectId });
+                if (res.status >= 200 && res.status < 300 && res.json?.id) {
+                    const task = res.json;
+                    this._todoJson.push({ id: task.id, content: task.title, done: !!task.done });
+                } else {
+                    Utils.execAsync(['notify-send', 'Vikunja', `Failed to add task (HTTP ${res.status})`]).catch(print);
+                    console.log(`Failed to add task, status: ${res.status}, body: ${res.body}`);
+                }
+            } catch (e) { print(e); Utils.execAsync(['notify-send', 'Vikunja', 'Error adding task']).catch(print); }
+        } else {
+            this._todoJson.push({ id: Date.now(), content, done: false });
+            this._save();
+        }
         this.emit('updated');
     }
 
-    check(index) {
-        this._todoJson[index].done = true;
-        this._save();
+    async check(id) {
+        const idx = this._todoJson.findIndex(t => t.id === id);
+        if (idx === -1) return;
+        if (this._vikunjaEnabled) {
+            try {
+                await execAsync([
+                    'curl', '-sS', '-X', 'PATCH', `${this._vikunjaServer}/api/v1/tasks/${id}`,
+                    '-H', `Authorization: Bearer ${this._vikunjaToken}`,
+                    '-H', 'Content-Type: application/json',
+                    '-d', JSON.stringify({ done: true }),
+                ]);
+                this._todoJson[idx].done = true;
+            } catch (e) { print(e); }
+        } else {
+            this._todoJson[idx].done = true;
+            this._save();
+        }
         this.emit('updated');
     }
 
-    uncheck(index) {
-        this._todoJson[index].done = false;
-        this._save();
+    async uncheck(id) {
+        const idx = this._todoJson.findIndex(t => t.id === id);
+        if (idx === -1) return;
+        if (this._vikunjaEnabled) {
+            try {
+                await execAsync([
+                    'curl', '-sS', '-X', 'PATCH', `${this._vikunjaServer}/api/v1/tasks/${id}`,
+                    '-H', `Authorization: Bearer ${this._vikunjaToken}`,
+                    '-H', 'Content-Type: application/json',
+                    '-d', JSON.stringify({ done: false }),
+                ]);
+                this._todoJson[idx].done = false;
+            } catch (e) { print(e); }
+        } else {
+            this._todoJson[idx].done = false;
+            this._save();
+        }
         this.emit('updated');
     }
 
-    remove(index) {
-        this._todoJson.splice(index, 1);
-        Utils.writeFile(JSON.stringify(this._todoJson), this._todoPath)
-            .catch(print);
+    async remove(id) {
+        const idx = this._todoJson.findIndex(t => t.id === id);
+        if (idx === -1) return;
+        if (this._vikunjaEnabled) {
+            try {
+                await execAsync([
+                    'curl', '-sS', '-X', 'DELETE', `${this._vikunjaServer}/api/v1/tasks/${id}`,
+                    '-H', `Authorization: Bearer ${this._vikunjaToken}`,
+                ]);
+            } catch (e) { print(e); }
+        }
+        this._todoJson.splice(idx, 1);
+        if (!this._vikunjaEnabled) {
+            Utils.writeFile(JSON.stringify(this._todoJson), this._todoPath).catch(print);
+        }
         this.emit('updated');
+    }
+
+    async syncFromVikunja() {
+        if (!this._vikunjaEnabled) return;
+        try {
+            // Try projects route first, then lists route for older instances
+            let res = await this._curlJson('GET', `${this._vikunjaServer}/api/v1/projects/${this._vikunjaProjectId}/tasks`);
+            let list = Array.isArray(res.json) ? res.json : null;
+            if (!list) {
+                res = await this._curlJson('GET', `${this._vikunjaServer}/api/v1/lists/${this._vikunjaProjectId}/tasks`);
+                list = Array.isArray(res.json) ? res.json : [];
+            }
+            if (!Array.isArray(list)) list = [];
+            this._todoJson = list.map(t => ({ id: t.id, content: t.title, done: !!t.done }));
+            this.emit('updated');
+        } catch (e) { print(e); }
     }
 
     constructor() {
         super();
         this._todoPath = `${GLib.get_user_state_dir()}/ags/user/todo.json`;
+        // Load config
         try {
-            const fileContents = Utils.readFile(this._todoPath);
-            this._todoJson = JSON.parse(fileContents);
-        }
-        catch {
-            Utils.exec(`bash -c 'mkdir -p ${GLib.get_user_cache_dir()}/ags/user'`);
-            Utils.exec(`touch ${this._todoPath}`);
-            Utils.writeFile("[]", this._todoPath).then(() => {
-                this._todoJson = JSON.parse(Utils.readFile(this._todoPath))
-            }).catch(print);
+            this._vikunjaEnabled = !!userOptions?.vikunja?.enabled;
+            this._vikunjaServer = (userOptions?.vikunja?.server || '').replace(/\/$/, '');
+            this._vikunjaToken = userOptions?.vikunja?.apiToken || '';
+            this._vikunjaProjectId = userOptions?.vikunja?.projectId ?? null;
+        } catch { }
+        if (this._vikunjaEnabled && this._vikunjaServer && this._vikunjaToken && this._vikunjaProjectId) {
+            // Initialize from Vikunja
+            this.syncFromVikunja();
+            // Periodic sync every 60s
+            Utils.interval(60000, () => this.syncFromVikunja());
+        } else {
+            // Fallback to local JSON file
+            try {
+                const fileContents = Utils.readFile(this._todoPath);
+                this._todoJson = JSON.parse(fileContents);
+            }
+            catch {
+                Utils.exec(`bash -c 'mkdir -p ${GLib.get_user_cache_dir()}/ags/user'`);
+                Utils.exec(`touch ${this._todoPath}`);
+                Utils.writeFile("[]", this._todoPath).then(() => {
+                    this._todoJson = JSON.parse(Utils.readFile(this._todoPath))
+                }).catch(print);
+            }
         }
     }
 }

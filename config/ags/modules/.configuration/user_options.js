@@ -6,6 +6,12 @@ import userOverrides from '../../user_options.js';
 // Add overrides in ~/.config/ags/user_options.js
 let configOptions = {
     // General stuff
+    'vikunja': {
+        'enabled': false,
+        'server': '',
+        'apiToken': '',
+        'projectId': null,
+    },
     'ai': {
         'defaultGPTProvider': "openai",
         'defaultTemperature': 1,

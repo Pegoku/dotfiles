@@ -4,6 +4,12 @@
 //   options listed in this file will override the default ones in the above file
 
 const userConfigOptions = {
+    'vikunja': {
+        'enabled': false,
+        'server': '',
+        'apiToken': '',
+        'projectId': null,
+    },
     'search': {
         'enableFeatures': {
             'actions': true,

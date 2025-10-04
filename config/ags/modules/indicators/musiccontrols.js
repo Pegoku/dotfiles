@@ -28,11 +28,7 @@ function isRealPlayer(player) {
         // Hide players with empty or placeholder title (after a brief debounce to allow metadata)
         (() => {
             const t = (player.trackTitle || '').trim();
-            if (t.length > 0 && t.toLowerCase() !== 'unknown title') return true;
-            // Give MPRIS metadata up to 1200ms to fill in; if it stays unknown/empty, filter out
-            try { Utils.timeout(1200, () => {}); } catch (_) {}
-            const t2 = (player.trackTitle || '').trim();
-            return t2.length > 0 && t2.toLowerCase() !== 'unknown title';
+            return t.length > 0 && t.toLowerCase() !== 'unknown title';
         })()
     );
 }
@@ -150,6 +146,7 @@ const CoverArt = ({ player, ...rest }) => {
         // children: [coverArtDrawingArea],
         attribute: {
             'pixbuf': null,
+            'alive': true,
             // 'showImage': (self, imagePath) => {
             //     const borderRadius = coverArtDrawingAreaStyleContext.get_property('border-radius', Gtk.StateFlags.NORMAL);
             //     const frameHeight = coverArtDrawingAreaStyleContext.get_property('min-height', Gtk.StateFlags.NORMAL);
@@ -194,10 +191,12 @@ const CoverArt = ({ player, ...rest }) => {
             //         }).catch(print)
             // },
             'updateCover': (self) => {
+                if (!self?.attribute?.alive) return;
                 // const player = Mpris.getPlayer(); // Maybe no need to re-get player.. can't remember why I had this
                 // Player closed
                 // Note that cover path still remains, so we're checking title
                 if (!player || player.trackTitle == "" || !player.coverPath) {
+                    if (!self?.attribute?.alive) return;
                     self.css = `background-image: none;`; // CSS image
                     App.applyCss(`${COMPILED_STYLE_DIR}/style.css`);
                     return;
@@ -207,6 +206,7 @@ const CoverArt = ({ player, ...rest }) => {
                 const stylePath = `${player.coverPath}${darkMode.value ? '' : '-l'}${COVER_COLORSCHEME_SUFFIX}`;
                 if (player.coverPath == lastCoverPath) { // Since 'notify::cover-path' emits on cover download complete
                     Utils.timeout(200, () => {
+                        if (!self?.attribute?.alive) return;
                         // self.attribute.showImage(self, coverPath);
                         self.css = `background-image: url('${coverPath}');`; // CSS image
                     });
@@ -216,7 +216,8 @@ const CoverArt = ({ player, ...rest }) => {
                 // If a colorscheme has already been generated, skip generation
                 if (fileExists(stylePath)) {
                     // self.attribute.showImage(self, coverPath)
-                    self.css = `background-image: url('${coverPath}');`; // CSS image
+                    if (self?.attribute?.alive)
+                        self.css = `background-image: url('${coverPath}');`; // CSS image
                     App.applyCss(stylePath);
                     return;
                 }
@@ -229,6 +230,7 @@ const CoverArt = ({ player, ...rest }) => {
                         exec(`cp ${GLib.get_user_cache_dir()}/wal/colors.scss ${GLib.get_user_state_dir()}/ags/scss/_musicwal.scss`);
                         exec(`sass -I "${GLib.get_user_state_dir()}/ags/scss" -I "${App.configDir}/scss/fallback" "${App.configDir}/scss/_music.scss" "${stylePath}"`);
                         Utils.timeout(200, () => {
+                            if (!self?.attribute?.alive) return;
                             // self.attribute.showImage(self, coverPath)
                             self.css = `background-image: url('${coverPath}');`; // CSS image
                         });
@@ -241,6 +243,7 @@ const CoverArt = ({ player, ...rest }) => {
             .hook(player, (self) => {
                 self.attribute.updateCover(self);
             }, 'notify::cover-path')
+            .on('destroy', () => { try { realCoverArt.attribute.alive = false; } catch (_) {} })
         ,
     });
     return Box({

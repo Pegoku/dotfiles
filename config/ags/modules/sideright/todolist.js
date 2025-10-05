@@ -16,6 +16,9 @@ function applyFilterAndSort(tasks, isDone) {
     const ft = normalize(filterText);
     let arr = tasks.filter(t => t.done === isDone && (ft === '' || normalize(t.content).includes(ft)));
     arr.sort((a, b) => {
+        // Favorites first
+        const favDiff = (b.fav === true) - (a.fav === true);
+        if (favDiff !== 0) return favDiff;
         const A = normalize(a.content);
         const B = normalize(b.content);
         const cmp = A.localeCompare(B);
@@ -33,10 +36,24 @@ const TodoListItem = (task, id, isDone, isEven = false) => {
         label: task.content,
         selectable: true,
     });
+    // Use Unicode stars to avoid GTK CSS errors and guarantee visible filled/outline
+    const starIcon = Label({ className: 'txt txt-norm', label: task.fav ? '★' : '☆', vpack: 'center' });
     const actions = Box({
         hpack: 'end',
         className: 'spacing-h-5 sidebar-todo-actions',
         children: [
+            Widget.Button({ // Favorite / Unfavorite
+                vpack: 'center',
+                className: 'txt sidebar-todo-item-action',
+                child: starIcon,
+                onClicked: () => {
+                    const newFav = !(task.fav === true);
+                    // update icon immediately by switching glyph
+                    starIcon.label = newFav ? '★' : '☆';
+                    Todo.toggleFavorite(task.id ?? id);
+                },
+                setup: setupCursorHover,
+            }),
             Widget.Button({ // Check/Uncheck
                 vpack: 'center',
                 className: 'txt sidebar-todo-item-action',

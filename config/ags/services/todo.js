@@ -38,6 +38,11 @@ class TodoService extends Service {
         }
     }
 
+    async _patchTask(id, body) {
+        const url = `${this._vikunjaServer}/api/v1/tasks/${id}`;
+        return await this._curlJson('PATCH', url, body);
+    }
+
     refresh() {
         this.emit('updated');
     }
@@ -65,14 +70,14 @@ class TodoService extends Service {
                 let res = await this._curlJson('PUT', url, { title: content, project_id: this._vikunjaProjectId });
                 if (res.status >= 200 && res.status < 300 && res.json?.id) {
                     const task = res.json;
-                    this._todoJson.push({ id: task.id, content: task.title, done: !!task.done });
+                    this._todoJson.push({ id: task.id, content: task.title, done: !!task.done, fav: !!(task.is_favorite || task.favorite || task.isFavorite) });
                 } else {
                     Utils.execAsync(['notify-send', 'Vikunja', `Failed to add task (HTTP ${res.status})`]).catch(print);
                     console.log(`Failed to add task, status: ${res.status}, body: ${res.body}`);
                 }
             } catch (e) { print(e); Utils.execAsync(['notify-send', 'Vikunja', 'Error adding task']).catch(print); }
         } else {
-            this._todoJson.push({ id: Date.now(), content, done: false });
+            this._todoJson.push({ id: Date.now(), content, done: false, fav: false });
             this._save();
         }
         this.emit('updated');
@@ -136,6 +141,51 @@ class TodoService extends Service {
         this.emit('updated');
     }
 
+    async toggleFavorite(id) {
+        const idx = this._todoJson.findIndex(t => t.id === id);
+        if (idx === -1) return;
+        const newFav = !this._todoJson[idx].fav;
+        // optimistic update
+        this._todoJson[idx].fav = newFav;
+        if (!this._vikunjaEnabled) {
+            this._save();
+            this.emit('updated');
+            return;
+        }
+        this.emit('updated');
+        try {
+            // Match the user's working pattern exactly: POST /api/v1/tasks/{id} with { is_favorite: true/false }
+            const favUrl = `${this._vikunjaServer}/api/v1/tasks/${id}`;
+            const res = await this._curlJson('POST', favUrl, { is_favorite: newFav });
+            if (!(res.status >= 200 && res.status < 300)) {
+                // rollback
+                this._todoJson[idx].fav = !newFav;
+                this.emit('updated');
+                Utils.execAsync(['notify-send', 'Vikunja', `Failed to ${newFav ? 'favorite' : 'unfavorite'} task (HTTP ${res.status})`]).catch(print);
+            }
+        } catch (e) {
+            // rollback
+            this._todoJson[idx].fav = !newFav;
+            this.emit('updated');
+            print(e);
+            Utils.execAsync(['notify-send', 'Vikunja', 'Error updating favorite']).catch(print);
+        }
+    }
+
+    async favorite(id) {
+        const idx = this._todoJson.findIndex(t => t.id === id);
+        if (idx === -1) return;
+        if (this._todoJson[idx].fav) return;
+        return await this.toggleFavorite(id);
+    }
+
+    async unfavorite(id) {
+        const idx = this._todoJson.findIndex(t => t.id === id);
+        if (idx === -1) return;
+        if (!this._todoJson[idx].fav) return;
+        return await this.toggleFavorite(id);
+    }
+
     async syncFromVikunja() {
         if (!this._vikunjaEnabled) return;
         try {
@@ -147,7 +197,14 @@ class TodoService extends Service {
                 list = Array.isArray(res.json) ? res.json : [];
             }
             if (!Array.isArray(list)) list = [];
-            this._todoJson = list.map(t => ({ id: t.id, content: t.title, done: !!t.done }));
+            // Preserve local favorites on resync by id
+            const favMap = new Map(this._todoJson.map(t => [t.id, !!t.fav]));
+            this._todoJson = list.map(t => ({
+                id: t.id,
+                content: t.title,
+                done: !!t.done,
+                fav: typeof t.is_favorite !== 'undefined' ? !!t.is_favorite : (typeof t.favorite !== 'undefined' ? !!t.favorite : (favMap.get(t.id) || false)),
+            }));
             this.emit('updated');
         } catch (e) { print(e); }
     }

@@ -55,12 +55,17 @@ export function getCalendarLayout(dateObject, highlight) {
     var calendar = [...Array(6)].map(() => Array(7));
     var i = 0, j = 0;
     while (i < 6 && j < 7) {
+        // Determine the actual month/year of this cell
+        let cellMonth = month + monthDiff;
+        let cellYear = year;
+        if (cellMonth < 1) { cellMonth += 12; cellYear -= 1; }
+        if (cellMonth > 12) { cellMonth -= 12; cellYear += 1; }
+
         calendar[i][j] = {
             "day": toFill,
-            "today": ((toFill == day && monthDiff == 0 && highlight) ? 1 : (
-                monthDiff == 0 ? 0 :
-                    -1
-            ))
+            "today": ((toFill == day && monthDiff == 0 && highlight) ? 1 : (monthDiff == 0 ? 0 : -1)),
+            "month": cellMonth,
+            "year": cellYear,
         };
         // Increment
         toFill++;

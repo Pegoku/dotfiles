@@ -8,9 +8,19 @@ import { setupCursorHover } from '../.widgetutils/cursorhover.js';
 
 // Local state for filtering and sorting
 let filterText = '';
-let sortMode = 'alpha-asc'; // 'alpha-asc' | 'alpha-desc'
+// sortMode: 'alpha-asc' | 'alpha-desc' | 'date-asc' | 'date-desc'
+let sortMode = 'alpha-asc';
 
 const normalize = (s) => (s || '').toString().toLowerCase();
+
+function parseDue(due) {
+    if (!due) return null;
+    if (typeof due === 'string' && /^0001-01-01/.test(due)) return null; // Vikunja sentinel
+    const d = new Date(due);
+    if (isNaN(d.getTime())) return null;
+    if (d.getUTCFullYear() <= 1) return null;
+    return d;
+}
 
 function applyFilterAndSort(tasks, isDone) {
     const ft = normalize(filterText);
@@ -19,6 +29,16 @@ function applyFilterAndSort(tasks, isDone) {
         // Favorites first
         const favDiff = (b.fav === true) - (a.fav === true);
         if (favDiff !== 0) return favDiff;
+        if (sortMode.startsWith('date-')) {
+            const da = parseDue(a.due);
+            const db = parseDue(b.due);
+            // Nulls last for asc, last for desc too but reverse order
+            if (da && !db) return -1;
+            if (!da && db) return 1;
+            if (!da && !db) return 0;
+            const diff = da.getTime() - db.getTime();
+            return sortMode === 'date-desc' ? -diff : diff;
+        }
         const A = normalize(a.content);
         const B = normalize(b.content);
         const cmp = A.localeCompare(B);
@@ -35,6 +55,85 @@ const TodoListItem = (task, id, isDone, isEven = false) => {
         className: 'txt txt-small sidebar-todo-txt',
         label: task.content,
         selectable: true,
+    });
+    const dueText = (() => {
+        const d = parseDue(task.due);
+        if (!d) return 'No date';
+        // Show DD-MM-YY per request
+        const y = String(d.getUTCFullYear()).slice(-2);
+        const m = String(d.getUTCMonth() + 1).padStart(2, '0');
+        const day = String(d.getUTCDate()).padStart(2, '0');
+        return `${day}-${m}-${y}`;
+    })();
+    const dueLabel = Button({
+        className: 'txt txt-subtext sidebar-todo-due',
+        child: Label({ className: 'txt txt-subtext', label: dueText, xalign: 0 }),
+        hpack: 'start',
+        onClicked: () => {
+            dueEditorRevealer.revealChild = !dueEditorRevealer.revealChild;
+            if (dueEditorRevealer.revealChild) dueEntry.grab_focus();
+        },
+        setup: setupCursorHover,
+    });
+
+    // Inline editor for due date
+    const dueEntry = Widget.Entry({
+        className: 'txt-small sidebar-todo-due-entry',
+        placeholderText: 'DD-MM-YY',
+        text: (() => {
+            const d = parseDue(task.due);
+            if (!d) return '';
+            const y = String(d.getUTCFullYear()).slice(-2);
+            const m = String(d.getUTCMonth() + 1).padStart(2, '0');
+            const day = String(d.getUTCDate()).padStart(2, '0');
+            return `${day}-${m}-${y}`;
+        })(),
+        onAccept: ({ text }) => {
+            const v = (text || '').trim();
+            Todo.setDueDate(task.id ?? id, v === '' ? null : v);
+        },
+    });
+    const dueEditToggle = Button({
+        className: 'txt-small sidebar-todo-item-action',
+        child: MaterialIcon('event', 'norm', { vpack: 'center' }),
+        onClicked: () => {
+            dueEditorRevealer.revealChild = !dueEditorRevealer.revealChild;
+            if (dueEditorRevealer.revealChild) dueEntry.grab_focus();
+        },
+        setup: setupCursorHover,
+    });
+    const dueClearBtn = Button({
+        className: 'txt-small sidebar-todo-item-action',
+        child: MaterialIcon('event_busy', 'norm', { vpack: 'center' }),
+        tooltipText: 'Clear date',
+        onClicked: () => Todo.setDueDate(task.id ?? id, null),
+        setup: setupCursorHover,
+    });
+    const dueSaveBtn = Button({
+        className: 'txt-small sidebar-todo-item-action',
+        child: MaterialIcon('save', 'norm', { vpack: 'center' }),
+        tooltipText: 'Save date',
+        onClicked: () => {
+            const v = (dueEntry.text || '').trim();
+            Todo.setDueDate(task.id ?? id, v === '' ? null : v);
+        },
+        setup: setupCursorHover,
+    });
+    const dueEditor = Box({
+        className: 'spacing-h-5',
+        children: [
+            dueEntry,
+            // spacer to push clear to the far right
+            Box({ hexpand: true }),
+            dueSaveBtn,
+            dueClearBtn,
+        ],
+    });
+    const dueEditorRevealer = Revealer({
+        transition: 'slide_down',
+        transitionDuration: userOptions.animations.durationLarge,
+        revealChild: false,
+        child: dueEditor,
     });
     // Use Unicode stars to avoid GTK CSS errors and guarantee visible filled/outline
     const starIcon = Label({ className: 'txt txt-norm', label: task.fav ? '★' : '☆', vpack: 'center' });
@@ -91,6 +190,7 @@ const TodoListItem = (task, id, isDone, isEven = false) => {
                 },
                 setup: setupCursorHover,
             }),
+            dueEditToggle,
         ]
     })
     const crosser = Widget.Box({
@@ -101,9 +201,20 @@ const TodoListItem = (task, id, isDone, isEven = false) => {
         children: [
             Widget.Box({
                 vertical: true,
+                hexpand: true,
                 children: [
+                    // Title row
                     taskName,
-                    actions,
+                    // Bottom row: due (left) + actions (right)
+                    Box({
+                        className: 'spacing-h-5',
+                        children: [
+                            Box({ hexpand: true, children: [dueLabel] }),
+                            actions,
+                        ]
+                    }),
+                    // Hidden editor
+                    dueEditorRevealer,
                 ]
             }),
             crosser,
@@ -214,27 +325,29 @@ const SearchSortControls = () => {
         child: searchEntry,
     });
 
-    // Sort toggle button (alpha asc/desc) with correct icons
-    const sortArrowIcon = MaterialIcon(sortMode === 'alpha-asc' ? 'expand_less' : 'expand_more', 'norm', { vpack: 'center' });
+    // Sort toggle button cycles modes: alpha-asc -> alpha-desc -> date-asc -> date-desc
+    const sortIcon = Label({ className: 'txt txt-norm', label: 'A→Z' });
     const sortButton = Button({
         className: 'txt-norm sidebar-todo-add',
         halign: 'start',
         vpack: 'center',
         child: Box({
             className: 'spacing-h-3',
-            children: [
-                MaterialIcon('sort_by_alpha', 'norm', { vpack: 'center' }),
-                sortArrowIcon,
-            ]
+            children: [MaterialIcon('sort', 'norm', { vpack: 'center' }), sortIcon]
         }),
         setup: (btn) => {
             setupCursorHover(btn);
-            btn.hook(Todo, () => {}, 'updated'); // keep lifecycle similar
+            btn.hook(Todo, () => {}, 'updated');
         },
         onClicked: () => {
-            sortMode = sortMode === 'alpha-asc' ? 'alpha-desc' : 'alpha-asc';
-            // update arrow icon to reflect direction
-            sortArrowIcon.label = (sortMode === 'alpha-asc') ? 'expand_less' : 'expand_more';
+            const order = ['alpha-asc', 'alpha-desc', 'date-asc', 'date-desc'];
+            const idx = order.indexOf(sortMode);
+            sortMode = order[(idx + 1) % order.length];
+            // Update label
+            if (sortMode === 'alpha-asc') sortIcon.label = 'A→Z';
+            else if (sortMode === 'alpha-desc') sortIcon.label = 'Z→A';
+            else if (sortMode === 'date-asc') sortIcon.label = 'Date ↑';
+            else sortIcon.label = 'Date ↓';
             Todo.refresh();
         }
     });

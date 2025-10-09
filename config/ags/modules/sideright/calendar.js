@@ -6,6 +6,7 @@ import { MaterialIcon } from '../.commonwidgets/materialicon.js';
 import { setupCursorHover } from '../.widgetutils/cursorhover.js';
 
 import { TodoWidget } from "./todolist.js";
+import Todo from "../../services/todo.js";
 import { getCalendarLayout } from "./calendar_layout.js";
 
 let calendarJson = getCalendarLayout(undefined, true);
@@ -39,17 +40,46 @@ const weekDays = [ // MONDAY IS THE FIRST DAY OF THE WEEK :HESRIGHTYOUKNOW:
     { day: 'Su', today: 0 },
 ]
 
-const CalendarDay = (day, today) => Widget.Button({
-    className: `sidebar-calendar-btn ${today == 1 ? 'sidebar-calendar-btn-today' : (today == -1 ? 'sidebar-calendar-btn-othermonth' : '')}`,
-    child: Widget.Overlay({
-        child: Box({}),
-        overlays: [Label({
-            hpack: 'center',
-            className: 'txt-smallie txt-semibold sidebar-calendar-btn-txt',
-            label: String(day),
-        })],
-    })
-})
+function formatDMY(y, m, d) {
+    const mm = String(m).padStart(2, '0');
+    const dd = String(d).padStart(2, '0');
+    return `${y}-${mm}-${dd}`;
+}
+
+function taskDueOn(y, m, d, tasks) {
+    const key = formatDMY(y, m, d);
+    return (tasks || []).filter(t => {
+        if (!t.due) return false;
+        // Compare date part only, use UTC to avoid tz skew
+        try {
+            const dt = new Date(t.due);
+            const ty = dt.getUTCFullYear();
+            const tm = dt.getUTCMonth() + 1;
+            const td = dt.getUTCDate();
+            return `${ty}-${String(tm).padStart(2,'0')}-${String(td).padStart(2,'0')}` === key;
+        } catch { return false; }
+    });
+}
+
+const CalendarDay = (cell) => {
+    const { day, today, month, year } = cell;
+    const countLabel = Label({ className: 'txt-tiny sidebar-calendar-day-count', label: '' });
+    const numberLabel = Label({
+        hpack: 'center',
+        className: 'txt-smallie txt-semibold sidebar-calendar-btn-txt',
+        label: String(day),
+    });
+    const dayBox = Widget.Button({
+        className: `sidebar-calendar-btn ${today == 1 ? 'sidebar-calendar-btn-today' : (today == -1 ? 'sidebar-calendar-btn-othermonth' : '')}`,
+        child: Widget.Overlay({ child: Box({}), overlays: [numberLabel, Box({ hpack: 'end', vpack: 'end', children: [countLabel] })] }),
+        setup: (btn) => btn.hook(Todo, () => {
+            const dueTasks = taskDueOn(year, month, day, Todo.todo_json);
+            countLabel.label = dueTasks.length > 0 ? String(dueTasks.length) : '';
+            btn.tooltipText = dueTasks.length > 0 ? dueTasks.map(t => `• ${t.content}`).join('\n') : '';
+        }, 'updated'),
+    });
+    return dayBox;
+}
 
 const CalendarWidget = () => {
     const calendarMonthYear = Widget.Button({
@@ -68,7 +98,7 @@ const CalendarWidget = () => {
         }
         box.children = calendarJson.map((row, i) => Widget.Box({
             className: 'spacing-h-5',
-            children: row.map((day, i) => CalendarDay(day.day, day.today)),
+            children: row.map((cell, i) => CalendarDay(cell)),
         }))
     }
     function shiftCalendarXMonths(x) {
@@ -128,7 +158,7 @@ const CalendarWidget = () => {
                         Widget.Box({
                             homogeneous: true,
                             className: 'spacing-h-5',
-                            children: weekDays.map((day, i) => CalendarDay(day.day, day.today))
+                            children: weekDays.map((day, i) => CalendarDay(day))
                         }),
                         calendarDays,
                     ]

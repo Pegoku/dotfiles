@@ -192,7 +192,7 @@ function rn(){
 }
 
 function r(){
-    gcc $1.c -o $1 && ./$1
+    gcc ${1%.c}.c -o ${1%.c} && ./${1%.c}
 }
 
 export PHPENV_ROOT="/home/pegoku/.phpenv"

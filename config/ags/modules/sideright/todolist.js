@@ -481,7 +481,7 @@ const SearchSortControls = () => {
         'Date input tips:',
         '• Formats: DD-MM-YY, DD-MM-YYYY, YYYY-MM-DD, 101025, 1010, 10',
         '• Words: today/now/n/0, yesterday/yes/y, tomorrow/tmr/tmrw/t',
-        '• N: 0, +1, +7, in 3 days',
+        '• N: 0, +1, +7, -3 (days from today)',
         '• Weekday: monday..sunday, mon/tues/wed/thu/fri/sat/sun',
         '• DOW numbers: 1..7 (Mon..Sun)',
         "• Prefix 'next' adds +7 (e.g., next fri, next 1)",

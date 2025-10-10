@@ -104,6 +104,13 @@ class TodoService extends Service {
             return toISODate(addDays(baseUTC, n));
         }
 
+        // -N days (N days prior)
+        const minusMatch = t.match(/^-\s*(\d{1,3})(?:\s*(?:d|day|days))?$/);
+        if (minusMatch) {
+            const n = -parseInt(minusMatch[1], 10) + (addWeek ? 7 : 0);
+            return toISODate(addDays(baseUTC, n));
+        }
+
         // Weekday names and abbreviations
         const weekdayMap = new Map([
             ['monday', 1], ['mon', 1],

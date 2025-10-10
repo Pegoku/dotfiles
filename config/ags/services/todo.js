@@ -62,27 +62,73 @@ class TodoService extends Service {
 
     _parseDateFilter(dateStr) {
         if (!dateStr || typeof dateStr !== 'string') return null;
-        const t = dateStr.trim().toLowerCase();
+        let t = dateStr.trim().toLowerCase();
         if (!t) return null;
         // Special clear sentinel
         if (t === '31-12-0') return null;
 
-        // Natural language
+        // Helpers
         const now = new Date();
+        const baseUTC = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
         const toISODate = (d) => `${d.getUTCFullYear()}-${String(d.getUTCMonth()+1).padStart(2,'0')}-${String(d.getUTCDate()).padStart(2,'0')}`;
-        if (t === 'today' || t === 't') {
-            const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+        const addDays = (d, n) => new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + n));
+        const dowFromUTC = (d) => ((d.getUTCDay() + 6) % 7) + 1; // 1=Mon..7=Sun
+        const nextFutureDow = (currentDow, targetDow) => {
+            let diff = (targetDow - currentDow + 7) % 7;
+            if (diff === 0) diff = 7; // strictly future
+            return diff;
+        };
+
+        // 'next' prefix adds +7 on top of any rule
+        let addWeek = false;
+        if (t.startsWith('next ')) { addWeek = true; t = t.slice(5).trim(); }
+        if (t === 'next') { return toISODate(addDays(baseUTC, 7)); }
+
+        // Aliases
+        if (t === 'now' || t === 'n' || t === '0' || t === 'today') {
+            return toISODate(addWeek ? addDays(baseUTC, 7) : baseUTC);
+        }
+        if (t === 'yesterday' || t === 'yes' || t === 'y') {
+            const d = addDays(baseUTC, -1 + (addWeek ? 7 : 0));
             return toISODate(d);
         }
-        if (t === 'tomorrow' || t === 'tmr' || t === 'tom') {
-            const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()+1));
+        if (t === 'tomorrow' || t === 'tmr' || t === 'tmrw' || t === 't') {
+            const d = addDays(baseUTC, 1 + (addWeek ? 7 : 0));
             return toISODate(d);
         }
-        const plusMatch = t.match(/^(\+|in\s+)(\d{1,3})(d|day|days)?$/);
+
+        // +N days or 'in N days'
+        const plusMatch = t.match(/^(?:\+|in\s+)(\d{1,3})(?:\s*(?:d|day|days))?$/);
         if (plusMatch) {
-            const n = parseInt(plusMatch[2], 10);
-            const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()+n));
-            return toISODate(d);
+            const n = parseInt(plusMatch[1], 10) + (addWeek ? 7 : 0);
+            return toISODate(addDays(baseUTC, n));
+        }
+
+        // Weekday names and abbreviations
+        const weekdayMap = new Map([
+            ['monday', 1], ['mon', 1],
+            ['tuesday', 2], ['tue', 2], ['tues', 2],
+            ['wednesday', 3], ['wed', 3], ['weds', 3],
+            ['thursday', 4], ['thu', 4], ['thur', 4], ['thurs', 4],
+            ['friday', 5], ['fri', 5],
+            ['saturday', 6], ['sat', 6],
+            ['sunday', 7], ['sun', 7],
+        ]);
+        if (weekdayMap.has(t)) {
+            const target = weekdayMap.get(t);
+            const cur = dowFromUTC(baseUTC);
+            let offset = nextFutureDow(cur, target);
+            if (addWeek) offset += 7;
+            return toISODate(addDays(baseUTC, offset));
+        }
+
+        // Numeric day of week 1..7 (Mon..Sun)
+        if (/^[1-7]$/.test(t)) {
+            const target = parseInt(t, 10);
+            const cur = dowFromUTC(baseUTC);
+            let offset = nextFutureDow(cur, target);
+            if (addWeek) offset += 7;
+            return toISODate(addDays(baseUTC, offset));
         }
 
         // Accept separators '-', '/', '.', ' '
@@ -105,13 +151,23 @@ class TodoService extends Service {
         if (digits.length === 2) {
             // dd -> current month/year
             const dd = digits;
-            return `${Y}-${M}-${dd}`;
+            const base = `${Y}-${M}-${dd}`;
+            if (addWeek) {
+                const d = addDays(baseUTC, (parseInt(dd,10) - now.getUTCDate()) + 7);
+                return toISODate(d);
+            }
+            return base;
         }
         if (digits.length === 4) {
             // ddmm -> current year
             const dd = digits.slice(0,2);
             const mm = digits.slice(2,4);
-            return `${Y}-${mm}-${dd}`;
+            const base = `${Y}-${mm}-${dd}`;
+            if (addWeek) {
+                const d = new Date(Date.UTC(Y, parseInt(mm,10)-1, parseInt(dd,10)));
+                return toISODate(addDays(d, 7));
+            }
+            return base;
         }
         if (digits.length === 6) {
             // ddmmyy -> 20yy
@@ -119,19 +175,32 @@ class TodoService extends Service {
             const mm = digits.slice(2,4);
             const yy = digits.slice(4,6);
             const yyyy = `20${yy}`;
-            return `${yyyy}-${mm}-${dd}`;
+            const base = `${yyyy}-${mm}-${dd}`;
+            if (addWeek) {
+                const d = new Date(Date.UTC(parseInt(yyyy,10), parseInt(mm,10)-1, parseInt(dd,10)));
+                return toISODate(addDays(d, 7));
+            }
+            return base;
         }
         if (digits.length === 8) {
             // ddmmyyyy
             const dd = digits.slice(0,2);
             const mm = digits.slice(2,4);
             const yyyy = digits.slice(4,8);
-            return `${yyyy}-${mm}-${dd}`;
+            const base = `${yyyy}-${mm}-${dd}`;
+            if (addWeek) {
+                const d = new Date(Date.UTC(parseInt(yyyy,10), parseInt(mm,10)-1, parseInt(dd,10)));
+                return toISODate(addDays(d, 7));
+            }
+            return base;
         }
 
         // Fallback to Date parsing
         const d = new Date(t);
-        if (!isNaN(d.getTime())) return toISODate(new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate())));
+        if (!isNaN(d.getTime())) {
+            const base = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
+            return toISODate(addWeek ? addDays(base, 7) : base);
+        }
         return null;
     }
 

@@ -14,6 +14,7 @@ class TodoService extends Service {
     _vikunjaServer = '';
     _vikunjaToken = '';
     _vikunjaProjectId = null;
+    _activeDateFilter = null; // 'YYYY-MM-DD' or null
 
     async _curlJson(method, url, bodyObj = null) {
         try {
@@ -35,9 +36,9 @@ class TodoService extends Service {
         }
     }
 
-    async _patchTask(id, body) {
+    async _postTask(id, body) {
         const url = `${this._vikunjaServer}/api/v1/tasks/${id}`;
-        return await this._curlJson('PATCH', url, body);
+        return await this._curlJson('POST', url, body);
     }
 
     _normalizeDue(due) {
@@ -56,13 +57,102 @@ class TodoService extends Service {
     refresh() { this.emit('updated'); }
     connectWidget(widget, callback) { this.connect(widget, callback, 'updated'); }
     get todo_json() { return this._todoJson; }
+    get date_filter() { return this._activeDateFilter; }
     _save() { Utils.writeFile(JSON.stringify(this._todoJson), this._todoPath).catch(print); }
+
+    _parseDateFilter(dateStr) {
+        if (!dateStr || typeof dateStr !== 'string') return null;
+        const t = dateStr.trim().toLowerCase();
+        if (!t) return null;
+        // Special clear sentinel
+        if (t === '31-12-0') return null;
+
+        // Natural language
+        const now = new Date();
+        const toISODate = (d) => `${d.getUTCFullYear()}-${String(d.getUTCMonth()+1).padStart(2,'0')}-${String(d.getUTCDate()).padStart(2,'0')}`;
+        if (t === 'today' || t === 't') {
+            const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+            return toISODate(d);
+        }
+        if (t === 'tomorrow' || t === 'tmr' || t === 'tom') {
+            const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()+1));
+            return toISODate(d);
+        }
+        const plusMatch = t.match(/^(\+|in\s+)(\d{1,3})(d|day|days)?$/);
+        if (plusMatch) {
+            const n = parseInt(plusMatch[2], 10);
+            const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()+n));
+            return toISODate(d);
+        }
+
+        // Accept separators '-', '/', '.', ' '
+        const norm = t.replace(/[\/.\s]/g, '-');
+        if (/^\d{2}-\d{2}-\d{2}$/.test(norm)) {
+            const [dd, mm, yy] = norm.split('-');
+            const yyyy = `20${yy}`;
+            return `${yyyy}-${mm}-${dd}`;
+        }
+        if (/^\d{2}-\d{2}-\d{4}$/.test(norm)) {
+            const [dd, mm, yyyy] = norm.split('-');
+            return `${yyyy}-${mm}-${dd}`;
+        }
+        if (/^\d{4}-\d{2}-\d{2}$/.test(norm)) return norm;
+
+        // Bare digits: dd, ddmm, ddmmyy, ddmmyyyy
+        const digits = t.replace(/\D/g, '');
+        const Y = now.getUTCFullYear();
+        const M = String(now.getUTCMonth()+1).padStart(2,'0');
+        if (digits.length === 2) {
+            // dd -> current month/year
+            const dd = digits;
+            return `${Y}-${M}-${dd}`;
+        }
+        if (digits.length === 4) {
+            // ddmm -> current year
+            const dd = digits.slice(0,2);
+            const mm = digits.slice(2,4);
+            return `${Y}-${mm}-${dd}`;
+        }
+        if (digits.length === 6) {
+            // ddmmyy -> 20yy
+            const dd = digits.slice(0,2);
+            const mm = digits.slice(2,4);
+            const yy = digits.slice(4,6);
+            const yyyy = `20${yy}`;
+            return `${yyyy}-${mm}-${dd}`;
+        }
+        if (digits.length === 8) {
+            // ddmmyyyy
+            const dd = digits.slice(0,2);
+            const mm = digits.slice(2,4);
+            const yyyy = digits.slice(4,8);
+            return `${yyyy}-${mm}-${dd}`;
+        }
+
+        // Fallback to Date parsing
+        const d = new Date(t);
+        if (!isNaN(d.getTime())) return toISODate(new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate())));
+        return null;
+    }
+
+    setDateFilter(dateStr) {
+        const parsed = this._parseDateFilter(dateStr);
+        this._activeDateFilter = parsed;
+        this.emit('updated');
+    }
+
+    clearDateFilter() {
+        this._activeDateFilter = null;
+        this.emit('updated');
+    }
 
     async add(content) {
         if (this._vikunjaEnabled) {
             try {
                 const url = `${this._vikunjaServer}/api/v1/projects/${this._vikunjaProjectId}/tasks`;
-                const res = await this._curlJson('PUT', url, { title: content, project_id: this._vikunjaProjectId });
+                const payload = { title: content, project_id: this._vikunjaProjectId };
+                if (this._activeDateFilter) payload.due_date = `${this._activeDateFilter}T00:00:00Z`;
+                const res = await this._curlJson('PUT', url, payload);
                 if (res.status >= 200 && res.status < 300 && res.json?.id) {
                     const task = res.json;
                     this._todoJson.push({
@@ -78,7 +168,9 @@ class TodoService extends Service {
                 }
             } catch (e) { print(e); Utils.execAsync(['notify-send', 'Vikunja', 'Error adding task']).catch(print); }
         } else {
-            this._todoJson.push({ id: Date.now(), content, done: false, fav: false, due: null });
+            let due = null;
+            if (this._activeDateFilter) due = `${this._activeDateFilter}T00:00:00Z`;
+            this._todoJson.push({ id: Date.now(), content, done: false, fav: false, due });
             this._save();
         }
         this.emit('updated');
@@ -198,29 +290,12 @@ class TodoService extends Service {
         const idx = this._todoJson.findIndex(t => t.id === id);
         if (idx === -1) return;
 
-        // Normalize: DD-MM-YY, DD-MM-YYYY, YYYY-MM-DD, ISO; '31-12-0' sentinel clears
+        // Normalize manual inputs using extended parser
         let payloadDate = null;
         if (typeof dateStr === 'string') {
-            const trimmed = dateStr.trim();
-            if (trimmed.length > 0) {
-                if (trimmed === '31-12-0') {
-                    payloadDate = null;
-                } else if (/^\d{2}-\d{2}-\d{2}$/.test(trimmed)) {
-                    const [dd, mm, yy] = trimmed.split('-');
-                    const yyyy = `20${yy}`;
-                    payloadDate = `${yyyy}-${mm}-${dd}T00:00:00Z`;
-                } else if (/^\d{2}-\d{2}-\d{4}$/.test(trimmed)) {
-                    const [dd, mm, yyyy] = trimmed.split('-');
-                    payloadDate = `${yyyy}-${mm}-${dd}T00:00:00Z`;
-                } else if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
-                    payloadDate = `${trimmed}T00:00:00Z`;
-                } else if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2})?(Z)?$/.test(trimmed)) {
-                    payloadDate = trimmed.endsWith('Z') ? trimmed : `${trimmed}`;
-                } else {
-                    const d = new Date(trimmed);
-                    if (!isNaN(d.getTime())) payloadDate = d.toISOString();
-                }
-            }
+            const parsed = this._parseDateFilter(dateStr); // returns 'YYYY-MM-DD' or null
+            if (parsed) payloadDate = `${parsed}T00:00:00Z`;
+            else payloadDate = null; // includes sentinel 31-12-0 and empty
         }
 
         const oldDue = this._todoJson[idx].due;
@@ -234,9 +309,9 @@ class TodoService extends Service {
             const masked = this._vikunjaToken ? `${this._vikunjaToken.slice(0, 6)}...${this._vikunjaToken.slice(-4)}` : '';
             const attempt = async (body) => {
                 const dataStr = JSON.stringify(body);
-                try { console.log(`[Vikunja] PATCH due_date curl (token masked): curl -sS -X PATCH '${url}' -H 'Authorization: Bearer ${masked}' -H 'Content-Type: application/json' -d '${dataStr}'`); } catch {}
-                const r = await this._patchTask(id, body);
-                try { console.log(`[Vikunja] PATCH status=${r.status} body=${(r.body || '').slice(0, 500)}`); } catch {}
+                try { console.log(`[Vikunja] POST due_date curl (token masked): curl -sS -X POST '${url}' -H 'Authorization: Bearer ${masked}' -H 'Content-Type: application/json' -d '${dataStr}'`); } catch {}
+                const r = await this._postTask(id, body);
+                try { console.log(`[Vikunja] POST status=${r.status} body=${(r.body || '').slice(0, 500)}`); } catch {}
                 return r;
             };
 

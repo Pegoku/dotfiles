@@ -72,6 +72,15 @@ const CalendarDay = (cell) => {
     const dayBox = Widget.Button({
         className: `sidebar-calendar-btn ${today == 1 ? 'sidebar-calendar-btn-today' : (today == -1 ? 'sidebar-calendar-btn-othermonth' : '')}`,
         child: Widget.Overlay({ child: Box({}), overlays: [numberLabel, Box({ hpack: 'end', vpack: 'end', children: [countLabel] })] }),
+        onClicked: () => {
+            // Set date filter and switch to Todo tab
+            const key = formatDMY(year, month, day);
+            Todo.setDateFilter(key); // service accepts YYYY-MM-DD
+            // Find the stack and switch shown child to 'todo'
+            try {
+                contentStack.shown = 'todo';
+            } catch {}
+        },
         setup: (btn) => btn.hook(Todo, () => {
             const dueTasks = taskDueOn(year, month, day, Todo.todo_json);
             countLabel.label = dueTasks.length > 0 ? String(dueTasks.length) : '';

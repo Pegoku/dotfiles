@@ -9,7 +9,7 @@ import { setupCursorHover } from '../.widgetutils/cursorhover.js';
 // Local state for filtering and sorting
 let filterText = '';
 // sortMode: 'alpha-asc' | 'alpha-desc' | 'date-asc' | 'date-desc'
-let sortMode = 'alpha-asc';
+let sortMode = 'date-asc';
 
 const normalize = (s) => (s || '').toString().toLowerCase();
 
@@ -22,9 +22,36 @@ function parseDue(due) {
     return d;
 }
 
+function sameDayUTC(dateObj, y, m, d) {
+    return (
+        dateObj.getUTCFullYear() === y &&
+        dateObj.getUTCMonth() + 1 === m &&
+        dateObj.getUTCDate() === d
+    );
+}
+
+function formatDDMMYY(y, m, d) {
+    const yy = String(y).slice(-2);
+    const mm = String(m).padStart(2, '0');
+    const dd = String(d).padStart(2, '0');
+    return `${dd}-${mm}-${yy}`;
+}
+
 function applyFilterAndSort(tasks, isDone) {
     const ft = normalize(filterText);
-    let arr = tasks.filter(t => t.done === isDone && (ft === '' || normalize(t.content).includes(ft)));
+    const df = Todo.date_filter; // 'YYYY-MM-DD' or null
+    let arr = tasks.filter(t => {
+        if (t.done !== isDone) return false;
+        if (ft !== '' && !normalize(t.content).includes(ft)) return false;
+        if (df) {
+            if (!t.due) return false;
+            const d = parseDue(t.due);
+            if (!d) return false;
+            const [y, m, day] = df.split('-').map(x => parseInt(x, 10));
+            if (!sameDayUTC(d, y, m, day)) return false;
+        }
+        return true;
+    });
     arr.sort((a, b) => {
         // Favorites first
         const favDiff = (b.fav === true) - (a.fav === true);
@@ -119,12 +146,30 @@ const TodoListItem = (task, id, isDone, isEven = false) => {
         },
         setup: setupCursorHover,
     });
+    // Quick picks for faster date setting
+    const quickPick = (days) => {
+        const now = new Date();
+        const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + days));
+        const y = d.getUTCFullYear();
+        const m = d.getUTCMonth() + 1;
+        const day = d.getUTCDate();
+        return formatDDMMYY(y, m, day);
+    };
+    const quickRow = Box({
+        className: 'spacing-h-5',
+        children: [
+            Button({ className: 'txt-small sidebar-todo-item-action', child: Label({ label: 'Today' }), onClicked: () => Todo.setDueDate(task.id ?? id, quickPick(0)), setup: setupCursorHover }),
+            Button({ className: 'txt-small sidebar-todo-item-action', child: Label({ label: 'Tomorrow' }), onClicked: () => Todo.setDueDate(task.id ?? id, quickPick(1)), setup: setupCursorHover }),
+            Button({ className: 'txt-small sidebar-todo-item-action', child: Label({ label: '+7d' }), onClicked: () => Todo.setDueDate(task.id ?? id, quickPick(7)), setup: setupCursorHover }),
+        ]
+    });
     const dueEditor = Box({
         className: 'spacing-h-5',
         children: [
             dueEntry,
             // spacer to push clear to the far right
             Box({ hexpand: true }),
+            quickRow,
             dueSaveBtn,
             dueClearBtn,
         ],
@@ -352,9 +397,53 @@ const SearchSortControls = () => {
         }
     });
 
+    // Date filter chip (shows selected date or All dates), with a small editor revealer and quick picks
+    const filterLabel = Label({ className: 'txt txt-norm', label: '' });
+    const filterButton = Button({
+        className: 'txt-norm sidebar-todo-add',
+        halign: 'start',
+        vpack: 'center',
+        child: Box({ className: 'spacing-h-3', children: [MaterialIcon('event', 'norm', { vpack: 'center' }), filterLabel] }),
+        setup: (btn) => btn.hook(Todo, () => {
+            const df = Todo.date_filter;
+            if (df) {
+                const [y, m, d] = df.split('-').map(x => parseInt(x, 10));
+                filterLabel.label = formatDDMMYY(y, m, d);
+            } else filterLabel.label = 'All dates';
+        }, 'updated'),
+        onClicked: () => {
+            filterEditorRevealer.revealChild = !filterEditorRevealer.revealChild;
+            if (filterEditorRevealer.revealChild) filterEntry.grab_focus();
+        },
+    });
+    const filterEntry = Widget.Entry({
+        vpack: 'center',
+        className: 'txt-small sidebar-todo-entry',
+        placeholderText: 'Filter date (DD-MM-YY)',
+        onAccept: ({ text }) => {
+            const v = (text || '').trim();
+            if (v === '') Todo.clearDateFilter();
+            else Todo.setDateFilter(v);
+        },
+    });
+    const filterQuickRow = Box({
+        className: 'spacing-h-5',
+        children: [
+            Button({ className: 'txt-small sidebar-todo-item-action', child: Label({ label: 'Today' }), onClicked: () => { const n = new Date(); const d = new Date(Date.UTC(n.getUTCFullYear(), n.getUTCMonth(), n.getUTCDate())); Todo.setDateFilter(`${d.getUTCFullYear()}-${String(d.getUTCMonth()+1).padStart(2,'0')}-${String(d.getUTCDate()).padStart(2,'0')}`); }, setup: setupCursorHover }),
+            Button({ className: 'txt-small sidebar-todo-item-action', child: Label({ label: 'Tomorrow' }), onClicked: () => { const n = new Date(); const d = new Date(Date.UTC(n.getUTCFullYear(), n.getUTCMonth(), n.getUTCDate()+1)); Todo.setDateFilter(`${d.getUTCFullYear()}-${String(d.getUTCMonth()+1).padStart(2,'0')}-${String(d.getUTCDate()).padStart(2,'0')}`); }, setup: setupCursorHover }),
+            Button({ className: 'txt-small sidebar-todo-item-action', child: Label({ label: 'Clear' }), onClicked: () => Todo.clearDateFilter(), setup: setupCursorHover }),
+        ]
+    });
+    const filterEditorRevealer = Revealer({
+        transition: 'slide_right',
+        transitionDuration: userOptions.animations.durationLarge,
+        revealChild: false,
+        child: Box({ className: 'spacing-h-5', children: [filterEntry, filterQuickRow] }),
+    });
+
     return Box({
         className: 'spacing-h-5',
-        children: [searchCancel, searchEntryRevealer, searchButton, sortButton]
+        children: [searchCancel, searchEntryRevealer, searchButton, sortButton, filterButton, filterEditorRevealer]
     });
 }
 

@@ -371,7 +371,10 @@ const SearchSortControls = () => {
     });
 
     // Sort toggle button cycles modes: alpha-asc -> alpha-desc -> date-asc -> date-desc
-    const sortIcon = Label({ className: 'txt txt-norm', label: 'A→Z' });
+    const sortIcon = Label({
+        className: 'txt txt-norm',
+        label: (sortMode === 'alpha-asc') ? 'A→Z' : (sortMode === 'alpha-desc') ? 'Z→A' : (sortMode === 'date-asc') ? 'Date ↑' : 'Date ↓'
+    });
     const sortButton = Button({
         className: 'txt-norm sidebar-todo-add',
         halign: 'start',

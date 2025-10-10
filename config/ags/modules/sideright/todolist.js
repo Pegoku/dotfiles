@@ -432,11 +432,23 @@ const SearchSortControls = () => {
             if (df) {
                 const [y, m, d] = df.split('-').map(x => parseInt(x, 10));
                 filterLabel.label = formatDDMMYY(y, m, d);
-            } else filterLabel.label = 'All dates';
+                btn.tooltipText = 'Click to clear date filter';
+            } else {
+                filterLabel.label = 'All dates';
+                btn.tooltipText = 'Click to set a date filter';
+            }
         }, 'updated'),
         onClicked: () => {
-            filterEditorRevealer.revealChild = !filterEditorRevealer.revealChild;
-            if (filterEditorRevealer.revealChild) filterEntry.grab_focus();
+            const df = Todo.date_filter;
+            if (df) {
+                // Clear immediately when a filter is active
+                Todo.clearDateFilter();
+                filterEditorRevealer.revealChild = false;
+            } else {
+                // No filter: open editor to set one
+                filterEditorRevealer.revealChild = !filterEditorRevealer.revealChild;
+                if (filterEditorRevealer.revealChild) filterEntry.grab_focus();
+            }
         },
     });
     const filterEntry = Widget.Entry({

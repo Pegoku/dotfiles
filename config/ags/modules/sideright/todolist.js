@@ -10,6 +10,8 @@ import { setupCursorHover } from '../.widgetutils/cursorhover.js';
 let filterText = '';
 // sortMode: 'alpha-asc' | 'alpha-desc' | 'date-asc' | 'date-desc'
 let sortMode = 'date-asc';
+// whether to prioritize favorites first in sorting
+let favoritesFirst = true;
 
 const normalize = (s) => (s || '').toString().toLowerCase();
 
@@ -53,9 +55,11 @@ function applyFilterAndSort(tasks, isDone) {
         return true;
     });
     arr.sort((a, b) => {
-        // Favorites first
-        const favDiff = (b.fav === true) - (a.fav === true);
-        if (favDiff !== 0) return favDiff;
+        // Favorites first (optional)
+        if (favoritesFirst) {
+            const favDiff = (b.fav === true) - (a.fav === true);
+            if (favDiff !== 0) return favDiff;
+        }
         if (sortMode.startsWith('date-')) {
             const da = parseDue(a.due);
             const db = parseDue(b.due);
@@ -400,6 +404,22 @@ const SearchSortControls = () => {
         }
     });
 
+    // Favorites-first toggle
+    const favIcon = Label({ className: 'txt txt-norm', label: favoritesFirst ? '★1st' : '☆any' });
+    const favoritesToggle = Button({
+        className: 'txt-norm sidebar-todo-add',
+        halign: 'start',
+        vpack: 'center',
+        tooltipText: 'Toggle favorites first',
+        child: Box({ className: 'spacing-h-3', children: [MaterialIcon('grade', 'norm', { vpack: 'center' }), favIcon] }),
+        setup: (btn) => setupCursorHover(btn),
+        onClicked: () => {
+            favoritesFirst = !favoritesFirst;
+            favIcon.label = favoritesFirst ? '★1st' : '☆any';
+            Todo.refresh();
+        }
+    });
+
     // Date filter chip (shows selected date or All dates), with a small editor revealer and quick picks
     const filterLabel = Label({ className: 'txt txt-norm', label: '' });
     const filterButton = Button({
@@ -446,7 +466,7 @@ const SearchSortControls = () => {
 
     return Box({
         className: 'spacing-h-5',
-        children: [searchCancel, searchEntryRevealer, searchButton, sortButton, filterButton, filterEditorRevealer]
+        children: [searchCancel, searchEntryRevealer, searchButton, sortButton, favoritesToggle, filterButton, filterEditorRevealer]
     });
 }
 

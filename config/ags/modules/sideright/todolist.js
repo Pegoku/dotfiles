@@ -94,6 +94,23 @@ const TodoListItem = (task, id, isDone, isEven = false) => {
         label: task.content,
         selectable: true,
     });
+    // Color indicator for project
+    const colorDot = (() => {
+        const dot = Box({ className: 'sidebar-todo-color-dot', vpack: 'center' });
+        const apply = () => {
+            try {
+                const pid = task.project_id ?? null;
+                const proj = (Todo.projects || []).find(p => p.id === pid);
+                const color = proj?.hexColor || null;
+                dot.visible = !!color;
+                dot.css = color ? `min-width: 8px; min-height: 8px; border-radius: 999px; background-color: ${color};` : '';
+            } catch {}
+        };
+        apply();
+        // Refresh when service updates (e.g., projects fetched later)
+        dot.hook?.(Todo, () => apply(), 'updated');
+        return dot;
+    })();
     const dueText = (() => {
         const d = parseDue(task.due);
         if (!d) return 'No date';
@@ -255,6 +272,7 @@ const TodoListItem = (task, id, isDone, isEven = false) => {
     const todoContent = Widget.Box({
         className: 'sidebar-todo-item spacing-h-5',
         children: [
+            colorDot,
             Widget.Box({
                 vertical: true,
                 hexpand: true,
@@ -677,10 +695,17 @@ function ProjectsTab() {
         const selected = new Set(Array.isArray(Todo.selected_project_ids) ? Todo.selected_project_ids : []);
         listBox.children = projects.map(p => {
             const isActive = selected.size === 0 ? false : selected.has(p.id);
+            const color = p.hexColor || null;
+            const colorSwatch = Box({
+                className: 'sidebar-todo-color-dot',
+                vpack: 'center',
+                css: color ? `min-width: 8px; min-height: 8px; border-radius: 999px; background-color: ${color};` : '',
+                visible: !!color,
+            });
             const rowBtn = Button({
                 className: 'txt sidebar-iconbutton',
                 hexpand: true,
-                child: Box({ className: 'spacing-h-5', children: [MaterialIcon('folder', 'norm'), Label({ label: String(p.name || p.id) })] }),
+                child: Box({ className: 'spacing-h-5', children: [MaterialIcon('folder', 'norm'), colorSwatch, Label({ label: String(p.name || p.id) })] }),
                 setup: (btn) => {
                     setupCursorHover(btn);
                     btn.toggleClassName('sidebar-button-active', isActive);

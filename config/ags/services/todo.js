@@ -21,6 +21,8 @@ class TodoService extends Service {
     _vikunjaProjects = [];
     _projectsPath = '';
     _activeDateFilter = null; // 'YYYY-MM-DD' or null
+    _defaultProjectId = null;
+    _defaultProjectIds = [];
 
     async _curlJson(method, url, bodyObj = null) {
         try {
@@ -58,6 +60,18 @@ class TodoService extends Service {
             if (!isNaN(d.getTime()) && y <= 1) return null; // very early year -> treat as no date
         } catch {}
         return due;
+    }
+
+    _normalizeHexColor(c) {
+        if (!c || typeof c !== 'string') return null;
+        let v = c.trim();
+        if (!v) return null;
+        // Strip common prefixes
+        if (v.startsWith('#')) v = v.slice(1);
+        if (/^0x/i.test(v)) v = v.slice(2);
+        // Accept 3 or 6 hex digits
+        if (!/^[0-9a-fA-F]{3}([0-9a-fA-F]{3})?$/.test(v)) return null;
+        return `#${v.toLowerCase()}`;
     }
 
     refresh() { this.emit('updated'); }
@@ -254,7 +268,9 @@ class TodoService extends Service {
         if (this._vikunjaEnabled) {
             try {
                 // Choose target project: first selected, else first configured
-                const target = (this._selectedProjectIds?.[0]) ?? (this._vikunjaProjectIds?.[0]);
+                const target = (this._selectedProjectIds?.[0])
+                    ?? (this._defaultProjectIds?.[0])
+                    ?? (this._defaultProjectId ?? (this._vikunjaProjectIds?.[0]));
                 if (!target) throw new Error('No Vikunja project configured');
                 const url = `${this._vikunjaServer}/api/v1/projects/${target}/tasks`;
                 const payload = { title: content, project_id: target };
@@ -420,15 +436,22 @@ class TodoService extends Service {
             const proj = extractArr(pro.json);
             const lists = extractArr(lis.json);
             const map = new Map();
+            const allowed = new Set(this._vikunjaProjectIds);
             for (const p of proj) {
                 if (!p) continue;
                 const id = p.id ?? p.project_id ?? p.projectId;
-                if (id) map.set(id, { id, name: p.title || p.name || `Project ${id}`, type: 'project' });
+                if (id && allowed.has(id)) {
+                    const hexColor = this._normalizeHexColor(p.hex_color || p.hexColor || p.color || null);
+                    map.set(id, { id, name: p.title || p.name || `Project ${id}`, type: 'project', hexColor });
+                }
             }
             for (const l of lists) {
                 if (!l) continue;
                 const id = l.id ?? l.list_id ?? l.listId;
-                if (id && !map.has(id)) map.set(id, { id, name: l.title || l.name || `List ${id}`, type: 'list' });
+                if (id && !map.has(id) && allowed.has(id)) {
+                    const hexColor = this._normalizeHexColor(l.hex_color || l.hexColor || l.color || null);
+                    map.set(id, { id, name: l.title || l.name || `List ${id}`, type: 'list', hexColor });
+                }
             }
             this._vikunjaProjects = Array.from(map.values()).sort((a, b) => String(a.name).localeCompare(String(b.name)));
             this.emit('updated');
@@ -489,6 +512,15 @@ class TodoService extends Service {
             this._vikunjaServer = (userOptions?.vikunja?.server || '').replace(/\/$/, '');
             this._vikunjaToken = userOptions?.vikunja?.apiToken || '';
             const cfg = userOptions?.vikunja?.projectId ?? null;
+            const def = userOptions?.vikunja?.defaultProjectId;
+            if (typeof def !== 'undefined' && def !== null) {
+                const d = parseInt(def, 10);
+                if (!isNaN(d)) this._defaultProjectId = d;
+            }
+            const defArr = userOptions?.vikunja?.defaultProjectIds;
+            if (Array.isArray(defArr)) {
+                this._defaultProjectIds = defArr.map(x => parseInt(x, 10)).filter(x => !isNaN(x));
+            }
             if (Array.isArray(cfg))
                 this._vikunjaProjectIds = cfg.map(x => parseInt(x, 10)).filter(x => !isNaN(x));
             else if (cfg !== null && typeof cfg !== 'undefined')
@@ -500,6 +532,16 @@ class TodoService extends Service {
                 const sel = JSON.parse(Utils.readFile(this._projectsPath));
                 if (Array.isArray(sel)) this._selectedProjectIds = sel.map(x => parseInt(x, 10)).filter(x => !isNaN(x));
             } catch {}
+            // If nothing persisted, default to configured defaultProjectIds (or single default)
+            if ((this._selectedProjectIds?.length ?? 0) === 0) {
+                const allowed = new Set(this._vikunjaProjectIds);
+                if (this._defaultProjectIds.length > 0) {
+                    const picks = this._defaultProjectIds.filter(id => allowed.has(id));
+                    if (picks.length > 0) this.setSelectedProjects(picks);
+                } else if (this._defaultProjectId && allowed.has(this._defaultProjectId)) {
+                    this.setSelectedProjects([this._defaultProjectId]);
+                }
+            }
         } catch {}
         if (this._vikunjaEnabled && this._vikunjaServer && this._vikunjaToken && (this._vikunjaProjectIds?.length > 0)) {
             this.syncFromVikunja();

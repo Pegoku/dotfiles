@@ -11,6 +11,7 @@ let configOptions = {
         'server': '',
         'apiToken': '',
         'projectId': [],
+        'defaultProjectIds': [],
     },
     'ai': {
         'defaultGPTProvider': "openai",

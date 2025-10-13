@@ -25,6 +25,15 @@ function exists(widget) {
     return widget !== null;
 }
 
+function safeSetLabel(labelWidget, value) {
+    try {
+        if (!labelWidget) return;
+        // get_parent() returns null if the widget is already disposed/destroyed
+        if (typeof labelWidget.get_parent === 'function' && !labelWidget.get_parent()) return;
+        labelWidget.label = value;
+    } catch (_) { /* widget might be disposed; ignore */ }
+}
+
 const getFriendlyNotifTimeString = (timeObject) => {
     const messageTime = GLib.DateTime.new_from_unix_local(timeObject);
     const oneMinuteAgo = GLib.DateTime.new_now_local().add_seconds(-60);
@@ -128,10 +137,10 @@ export default ({
                 Utils.timeout(800, () => {
                     if (wholeThing?.attribute.held) {
                         Utils.execAsync(['wl-copy', `${notifObject.body}`]).catch(print);
-                        notifTextSummary.label = notifObject.summary + " (copied)";
-                        Utils.timeout(3000, () => notifTextSummary.label = notifObject.summary)
+                        safeSetLabel(notifTextSummary, notifObject.summary + " (copied)");
+                        Utils.timeout(3000, () => safeSetLabel(notifTextSummary, notifObject.summary), wholeThing)
                     }
-                })
+                }, wholeThing)
             }).on("button-release-event", () => {
                 wholeThing.attribute.held = false;
                 notificationContent.toggleClassName(`${isPopup ? 'popup-' : ''}notif-clicked-${notifObject.urgency}`, false);
@@ -250,7 +259,7 @@ export default ({
         className: 'txt-smaller txt-semibold',
         label: initTimeString,
         setup: initTimeString == 'Now' ? (self) => {
-            Utils.timeout(60000, () => self.label = getFriendlyNotifTimeString(notifObject.time))
+            Utils.timeout(60000, () => safeSetLabel(self, getFriendlyNotifTimeString(notifObject.time)), self)
         } : () => {},
     });
     const notifText = Box({

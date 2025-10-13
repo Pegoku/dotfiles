@@ -8,7 +8,7 @@ const userConfigOptions = {
         'enabled': false,
         'server': '',
         'apiToken': '',
-        'projectId': null,
+        'projectId': [],
     },
     'search': {
         'enableFeatures': {

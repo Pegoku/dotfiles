@@ -42,9 +42,16 @@ function formatDDMMYY(y, m, d) {
 function applyFilterAndSort(tasks, isDone) {
     const ft = normalize(filterText);
     const df = Todo.date_filter; // 'YYYY-MM-DD' or null
+    const selected = Array.isArray(Todo.selected_project_ids) ? Todo.selected_project_ids : [];
     let arr = tasks.filter(t => {
         if (t.done !== isDone) return false;
         if (ft !== '' && !normalize(t.content).includes(ft)) return false;
+        // Filter by selected projects if any are selected
+        if (selected.length > 0) {
+            const pid = (typeof t.project_id !== 'undefined' && t.project_id !== null)
+                ? parseInt(t.project_id, 10) : NaN;
+            if (!selected.includes(pid)) return false;
+        }
         if (df) {
             if (!t.due) return false;
             const d = parseDue(t.due);
@@ -608,10 +615,110 @@ const DoneTodoList = () => {
 }
 
 export const TodoWidget = () => TabContainer({
-    icons: ['format_list_bulleted', 'task_alt'],
-    names: ['Unfinished', 'Done'],
+    icons: ['format_list_bulleted', 'task_alt', 'folder'],
+    names: ['Unfinished', 'Done', 'Projects'],
     children: [
         UndoneTodoList(),
         DoneTodoList(),
+        ProjectsTab(),
     ]
 })
+
+// Projects selection tab
+function ProjectsTab() {
+    const header = Box({
+        className: 'spacing-h-5',
+        children: [
+            Button({
+                className: 'txt-small sidebar-todo-add',
+                child: Box({ className: 'spacing-h-3', children: [MaterialIcon('select_all', 'norm'), Label({ label: 'All' })] }),
+                onClicked: () => {
+                    let ids = (Todo.projects || []).map(p => p.id).filter(id => typeof id !== 'undefined');
+                    // Fallback to configured ids if projects haven't been fetched yet
+                    if (ids.length === 0) ids = (Todo.configured_project_ids || []).filter(id => typeof id !== 'undefined');
+                    Todo.setSelectedProjects(ids);
+                },
+                setup: setupCursorHover,
+            }),
+            Button({
+                className: 'txt-small sidebar-todo-add',
+                child: Box({ className: 'spacing-h-3', children: [MaterialIcon('deselect', 'norm'), Label({ label: 'None' })] }),
+                tooltipText: 'Show all projects (no filter)',
+                onClicked: () => Todo.setSelectedProjects([]),
+                setup: setupCursorHover,
+            }),
+            Button({
+                className: 'txt-small sidebar-todo-add',
+                child: Box({ className: 'spacing-h-3', children: [MaterialIcon('refresh', 'norm'), Label({ label: 'Refresh' })] }),
+                onClicked: () => Todo.refreshProjectsList?.(),
+                setup: setupCursorHover,
+            }),
+            Box({ hexpand: true }),
+            Label({
+                className: 'txt txt-subtext',
+                setup: (lbl) => lbl.hook(Todo, () => {
+                    const sel = Array.isArray(Todo.selected_project_ids) ? Todo.selected_project_ids : [];
+                    if (sel.length === 0) lbl.label = 'No filter (showing all)';
+                    else lbl.label = `${sel.length} selected`;
+                }, 'updated')
+            }),
+        ],
+    });
+
+    const listBox = Box({ vertical: true, className: 'spacing-v-5' });
+
+    const buildRows = () => {
+        let projects = Array.isArray(Todo.projects) ? Todo.projects : [];
+        if (projects.length === 0) {
+            // Fallback to configured IDs
+            const ids = Array.isArray(Todo.configured_project_ids) ? Todo.configured_project_ids : [];
+            projects = ids.map(id => ({ id, name: `Project ${id}`, type: 'project' }));
+        }
+        const selected = new Set(Array.isArray(Todo.selected_project_ids) ? Todo.selected_project_ids : []);
+        listBox.children = projects.map(p => {
+            const isActive = selected.size === 0 ? false : selected.has(p.id);
+            const rowBtn = Button({
+                className: 'txt sidebar-iconbutton',
+                hexpand: true,
+                child: Box({ className: 'spacing-h-5', children: [MaterialIcon('folder', 'norm'), Label({ label: String(p.name || p.id) })] }),
+                setup: (btn) => {
+                    setupCursorHover(btn);
+                    btn.toggleClassName('sidebar-button-active', isActive);
+                },
+                onClicked: (btn) => {
+                    Todo.toggleProjectSelection?.(p.id);
+                },
+            });
+            return rowBtn;
+        });
+    };
+
+    const scroller = Widget.Scrollable({
+        vscroll: 'automatic',
+        hscroll: 'never',
+        child: listBox,
+        setup: (self) => {
+            // Rebuild whenever the service updates and style the scrollbar like other lists
+            self.hook(Todo, () => buildRows(), 'updated');
+            try {
+                const vScrollbar = self.get_vscrollbar();
+                vScrollbar.get_style_context().add_class('sidebar-scrollbar');
+            } catch {}
+        },
+    });
+
+    // initial build
+    try { buildRows(); } catch {}
+
+    return Box({
+        vertical: true,
+        className: 'spacing-v-5',
+        // Pack explicitly so the scroller actually takes available space (like other tabs)
+        setup: (box) => {
+            box.pack_start(header, false, false, 0);
+            box.pack_end(scroller, true, true, 0);
+            // ensure we have projects loaded when opening this tab
+            Todo.refreshProjectsList?.();
+        }
+    });
+}

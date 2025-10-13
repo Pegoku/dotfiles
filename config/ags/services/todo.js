@@ -13,7 +13,13 @@ class TodoService extends Service {
     _vikunjaEnabled = false;
     _vikunjaServer = '';
     _vikunjaToken = '';
-    _vikunjaProjectId = null;
+    // Support multiple projects/lists
+    _vikunjaProjectIds = [];
+    // Selected subset of projects to show (persisted). Empty => show all
+    _selectedProjectIds = [];
+    // Cached available projects/lists with names
+    _vikunjaProjects = [];
+    _projectsPath = '';
     _activeDateFilter = null; // 'YYYY-MM-DD' or null
 
     async _curlJson(method, url, bodyObj = null) {
@@ -58,6 +64,28 @@ class TodoService extends Service {
     connectWidget(widget, callback) { this.connect(widget, callback, 'updated'); }
     get todo_json() { return this._todoJson; }
     get date_filter() { return this._activeDateFilter; }
+    get projects() { return this._vikunjaProjects; }
+    get selected_project_ids() { return this._selectedProjectIds; }
+    get configured_project_ids() { return this._vikunjaProjectIds; }
+    setSelectedProjects(ids) {
+        if (!Array.isArray(ids)) return;
+        // sanitize to numbers
+        this._selectedProjectIds = ids.map(x => parseInt(x, 10)).filter(x => !isNaN(x));
+        // persist
+        try {
+            // ensure dir exists
+            Utils.exec(`bash -c 'mkdir -p ${GLib.get_user_state_dir()}/ags/user'`);
+            Utils.writeFile(JSON.stringify(this._selectedProjectIds), this._projectsPath).catch(print);
+        } catch {}
+        this.emit('updated');
+    }
+    toggleProjectSelection(id) {
+        const pid = parseInt(id, 10);
+        if (isNaN(pid)) return;
+        const set = new Set(this._selectedProjectIds);
+        if (set.has(pid)) set.delete(pid); else set.add(pid);
+        this.setSelectedProjects(Array.from(set));
+    }
     _save() { Utils.writeFile(JSON.stringify(this._todoJson), this._todoPath).catch(print); }
 
     _parseDateFilter(dateStr) {
@@ -225,8 +253,11 @@ class TodoService extends Service {
     async add(content) {
         if (this._vikunjaEnabled) {
             try {
-                const url = `${this._vikunjaServer}/api/v1/projects/${this._vikunjaProjectId}/tasks`;
-                const payload = { title: content, project_id: this._vikunjaProjectId };
+                // Choose target project: first selected, else first configured
+                const target = (this._selectedProjectIds?.[0]) ?? (this._vikunjaProjectIds?.[0]);
+                if (!target) throw new Error('No Vikunja project configured');
+                const url = `${this._vikunjaServer}/api/v1/projects/${target}/tasks`;
+                const payload = { title: content, project_id: target };
                 if (this._activeDateFilter) payload.due_date = `${this._activeDateFilter}T00:00:00Z`;
                 const res = await this._curlJson('PUT', url, payload);
                 if (res.status >= 200 && res.status < 300 && res.json?.id) {
@@ -237,6 +268,7 @@ class TodoService extends Service {
                         done: !!task.done,
                         fav: !!(task.is_favorite || task.favorite || task.isFavorite),
                         due: this._normalizeDue(task.due_date || task.dueDate || null),
+                        project_id: task.project_id ?? task.projectId ?? target,
                     });
                 } else {
                     Utils.execAsync(['notify-send', 'Vikunja', `Failed to add task (HTTP ${res.status})`]).catch(print);
@@ -343,21 +375,62 @@ class TodoService extends Service {
     async syncFromVikunja() {
         if (!this._vikunjaEnabled) return;
         try {
-            let res = await this._curlJson('GET', `${this._vikunjaServer}/api/v1/projects/${this._vikunjaProjectId}/tasks`);
-            let list = Array.isArray(res.json) ? res.json : null;
-            if (!list) {
-                res = await this._curlJson('GET', `${this._vikunjaServer}/api/v1/lists/${this._vikunjaProjectId}/tasks`);
-                list = Array.isArray(res.json) ? res.json : [];
+            const ids = Array.isArray(this._vikunjaProjectIds) ? this._vikunjaProjectIds : [];
+            const allTasks = [];
+            for (const pid of ids) {
+                let res = await this._curlJson('GET', `${this._vikunjaServer}/api/v1/projects/${pid}/tasks`);
+                let list = Array.isArray(res.json) ? res.json : null;
+                if (!list) {
+                    res = await this._curlJson('GET', `${this._vikunjaServer}/api/v1/lists/${pid}/tasks`);
+                    list = Array.isArray(res.json) ? res.json : [];
+                }
+                if (!Array.isArray(list)) list = [];
+                for (const t of list) {
+                    allTasks.push({ task: t, pid });
+                }
             }
-            if (!Array.isArray(list)) list = [];
             const favMap = new Map(this._todoJson.map(t => [t.id, !!t.fav]));
-            this._todoJson = list.map(t => ({
+            this._todoJson = allTasks.map(({ task: t, pid }) => ({
                 id: t.id,
                 content: t.title,
                 done: !!t.done,
                 fav: typeof t.is_favorite !== 'undefined' ? !!t.is_favorite : (typeof t.favorite !== 'undefined' ? !!t.favorite : (favMap.get(t.id) || false)),
                 due: this._normalizeDue(t.due_date || t.dueDate || t.due || null),
+                project_id: t.project_id ?? t.projectId ?? t.list_id ?? t.listId ?? pid,
             }));
+            this.emit('updated');
+        } catch (e) { print(e); }
+    }
+
+    async refreshProjectsList() {
+        if (!this._vikunjaEnabled) return;
+        try {
+            // Try both projects and lists; combine and de-duplicate by id
+            const pro = await this._curlJson('GET', `${this._vikunjaServer}/api/v1/projects`);
+            const lis = await this._curlJson('GET', `${this._vikunjaServer}/api/v1/lists`);
+            const extractArr = (obj) => {
+                if (!obj) return [];
+                if (Array.isArray(obj)) return obj;
+                if (Array.isArray(obj?.projects)) return obj.projects;
+                if (Array.isArray(obj?.lists)) return obj.lists;
+                if (Array.isArray(obj?.results)) return obj.results;
+                if (Array.isArray(obj?.data)) return obj.data;
+                return [];
+            };
+            const proj = extractArr(pro.json);
+            const lists = extractArr(lis.json);
+            const map = new Map();
+            for (const p of proj) {
+                if (!p) continue;
+                const id = p.id ?? p.project_id ?? p.projectId;
+                if (id) map.set(id, { id, name: p.title || p.name || `Project ${id}`, type: 'project' });
+            }
+            for (const l of lists) {
+                if (!l) continue;
+                const id = l.id ?? l.list_id ?? l.listId;
+                if (id && !map.has(id)) map.set(id, { id, name: l.title || l.name || `List ${id}`, type: 'list' });
+            }
+            this._vikunjaProjects = Array.from(map.values()).sort((a, b) => String(a.name).localeCompare(String(b.name)));
             this.emit('updated');
         } catch (e) { print(e); }
     }
@@ -410,14 +483,27 @@ class TodoService extends Service {
     constructor() {
         super();
         this._todoPath = `${GLib.get_user_state_dir()}/ags/user/todo.json`;
+        this._projectsPath = `${GLib.get_user_state_dir()}/ags/user/todo_projects.json`;
         try {
             this._vikunjaEnabled = !!userOptions?.vikunja?.enabled;
             this._vikunjaServer = (userOptions?.vikunja?.server || '').replace(/\/$/, '');
             this._vikunjaToken = userOptions?.vikunja?.apiToken || '';
-            this._vikunjaProjectId = userOptions?.vikunja?.projectId ?? null;
+            const cfg = userOptions?.vikunja?.projectId ?? null;
+            if (Array.isArray(cfg))
+                this._vikunjaProjectIds = cfg.map(x => parseInt(x, 10)).filter(x => !isNaN(x));
+            else if (cfg !== null && typeof cfg !== 'undefined')
+                this._vikunjaProjectIds = [parseInt(cfg, 10)].filter(x => !isNaN(x));
+            else
+                this._vikunjaProjectIds = [];
+            // Load persisted selected project IDs if any
+            try {
+                const sel = JSON.parse(Utils.readFile(this._projectsPath));
+                if (Array.isArray(sel)) this._selectedProjectIds = sel.map(x => parseInt(x, 10)).filter(x => !isNaN(x));
+            } catch {}
         } catch {}
-        if (this._vikunjaEnabled && this._vikunjaServer && this._vikunjaToken && this._vikunjaProjectId) {
+        if (this._vikunjaEnabled && this._vikunjaServer && this._vikunjaToken && (this._vikunjaProjectIds?.length > 0)) {
             this.syncFromVikunja();
+            this.refreshProjectsList();
             Utils.interval(60000, () => this.syncFromVikunja());
         } else {
             try {

@@ -10,7 +10,7 @@ let configOptions = {
         'enabled': false,
         'server': '',
         'apiToken': '',
-        'projectId': null,
+        'projectId': [],
     },
     'ai': {
         'defaultGPTProvider': "openai",

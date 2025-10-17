@@ -111,29 +111,48 @@ async function listDdcMonitorsSnBus() {
 const numMonitors = Hyprland.monitors.length;
 const service = Array(numMonitors);
 const ddcSnBus = await listDdcMonitorsSnBus();
+const hasDdcutilCmd = (() => {
+    try {
+        return !!exec(`bash -c 'command -v ddcutil'`).trim();
+    } catch (err) {
+        return false;
+    }
+})();
+const isValidBus = (bus) => bus !== undefined && bus !== null && bus !== '' && !Number.isNaN(Number(bus));
+const makeDdcService = (busNum, monitorName) => {
+    if (!isValidBus(busNum)) {
+        print(`Brightness: no valid I2C bus for monitor ${monitorName}, falling back to brightnessctl`);
+        return null;
+    }
+    return new BrightnessDdcService(busNum);
+};
 for (let i = 0; i < service.length; i++) {
     const monitorName = Hyprland.monitors[i].name;
     const monitorSn = Hyprland.monitors[i].serial;
     const preferredController = userOptions.brightness.controllers[monitorName]
         || userOptions.brightness.controllers.default || "auto";
+    let controller = null;
     if (preferredController) {
+        const busNum = monitorSn ? ddcSnBus[monitorSn] : undefined;
         switch (preferredController) {
             case "brightnessctl":
-                service[i] = new BrightnessCtlService();
+                controller = new BrightnessCtlService();
                 break;
             case "ddcutil":
-                service[i] = new BrightnessDdcService(ddcSnBus[monitorSn]);
+                controller = makeDdcService(busNum, monitorName);
                 break;
             case "auto":
-                if (monitorSn in ddcSnBus && !!exec(`bash -c 'command -v ddcutil'`))
-                    service[i] = new BrightnessDdcService(ddcSnBus[monitorSn]);
-                else
-                    service[i] = new BrightnessCtlService();
+                if (hasDdcutilCmd)
+                    controller = makeDdcService(busNum, monitorName);
+                if (!controller)
+                    controller = new BrightnessCtlService();
                 break;
             default:
-                throw new Error(`Unknown brightness controller ${preferredController}`);
+                print(`Unknown brightness controller ${preferredController}, defaulting to brightnessctl`);
+                controller = new BrightnessCtlService();
         }
     }
+    service[i] = controller ?? new BrightnessCtlService();
 }
 
 // make it global for easy use with cli

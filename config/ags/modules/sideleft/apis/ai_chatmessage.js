@@ -359,7 +359,7 @@ export const ChatMessage = (message, modelName = 'Model') => {
                 },
                 stop: () => {
                     if (!timerId) return;
-                    Utils.clearInterval(timerId);
+                    GLib.source_remove(timerId);
                     timerId = 0;
                 }
             }

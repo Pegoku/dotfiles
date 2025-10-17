@@ -75,7 +75,7 @@ let configOptions = {
         // 'eDP-1': "brightnessctl",
         // 'DP-1': "ddcutil",
         'controllers': {
-            'default': "brightnessctl",
+            'default': "ddcutil",
         },
     },
     'cheatsheet': {

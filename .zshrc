@@ -178,7 +178,7 @@ gpp() {
 }
 
 setb() {
-  sudo ddcutil setvcp 10 $1 --display 1
+  ddcutil setvcp 10 $1 --display 1
 }
 
 export DOCKER_HOST=unix://$XDG_RUNTIME_DIR/docker.sock

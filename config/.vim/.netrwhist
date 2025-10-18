@@ -1,5 +1,6 @@
 let g:netrw_dirhistmax  =10
-let g:netrw_dirhistcnt =5
+let g:netrw_dirhistcnt =6
+let g:netrw_dirhist_6='/home/pegoku/Media/Projects/Code/GitHub/dotfiles/config/hypr/hyprlock'
 let g:netrw_dirhist_5='/run/media/pegoku/a93ad6df-d088-42d9-9c6a-59ee9993711e/home/pegoku/Downloads/Reto1'
 let g:netrw_dirhist_4='/home/pegoku/Media/Projects/Code/GitHub/Class/AWEB/ud2'
 let g:netrw_dirhist_3='/home/pegoku/Media/Projects/Code/GitHub/Class/AWEB'
@@ -9,4 +10,3 @@ let g:netrw_dirhist_0='/home/pegoku/Media/Projects/Code/GitHub/Class/AWEB/ud2'
 let g:netrw_dirhist_9='/home/pegoku/Media/Projects/Code/GitHub/Class/AWEB'
 let g:netrw_dirhist_8='/home/pegoku/Media/Projects/Code/GitHub/Class/AWEB/ud2'
 let g:netrw_dirhist_7='/home/pegoku/Media/Projects/Code/GitHub/Class/AWEB'
-let g:netrw_dirhist_6='/home/pegoku/Media/Projects/Code/GitHub/Class/AWEB/ud1/assets/img'

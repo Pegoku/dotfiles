@@ -208,10 +208,16 @@ def get_binds_recursive(current_content, scope):
     return current_content;
 
 def parse_keys(path: str) -> Dict[str, List[KeyBinding]]:
+    """Parse the hyprland keybind config into a nested Section structure.
+    Returns the string "error" if the file is missing or empty so the caller can
+    propagate this sentinel. We explicitly guard against empty files to avoid
+    IndexError previously raised when accessing content_lines[0].
+    """
     global content_lines
-    content_lines = read_content(path).splitlines()
-    if content_lines[0] == "error":
+    raw = read_content(path)
+    if raw == "error" or raw.strip() == "":
         return "error"
+    content_lines = raw.splitlines()
     return get_binds_recursive(Section([], [], ""), 0)
 
 

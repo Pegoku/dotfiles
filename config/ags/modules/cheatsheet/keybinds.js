@@ -9,17 +9,45 @@ const HYPRLAND_KEYBIND_CONFIG_FILE = userOptions.cheatsheet.keybinds.configPath 
     userOptions.cheatsheet.keybinds.configPath : `${GLib.get_user_config_dir()}/hypr/hyprland/keybinds.conf`;
 const KEYBIND_SECTIONS_PER_PAGE = 3;
 const getKeybindList = () => {
-    let data = Utils.exec(`${App.configDir}/scripts/hyprland/get_keybinds.py --path ${HYPRLAND_KEYBIND_CONFIG_FILE}`);
-    if (data == "\"error\"") {
-        Utils.timeout(2000, () => Utils.execAsync(['notify-send',
-        'Update path to keybinds',
-        'Keybinds hyprland config file not found. Check your user options.',
-            '-a', 'ags',
-        ]).catch(print))
+    // Use quotes around path to avoid word-splitting if the user configured a path with spaces
+    let data;
+    try {
+        data = Utils.exec(`${App.configDir}/scripts/hyprland/get_keybinds.py --path "${HYPRLAND_KEYBIND_CONFIG_FILE}"`).trim();
+    } catch (e) {
+        print(`[cheatsheet/keybinds] Failed executing get_keybinds.py: ${e}`);
+        notifyKeybindError('Failed to execute helper script.');
         return { children: [] };
     }
-    return JSON.parse(data);
+
+    // Python helper prints the JSON encoded string "error" (including quotes) when file missing
+    if (data === '"error"') {
+        notifyKeybindError('Keybinds hyprland config file not found. Check your user options.');
+        return { children: [] };
+    }
+
+    if (!data) { // empty output
+        notifyKeybindError('Helper script returned no data.');
+        return { children: [] };
+    }
+
+    try {
+        return JSON.parse(data);
+    } catch (e) {
+        // Provide a truncated preview to help debugging without flooding logs
+        print(`[cheatsheet/keybinds] JSON parse failed: ${e}\nRaw (truncated 200): ${data.slice(0, 200)}`);
+        notifyKeybindError('Could not parse keybind data. See log.');
+        return { children: [] };
+    }
 };
+
+function notifyKeybindError(message) {
+    Utils.timeout(2000, () => Utils.execAsync([
+        'notify-send',
+        'Update path to keybinds',
+        message,
+        '-a', 'ags',
+    ]).catch(print));
+}
 const keybindList = getKeybindList();
 
 const keySubstitutions = {

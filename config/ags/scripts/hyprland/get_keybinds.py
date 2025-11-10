@@ -3,6 +3,7 @@ import argparse
 import re
 import os
 from os.path import expandvars as os_expandvars
+from pathlib import Path
 from typing import Dict, List
 
 TITLE_REGEX = "#+!"
@@ -36,10 +37,50 @@ class Section(dict):
 
 
 def read_content(path: str) -> str:
-    if (not os.access(os.path.expanduser(os.path.expandvars(path)), os.R_OK)):
-        return ("error")
-    with open(os.path.expanduser(os.path.expandvars(path)), "r") as file:
+    """Read a file as UTF-8, tolerating stray bytes, and return 'error' if unreadable."""
+    resolved = os.path.expanduser(os.path.expandvars(path))
+    if not os.access(resolved, os.R_OK):
+        return "error"
+    with open(resolved, "r", encoding="utf-8", errors="replace") as file:
         return file.read()
+
+
+def expand_sources(raw: str, base_path: str, seen: set[str] | None = None) -> str:
+    """Inline `source = file` directives recursively.
+    Paths are expanded for ~ and env vars; relative paths resolve against base_path's directory.
+    """
+    if seen is None:
+        seen = set()
+    lines = raw.splitlines()
+    out_lines: list[str] = []
+    base_dir = str(Path(os.path.expanduser(os.path.expandvars(base_path))).parent)
+    for ln in lines:
+        stripped = ln.strip()
+        if stripped.startswith("source") and "=" in stripped:
+            try:
+                _, rhs = stripped.split("=", 1)
+                src_path = rhs.strip().strip('\"\'')
+                candidate = os.path.expanduser(os.path.expandvars(src_path))
+                if not os.path.isabs(candidate):
+                    candidate = os.path.join(base_dir, candidate)
+                canon = os.path.realpath(candidate)
+                if canon in seen:
+                    # Avoid include loops
+                    continue
+                seen.add(canon)
+                included_raw = read_content(canon)
+                if included_raw != "error":
+                    out_lines.append(f"# -- begin source: {src_path} --")
+                    out_lines.extend(expand_sources(included_raw, canon, seen).splitlines())
+                    out_lines.append(f"# -- end source: {src_path} --")
+                else:
+                    # Keep original line if include missing, to aid debugging
+                    out_lines.append(ln)
+            except Exception:
+                out_lines.append(ln)
+        else:
+            out_lines.append(ln)
+    return "\n".join(out_lines)
 
 
 def autogenerate_comment(dispatcher: str, params: str = "") -> str:
@@ -208,15 +249,85 @@ def get_binds_recursive(current_content, scope):
     return current_content;
 
 def parse_keys(path: str) -> Dict[str, List[KeyBinding]]:
-    global content_lines
-    content_lines = read_content(path).splitlines()
-    if content_lines[0] == "error":
+    """Parse the hyprland keybind config into a nested Section structure.
+    Returns the string "error" if the file is missing or empty so the caller can
+    propagate this sentinel. Includes are expanded via `source =`.
+    """
+    global content_lines, reading_line
+    raw = read_content(path)
+    if raw == "error" or raw.strip() == "":
         return "error"
+    raw_expanded = expand_sources(raw, path)
+    content_lines = raw_expanded.splitlines()
+    if len(content_lines) == 0:
+        return "error"
+    reading_line = 0
     return get_binds_recursive(Section([], [], ""), 0)
 
 
 if __name__ == "__main__":
-    import json
+    # Try to import json; if it fails (e.g., corrupted stdlib), fall back to a tiny serializer
+    json_dumps = None
+    try:
+        import json  # type: ignore
+        json_dumps = json.dumps
+    except Exception as e:
+        import sys, traceback
+        tb = traceback.format_exc(limit=5)
+        sys.stderr.write(f"[get_keybinds] Failed to import json: {e}\n{tb}\n")
 
-    ParsedKeys = parse_keys(args.path)
-    print(json.dumps(ParsedKeys))
+        def _esc_str(s: str) -> str:
+            out = []
+            for ch in s:
+                code = ord(ch)
+                if ch == '"':
+                    out.append('\\"')
+                elif ch == '\\':
+                    out.append('\\\\')
+                elif ch == '\b':
+                    out.append('\\b')
+                elif ch == '\f':
+                    out.append('\\f')
+                elif ch == '\n':
+                    out.append('\\n')
+                elif ch == '\r':
+                    out.append('\\r')
+                elif ch == '\t':
+                    out.append('\\t')
+                elif code < 0x20:
+                    out.append('\\u%04x' % code)
+                else:
+                    out.append(ch)
+            return '"' + ''.join(out) + '"'
+
+        def _to_json(o):
+            if o is None:
+                return 'null'
+            if isinstance(o, bool):
+                return 'true' if o else 'false'
+            if isinstance(o, (int, float)):
+                return str(o)
+            if isinstance(o, str):
+                return _esc_str(o)
+            if isinstance(o, dict):
+                items = []
+                for k, v in o.items():
+                    items.append(_esc_str(str(k)) + ':' + _to_json(v))
+                return '{' + ','.join(items) + '}'
+            if isinstance(o, (list, tuple)):
+                return '[' + ','.join(_to_json(x) for x in o) + ']'
+            return _esc_str(str(o))
+
+        json_dumps = _to_json
+
+    try:
+        ParsedKeys = parse_keys(args.path)
+        print(json_dumps(ParsedKeys))
+    except Exception as e:
+        import sys, traceback
+        tb = traceback.format_exc(limit=5)
+        sys.stderr.write(f"[get_keybinds] Unexpected error: {e}\n{tb}\n")
+        try:
+            print(json_dumps("error"))
+        except Exception:
+            print('"error"')

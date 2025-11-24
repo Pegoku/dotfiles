@@ -1,0 +1,125 @@
+# ######## Window rules ########
+windowrule = no_blur, match:title .*
+windowrule = opacity 0.95 override, match:title .*  # Applies transparency to EVERY WINDOW
+
+# windowrule = float, match:class ^(blueberry.py)$
+# windowrule = float, match:class ^(steam)$
+# windowrule = float, match:class ^(guifetch)$  # FlafyDev/guifetch
+
+# Warp
+windowrule = tile, match:class dev.warp.Warp
+
+# Picture-in-Picture
+windowrule = float, match:title ^([Pp]icture[-\s]?[Ii]n[-\s]?[Pp]icture)(.*)$
+
+# Center common dialogs
+windowrule = center, match:title ^(Open File)(.*)$
+windowrule = center, match:title ^(Select a File)(.*)$
+windowrule = center, match:title ^(Choose wallpaper)(.*)$
+windowrule = center, match:title ^(Open Folder)(.*)$
+windowrule = center, match:title ^(Save As)(.*)$
+windowrule = center, match:title ^(Library)(.*)$
+windowrule = center, match:title ^(File Upload)(.*)$
+
+# windowrule = no_initial_focus, match:title .*
+
+# Dialogs (floating)
+windowrule = float, match:title ^(Open File)(.*)$
+windowrule = float, match:title ^(Select a File)(.*)$
+windowrule = float, match:title ^(Choose wallpaper)(.*)$
+windowrule = float, match:title ^(Open Folder)(.*)$
+windowrule = float, match:title ^(Save As)(.*)$
+windowrule = float, match:title ^(Library)(.*)$
+windowrule = float, match:title ^(File Upload)(.*)$
+
+# Tearing
+windowrule = immediate, match:title .*\.exe
+windowrule = immediate, match:class steam_app
+
+# No shadow for tiled windows
+windowrule = no_shadow, match:float 0
+
+# ######## Layer rules ########
+layerrule = xray 1, .*
+# layerrule = noanim, .*
+layerrule = noanim, walker
+layerrule = noanim, selection
+layerrule = noanim, overview
+layerrule = noanim, anyrun
+layerrule = noanim, indicator.*
+layerrule = noanim, osk
+layerrule = noanim, hyprpicker
+layerrule = blur, shell:*
+layerrule = ignorealpha 0.6, shell:*
+
+layerrule = noanim, noanim
+layerrule = blur, gtk-layer-shell
+layerrule = ignorezero, gtk-layer-shell
+layerrule = blur, launcher
+layerrule = ignorealpha 0.5, launcher
+layerrule = blur, notifications
+layerrule = ignorealpha 0.69, notifications
+
+# ags
+layerrule = animation slide top, sideleft.*
+layerrule = animation slide top, sideright.*
+layerrule = blur, session
+
+layerrule = blur, bar
+layerrule = ignorealpha 0.6, bar
+layerrule = blur, corner.*
+layerrule = ignorealpha 0.6, corner.*
+layerrule = blur, dock
+layerrule = ignorealpha 0.6, dock
+layerrule = blur, indicator.*
+layerrule = ignorealpha 0.6, indicator.*
+layerrule = blur, overview
+layerrule = ignorealpha 0.6, overview
+layerrule = blur, cheatsheet
+layerrule = ignorealpha 0.6, cheatsheet
+layerrule = blur, sideright
+layerrule = ignorealpha 0.6, sideright
+layerrule = blur, sideleft
+layerrule = ignorealpha 0.6, sideleft
+layerrule = blur, indicator*
+layerrule = ignorealpha 0.6, indicator*
+layerrule = blur, osk
+layerrule = ignorealpha 0.6, osk
+
+######### USER rules ########
+# Spotify
+#windowrule = noinitialfocus, class:Spotify
+#windowrule = workspace 10, class:Spotify
+
+# Packet Tracer
+windowrule = noinitialfocus, class:PacketTracer
+
+# Dbeaver
+windowrule = noinitialfocus, class:DBeaver
+
+# BeatSaber Oneclick
+windowrule = float, size 180 100, class: bs-oneclick.py
+
+# Freecad
+windowrule = noinitialfocus, suppressevent activatefocus, class:FreeCAD
+
+# Android Studio
+windowrule = noinitialfocus, class:jetbrains-studio
+
+# Kde Connect
+windowrule = noinitialfocus, class:org.kde.kdeconnect.daemon
+windowrule = workspace 11, class:org.kde.kdeconnect.daemon
+
+# Kicad
+windowrule = workspace 6, title:.*— KiCad.*
+windowrule = workspace 7, title:.*Schematic Editor$
+windowrule = workspace 8, title:.*PCB Editor$
+windowrule = float, workspace 8, class:KiCad, title:3D Viewer$
+# windowrule = size 10% 100%, title:kicad\-wakatime.*
+windowrule = size 1280 1000, class:kicad #title:Footprint Chooser.*
+
+#STM32CubeIDE
+windowrule = stayfocused, class:org-eclipse-core-internal-jobs-Worker
+
+# GIMP
+windowrule = opacity 1, suppressevent activatefocus, noinitialfocus, class:gimp

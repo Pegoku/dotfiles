@@ -213,4 +213,6 @@ path+=(
   $HOME/.local/bin
   $HOME/.spicetify
   /opt/simplicitystudio5/developer/adapter_packs/commander
+  $HOME/.bun/bin
 )
+[ -f /opt/miniconda3/etc/profile.d/conda.sh ] && source /opt/miniconda3/etc/profile.d/conda.sh

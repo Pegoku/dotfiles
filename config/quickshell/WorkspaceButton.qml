@@ -81,8 +81,6 @@ Rectangle {
         anchors.fill: parent
         onClicked: {
                 Hyprland.dispatch("workspace " + number)
-                console.log("Switched to workspace " + number);
-
         }
     }
 }

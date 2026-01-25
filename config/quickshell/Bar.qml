@@ -23,6 +23,7 @@ Scope {
 
             Rectangle {
                 property alias innerRow: workspaceRow
+                property int wheelAccum: 0
 
                 anchors.horizontalCenter: parent.horizontalCenter
                 anchors.verticalCenter: parent.verticalCenter
@@ -49,13 +50,31 @@ Scope {
                     }
 
                 }
+                Timer {
+                    id: wheelResetTimer
+                    interval: 300
+                    repeat: false
+                    onTriggered: wheelAccum = 0
+                }
+
                 MouseArea {
                     anchors.fill: parent
+                    // accumulate wheel deltas so small touchpad gestures don't jump many workspaces
                     onWheel: {
-                        if (wheel.angleDelta.y > 10 && Hyprland.focusedWorkspace.id > 1) {
-                            Hyprland.dispatch("workspace " + (Hyprland.focusedWorkspace.id - 1))
-                        } else if (wheel.angleDelta.y < 10) {
-                            Hyprland.dispatch("workspace " + (Hyprland.focusedWorkspace.id + 1))
+                        // angleDelta.y typical step is 120 per notch; accumulate and trigger on threshold
+                        wheelAccum += wheel.angleDelta.y
+                        wheelResetTimer.restart()
+
+                        var threshold = 120
+                        var focused = Hyprland.focusedWorkspace && Hyprland.focusedWorkspace.id ? Hyprland.focusedWorkspace.id : 1
+                        var total = (Hyprland.workspaces && Hyprland.workspaces.values) ? Hyprland.workspaces.values.length : (Hyprland.workspaces && Hyprland.workspaces.count ? Hyprland.workspaces.count : 10)
+
+                        if (wheelAccum >= threshold && focused > 1) {
+                            Hyprland.dispatch("workspace " + (focused - 1))
+                            wheelAccum = 0
+                        } else if (wheelAccum <= -threshold && focused < total) {
+                            Hyprland.dispatch("workspace " + (focused + 1))
+                            wheelAccum = 0
                         }
                     }
                 }

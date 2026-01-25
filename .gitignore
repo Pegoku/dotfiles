@@ -2,3 +2,4 @@ oh-my-zsh
 .history
 *.sync-conflict*
 config/ags/user_options.js
+config/quickshell/.qmlls.ini

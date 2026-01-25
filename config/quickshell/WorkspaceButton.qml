@@ -53,9 +53,7 @@ Rectangle {
     MouseArea {
         anchors.fill: parent
         onClicked: {
-            if (workspace) {
-                Hyprland.dispatch("workspace " + workspace.id)
-            }
+                Hyprland.dispatch("workspace " + number)
         }
     }
 }

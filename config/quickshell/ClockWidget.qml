@@ -1,6 +1,38 @@
 import QtQuick
 
-Text {
+Rectangle {
+    id: containerRect
 
-    text: Time.time + " - " + Time.date
+
+    property int padding: 6
+
+    anchors.verticalCenter: parent.verticalCenter
+
+    radius: 12
+    color: "#1c1c1c"
+    opacity: 0.85
+    layer.enabled: true
+
+    Text {
+        id: clockText
+        anchors.left: parent.left
+        anchors.leftMargin: 6
+        anchors.verticalCenter: parent.verticalCenter
+        text: Time.time + " - "
+        color: "white"
+        font.bold: true
+    }
+
+    Text {
+        id: dayText
+        anchors.left: clockText.right
+        // anchors.rightMargin: 5
+        anchors.verticalCenter: parent.verticalCenter
+        text: Time.date
+        color: "white"
+    }
+        // keep left padding only (padding on the left side of the text)
+        width: clockText.implicitWidth + dayText.implicitWidth + padding*2
+    height: clockText.implicitHeight + padding * 2
+
 }

@@ -49,6 +49,16 @@ Scope {
                     }
 
                 }
+                MouseArea {
+                    anchors.fill: parent
+                    onWheel: {
+                        if (wheel.angleDelta.y > 10 && Hyprland.focusedWorkspace.id > 1) {
+                            Hyprland.dispatch("workspace " + (Hyprland.focusedWorkspace.id - 1))
+                        } else if (wheel.angleDelta.y < 10) {
+                            Hyprland.dispatch("workspace " + (Hyprland.focusedWorkspace.id + 1))
+                        }
+                    }
+                }
 
             }
             // ClockWidget {

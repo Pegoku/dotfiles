@@ -52,7 +52,9 @@ Rectangle {
     }
 
     MouseArea {
-        anchors.fill: parent
+        anchors.centerIn: parent
+        width: containerRect.width + 40
+        height: 100  // Large vertical area for easier scrolling
         acceptedButtons: Qt.NoButton // Disable clicks
         onWheel: {
             // angleDelta.y typical step is 120 per notch; accumulate and trigger on threshold

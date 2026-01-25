@@ -5,7 +5,6 @@ import Quickshell.Io
 Scope {
     id: root
 
-
     Variants {
         model: Quickshell.screens
 
@@ -23,6 +22,12 @@ Scope {
 
             ClockWidget {
                 anchors.centerIn: parent
+            }
+
+            BatteryWidget {
+                anchors.right: parent.right
+                anchors.verticalCenter: parent.verticalCenter
+                anchors.rightMargin: 10
             }
 
         }

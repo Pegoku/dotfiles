@@ -2,6 +2,7 @@ import QtQuick
 import Quickshell.Hyprland
 
 Rectangle {
+
     required property var workspace
     property int number: 0
     property bool hasWindows: workspace && workspace.toplevels && workspace.toplevels.count > 0
@@ -47,5 +48,14 @@ Rectangle {
         font.bold: hasWindows
         anchors.centerIn: parent
         visible: !isActive
+    }
+
+    MouseArea {
+        anchors.fill: parent
+        onClicked: {
+            if (workspace) {
+                Hyprland.dispatch("workspace " + workspace.id)
+            }
+        }
     }
 }

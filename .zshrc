@@ -88,10 +88,9 @@ plugins=(
   git
   docker
   docker-compose
-  zsh-syntax-highlighting
   history-substring-search
+  zsh-syntax-highlighting
   )
-
 source $ZSH/oh-my-zsh.sh
 
 # User configuration

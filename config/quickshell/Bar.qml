@@ -38,7 +38,7 @@ Scope {
         running: true
 
         stdout: StdioCollector {
-            onStreamFinished: clock.text = this.text
+            onStreamFinished: root.time = this.text
         }
 
     }

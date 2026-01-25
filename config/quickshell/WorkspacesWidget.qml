@@ -20,6 +20,7 @@ Rectangle {
     Row {
         id: workspaceRow
 
+            layer.enabled: true
         anchors.fill: parent
         anchors.margins: 6
         spacing: 8

@@ -1,9 +1,25 @@
 import QtQuick
 import Quickshell
 import Quickshell.Hyprland
+import Quickshell.Io
 
 Scope {
     id: root
+
+    property string accentColor: '#6c072952'
+
+    // Process {
+    //     id: colorReader
+    //     command: ["cat", "/home/pegoku/.local/state/hypr/user/color.txt"]
+    //     running: true
+        
+    //     stdout: SplitParser {
+    //         onRead: data => {
+    //             root.accentColor = data.trim().split("")
+    //             console.log("Read color:", data.trim() + "90")
+    //         }
+    //     }
+    // }
 
     Variants {
         model: Quickshell.screens
@@ -20,6 +36,8 @@ Scope {
                 left: true
                 right: true
             }
+
+            color: root.accentColor
             
             WorkspacesWidget {
                 anchors.left: parent.center

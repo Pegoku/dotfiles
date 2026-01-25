@@ -12,7 +12,7 @@ Scope {
             //     anchors.centerIn: parent
             // }
 
-            screen: modelData
+            // screen: modelData
             implicitHeight: 40
 
             anchors {
@@ -22,9 +22,11 @@ Scope {
             }
 
             Rectangle {
+                id: containerRect
                 property alias innerRow: workspaceRow
                 property int wheelAccum: 0
-
+                property int totalWorkspaces: 10
+                
                 anchors.horizontalCenter: parent.horizontalCenter
                 anchors.verticalCenter: parent.verticalCenter
                 radius: 12
@@ -54,7 +56,7 @@ Scope {
                     id: wheelResetTimer
                     interval: 300
                     repeat: false
-                    onTriggered: wheelAccum = 0
+                    onTriggered: { containerRect.wheelAccum = 0 }
                 }
 
                 MouseArea {
@@ -62,19 +64,19 @@ Scope {
                     // accumulate wheel deltas so small touchpad gestures don't jump many workspaces
                     onWheel: {
                         // angleDelta.y typical step is 120 per notch; accumulate and trigger on threshold
-                        wheelAccum += wheel.angleDelta.y
+                        containerRect.wheelAccum += wheel.angleDelta.y
                         wheelResetTimer.restart()
 
                         var threshold = 120
-                        var focused = Hyprland.focusedWorkspace && Hyprland.focusedWorkspace.id ? Hyprland.focusedWorkspace.id : 1
-                        var total = (Hyprland.workspaces && Hyprland.workspaces.values) ? Hyprland.workspaces.values.length : (Hyprland.workspaces && Hyprland.workspaces.count ? Hyprland.workspaces.count : 10)
+                        var focused = Hyprland.focusedWorkspace.id
+                        var total = containerRect.totalWorkspaces
 
-                        if (wheelAccum >= threshold && focused > 1) {
+                        if (containerRect.wheelAccum >= threshold && focused > 1) {
                             Hyprland.dispatch("workspace " + (focused - 1))
-                            wheelAccum = 0
-                        } else if (wheelAccum <= -threshold && focused < total) {
+                            containerRect.wheelAccum = 0
+                        } else if (containerRect.wheelAccum <= -threshold && focused < total) {
                             Hyprland.dispatch("workspace " + (focused + 1))
-                            wheelAccum = 0
+                            containerRect.wheelAccum = 0
                         }
                     }
                 }

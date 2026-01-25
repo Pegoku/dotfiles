@@ -15,6 +15,7 @@ PanelWindow {
     anchors.centerIn: parent
 
     Process{
+      id: dateProc
       command: ["date"]
       running:true
 
@@ -23,4 +24,12 @@ PanelWindow {
       }
     }
   }
+  Timer{
+    interval: 1000
+    running:true
+    repeat: true
+    onTriggered: dateProc.running = true
+  }
+
+
 }

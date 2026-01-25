@@ -1,4 +1,5 @@
 # Pegoku Dotfiles
+Laptop branch (v2)
 
 ## Screenshots
 ![alt text](image.png)

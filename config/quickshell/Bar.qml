@@ -1,6 +1,6 @@
 import QtQuick
 import Quickshell
-import Quickshell.Io
+import Quickshell.Hyprland
 
 Scope {
     id: root
@@ -19,10 +19,36 @@ Scope {
                 left: true
                 right: true
             }
+            
+            Row {
+                anchors.fill: parent
+                anchors.margins: 10
+                spacing: 20
+                Repeater {
+                    model: Hyprland.workspaces
 
-            ClockWidget {
-                anchors.centerIn: parent
+                    Rectangle {
+                        width: textContent.implicitWidth + 10
+                        height: parent.height
+                        // color: modelData.active ? "#444" : "transparent"
+
+                        Text {
+                            id: textContent
+                            text: modelData.name
+                            color: "black"
+                            font.bold: modelData.active
+                            anchors.centerIn: parent
+                        }
+                    }
+
+                    // WorkspaceButton {
+                    //     workspace: modelData
+                    // }
+                }
             }
+            // ClockWidget {
+            //     anchors.centerIn: parent
+            // }
 
             BatteryWidget {
                 anchors.right: parent.right

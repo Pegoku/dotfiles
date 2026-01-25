@@ -5,41 +5,49 @@ import Quickshell.Io
 Scope {
     id: root
 
-    PanelWindow {
-        implicitHeight: 30
+    property string time
 
-        anchors {
-            top: true
-            left: true
-            right: true
-        }
+    Variants {
+        model: Quickshell.screens
 
-        Text {
-            id: clock
+        PanelWindow {
+            required property var modelData
 
-            anchors.centerIn: parent
+            screen: modelData
+            implicitHeight: 30
 
-            Process {
-                id: dateProc
+            anchors {
+                top: true
+                left: true
+                right: true
+            }
 
-                command: ["date"]
-                running: true
-
-                stdout: StdioCollector {
-                    onStreamFinished: clock.text = this.text
-                }
-
+            ClockWidget {
+                anchors.centerIn: parent
+                time: root.time
             }
 
         }
 
-        Timer {
-            interval: 1000
-            running: true
-            repeat: true
-            onTriggered: dateProc.running = true
+    }
+
+    Process {
+        id: dateProc
+
+        command: ["date"]
+        running: true
+
+        stdout: StdioCollector {
+            onStreamFinished: clock.text = this.text
         }
 
+    }
+
+    Timer {
+        interval: 1000
+        running: true
+        repeat: true
+        onTriggered: dateProc.running = true
     }
 
 }

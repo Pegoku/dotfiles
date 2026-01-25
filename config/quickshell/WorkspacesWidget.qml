@@ -52,7 +52,7 @@ Rectangle {
 
     MouseArea {
         anchors.fill: parent
-        // accumulate wheel deltas so small touchpad gestures don't jump many workspaces
+        acceptedButtons: Qt.NoButton // Disable clicks
         onWheel: {
             // angleDelta.y typical step is 120 per notch; accumulate and trigger on threshold
             containerRect.wheelAccum += wheel.angleDelta.y;

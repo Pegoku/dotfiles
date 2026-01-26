@@ -1,5 +1,6 @@
 import QtQuick
 import Quickshell
+import Quickshell.Services.UPower
 
 Rectangle {
     id: containerRect
@@ -20,8 +21,17 @@ Rectangle {
         anchors.right: parent.right
         anchors.rightMargin: 6
         anchors.verticalCenter: parent.verticalCenter
-        text: Batt.chargeRate > 0 ? "Charging " + Batt.percentage + "%" :  "Discharging " + Batt.percentage + "%"
+        text: (UPower.displayDevice.ready ? (UPower.displayDevice.changeRate > 0 ? "Discharging " : "Charging ") + Math.round(UPower.displayDevice.percentage*100) + "%" : "")
         color: "white"
+    }
+
+    Timer {
+        interval: 1000
+        running: true
+        repeat: true
+        onTriggered: {
+            
+        }
     }
 
 }

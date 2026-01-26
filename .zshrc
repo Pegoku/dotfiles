@@ -88,9 +88,10 @@ plugins=(
   git
   docker
   docker-compose
-  history-substring-search
   zsh-syntax-highlighting
+  history-substring-search
   )
+
 source $ZSH/oh-my-zsh.sh
 
 # User configuration
@@ -135,6 +136,10 @@ load_nvm
 # export NVM_DIR="$HOME/.nvm"
 # [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"  # This loads nvm
 # [ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"  # This loads nvm bash_completion
+#
+export PYENV_ROOT="$HOME/.pyenv"
+[[ -d $PYENV_ROOT/bin ]] && export PATH="$PYENV_ROOT/bin:$PATH"
+eval "$(pyenv init - zsh)"
 
 ## [Completion]
 ## Completion scripts setup. Remove the following line to uninstall
@@ -188,8 +193,8 @@ export DOCKER_HOST=unix://$XDG_RUNTIME_DIR/docker.sock
 
 #fastfetch
 
-function convertIMGFunc(){                                                          
-magick $1* $1.png 
+function convertIMGFunc(){
+magick $1* $1.png
 }
 
 function rn(){
@@ -212,6 +217,4 @@ path+=(
   $HOME/.local/bin
   $HOME/.spicetify
   /opt/simplicitystudio5/developer/adapter_packs/commander
-  $HOME/.bun/bin
 )
-[ -f /opt/miniconda3/etc/profile.d/conda.sh ] && source /opt/miniconda3/etc/profile.d/conda.sh

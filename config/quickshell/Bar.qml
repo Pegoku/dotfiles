@@ -40,13 +40,14 @@ Scope {
             color: root.accentColor
             
             WorkspacesWidget {
-                anchors.left: parent.center
+                id: workspacesWidget
+                anchors.horizontalCenter: parent.horizontalCenter
                 anchors.verticalCenter: parent.verticalCenter
                 anchors.leftMargin: 10
             }
 
             ClockWidget {
-                anchors.left: parent.left
+                anchors.left: workspacesWidget.right
                 anchors.verticalCenter: parent.verticalCenter
                 anchors.leftMargin: 10
             }

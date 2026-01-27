@@ -17,7 +17,9 @@ Rectangle {
         if (!d || !d.ready) return false;
         return d.timeToFull > 0;
     }
-    property color iconColor: "#f2f2f2"
+    property color iconColor: {
+        containerRect.percentage > 0.20 ? "#f2f2f2" : containerRect.percentage > 0.10 ? "#f5a623" : "#ff3b30"
+    }
     function batteryIconName() {
         var pct = Math.round(containerRect.percentage * 100);
         var step = Math.max(0, Math.min(100, Math.round(pct / 10) * 10));

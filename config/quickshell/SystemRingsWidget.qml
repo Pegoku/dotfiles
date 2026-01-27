@@ -176,6 +176,13 @@ Item {
         ToolTip.timeout: 0
         ToolTip.text: label + " · " + Math.round(value * 100) + "%"
 
+        Behavior on value {
+            NumberAnimation {
+                duration: 350
+                easing.type: Easing.InOutQuad
+            }
+        }
+
         Canvas {
             id: ringCanvas
 

@@ -1,4 +1,5 @@
 import QtQuick
+import Qt5Compat.GraphicalEffects
 import Quickshell
 import Quickshell.Services.UPower
 
@@ -16,6 +17,7 @@ Rectangle {
         if (!d || !d.ready) return false;
         return d.timeToFull > 0;
     }
+    property color iconColor: "#f2f2f2"
     function batteryIconName() {
         var pct = Math.round(containerRect.percentage * 100);
         var step = Math.max(0, Math.min(100, Math.round(pct / 10) * 10));
@@ -48,6 +50,10 @@ Rectangle {
             source: "file:///usr/share/icons/Adwaita/symbolic/status/"
                 + containerRect.batteryIconName() + ".svg"
             smooth: true
+            layer.enabled: true
+            layer.effect: ColorOverlay {
+                color: containerRect.iconColor
+            }
         }
     }
 

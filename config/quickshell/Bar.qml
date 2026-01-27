@@ -40,6 +40,12 @@ Scope {
 
             color: root.accentColor
             
+            SystemRingsWidget {
+                anchors.right: workspacesWidget.left
+                anchors.verticalCenter: parent.verticalCenter
+                anchors.rightMargin: 10
+            }
+
             WorkspacesWidget {
                 id: workspacesWidget
                 anchors.horizontalCenter: parent.horizontalCenter

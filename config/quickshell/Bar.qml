@@ -2,6 +2,7 @@ import QtQuick
 import Quickshell
 import Quickshell.Hyprland
 import Quickshell.Io
+import Quickshell.Services.UPower
 
 Scope {
     id: root
@@ -56,7 +57,7 @@ Scope {
                 anchors.right: parent.right
                 anchors.verticalCenter: parent.verticalCenter
                 anchors.rightMargin: 10
-                visible: Quickshell.Services.UPower.onBattery
+                visible: UPower.displayDevice.percentage != 0
             }
 
         }

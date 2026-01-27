@@ -28,13 +28,15 @@ Rectangle {
         if (!d || !d.ready) return "";
         var pct = Math.round(d.percentage*100);
         console.log("Battery data:", d.percentage,"%, Time to Full:", d.timeToFull, "Time to Empty:", d.timeToEmpty, "Change Rate:", d.changeRate);
-        if (d.timeToFull > 0) {
+         if (d.timeToFull > 0) {
             var t = formatTime(d.timeToFull);
             return "Charging " + pct + "%" + (t ? " (" + t + " until full)" : "");
-        } else {
+        } else if (d.timeToEmpty > 0) {
             var t = formatTime(d.timeToEmpty);
             return "Discharging " + pct + "%" + (t ? " (" + t + " left)" : "");
-        }
+        } else if (d.percentage === 1.0) {
+            return "Fully Charged " + pct + "%";
+        } 
     }
 
     Text {
@@ -48,7 +50,7 @@ Rectangle {
     }
 
     Timer {
-        interval: 1000
+        interval: 10000
         running: true
         repeat: true
         onTriggered: {

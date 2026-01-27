@@ -1,3 +1,4 @@
+import Qt5Compat.GraphicalEffects
 import QtQuick
 import QtQuick.Controls
 import Quickshell.Io
@@ -8,9 +9,15 @@ Item {
     property real cpuUsage: 0
     property real memUsage: 0
     property real gpuUsage: -1
+    property real diskUsage: 0
 
     property color ringBg: "#3a3a3a"
     property color ringFg: "#f2f2f2"
+    property string iconBase: "file:///usr/share/icons/Adwaita/symbolic/"
+    property string cpuIcon: iconBase + "categories/applications-system-symbolic.svg"
+    property string memIcon: iconBase + "devices/media-flash-symbolic.svg"
+    property string gpuIcon: iconBase + "devices/video-display-symbolic.svg"
+    property string diskIcon: iconBase + "devices/drive-harddisk-system-symbolic.svg"
 
     readonly property bool gpuPresent: root.gpuUsage >= 0
 
@@ -26,6 +33,7 @@ Item {
             "while true; do " +
             "echo \"CPU $(head -n1 /proc/stat)\"; " +
             "awk '/MemTotal/ {t=$2} /MemAvailable/ {a=$2} END {print \"MEM \" t \" \" a}' /proc/meminfo; " +
+            "df -P / | awk 'NR==2 {print \"DISK \" $2 \" \" $4}'; " +
             "gpu=\"\"; " +
             "for f in /sys/class/drm/card*/device/gpu_busy_percent; do if [ -r \"$f\" ]; then gpu=$(cat \"$f\"); break; fi; done; " +
             "if [ -z \"$gpu\" ] && command -v nvidia-smi >/dev/null 2>&1; then gpu=$(nvidia-smi --query-gpu=utilization.gpu --format=csv,noheader,nounits | head -n1); fi; " +
@@ -44,6 +52,8 @@ Item {
                     root.updateCpu(line.substring(4));
                 } else if (line.startsWith("MEM ")) {
                     root.updateMem(line.substring(4));
+                } else if (line.startsWith("DISK ")) {
+                    root.updateDisk(line.substring(5));
                 } else if (line.startsWith("GPU ")) {
                     root.updateGpu(line.substring(4));
                 }
@@ -89,6 +99,17 @@ Item {
             root.memUsage = Math.max(0, Math.min(1, 1 - (avail / total)));
     }
 
+    function updateDisk(line) {
+        var parts = line.trim().split(/\s+/);
+        if (parts.length < 2)
+            return;
+
+        var total = Number(parts[0]);
+        var avail = Number(parts[1]);
+        if (total > 0)
+            root.diskUsage = Math.max(0, Math.min(1, 1 - (avail / total)));
+    }
+
     function updateGpu(line) {
         if (line === "NA") {
             root.gpuUsage = -1;
@@ -111,27 +132,38 @@ Item {
         spacing: 6
 
         RingIndicator {
-            label: "C"
+            iconSource: root.cpuIcon
+            label: "CPU"
             value: root.cpuUsage
             visible: true
         }
 
         RingIndicator {
-            label: "R"
+            iconSource: root.memIcon
+            label: "RAM"
             value: root.memUsage
             visible: true
         }
 
         RingIndicator {
-            label: "G"
+            iconSource: root.gpuIcon
+            label: "GPU"
             value: root.gpuUsage
             visible: root.gpuPresent
+        }
+
+        RingIndicator {
+            iconSource: root.diskIcon
+            label: "Disk usage"
+            value: root.diskUsage
+            visible: true
         }
     }
 
     component RingIndicator: Item {
         id: ring
 
+        property string iconSource: ""
         property string label: ""
         property real value: 0
         property bool hovered: hoverArea.containsMouse
@@ -175,11 +207,17 @@ Item {
             }
         }
 
-        Text {
+        Image {
             anchors.centerIn: parent
-            text: ring.label
-            color: root.ringFg
-            font.pixelSize: 11
+            width: 12
+            height: 12
+            source: ring.iconSource
+            smooth: true
+            layer.enabled: true
+
+            layer.effect: ColorOverlay {
+                color: root.ringFg
+            }
         }
 
         MouseArea {

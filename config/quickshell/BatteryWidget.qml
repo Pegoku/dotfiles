@@ -6,55 +6,92 @@ Rectangle {
     id: containerRect
 
     property int padding: 6
+    property real percentage: {
+        var d = UPower.displayDevice;
+        if (!d || !d.ready) return 0;
+        return d.percentage;
+    }
+    property bool charging: {
+        var d = UPower.displayDevice;
+        if (!d || !d.ready) return false;
+        return d.timeToFull > 0;
+    }
 
     anchors.verticalCenter: parent.verticalCenter
     radius: 12
     color: "#1c1c1c"
     opacity: 0.85
     layer.enabled: true
-    width: battText.implicitWidth + padding * 2
-    height: battText.implicitHeight + padding * 2
+    width: contentRow.implicitWidth + padding * 2
+    height: contentRow.implicitHeight + padding * 2
 
-    function formatTime(sec) {
-        if (!sec || sec <= 0) return "";
-        var hrs = Math.floor(sec / 3600);
-        var mins = Math.floor((sec % 3600) / 60);
-        if (hrs > 0) return hrs + "h " + mins + "m";
-        return mins + "m";
-    }
+    Row {
+        id: contentRow
 
-    function batteryText() {
-        var d = UPower.displayDevice;
-        if (!d || !d.ready) return "";
-        var pct = Math.round(d.percentage*100);
-        console.log("Battery data:", d.percentage,"%, Time to Full:", d.timeToFull, "Time to Empty:", d.timeToEmpty, "Change Rate:", d.changeRate);
-         if (d.timeToFull > 0) {
-            var t = formatTime(d.timeToFull);
-            return "Charging " + pct + "%" + (t ? " (" + t + " until full)" : "");
-        } else if (d.timeToEmpty > 0) {
-            var t = formatTime(d.timeToEmpty);
-            return "Discharging " + pct + "%" + (t ? " (" + t + " left)" : "");
-        } else if (d.percentage === 1.0) {
-            return "Fully Charged " + pct + "%";
-        } 
-    }
+        anchors.centerIn: parent
+        spacing: 6
 
-    Text {
-        id: battText
+        Text {
+            id: battText
+            text: Math.round(containerRect.percentage * 100)
+            color: "white"
+            font.pixelSize: 14
+        }
 
-        anchors.right: parent.right
-        anchors.rightMargin: 6
-        anchors.verticalCenter: parent.verticalCenter
-        text: containerRect.batteryText()
-        color: "white"
-    }
+        Item {
+            id: ring
+            width: 22
+            height: 22
 
-    Timer {
-        interval: 10000
-        running: true
-        repeat: true
-        onTriggered: {
-            battText.text = containerRect.batteryText();
+            property int stroke: 2
+            property color trackColor: "#3a3a3a"
+            property color fillColor: "white"
+
+            Canvas {
+                id: ringCanvas
+                anchors.fill: parent
+
+                onPaint: {
+                    var ctx = getContext("2d");
+                    ctx.reset();
+                    ctx.clearRect(0, 0, width, height);
+
+                    var cx = width / 2;
+                    var cy = height / 2;
+                    var radius = Math.min(width, height) / 2 - ring.stroke;
+                    var start = -Math.PI / 2;
+                    var end = start + (Math.PI * 2 * containerRect.percentage);
+
+                    ctx.lineWidth = ring.stroke;
+                    ctx.lineCap = "round";
+                    ctx.strokeStyle = ring.trackColor;
+                    ctx.beginPath();
+                    ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+                    ctx.stroke();
+
+                    ctx.strokeStyle = ring.fillColor;
+                    ctx.beginPath();
+                    ctx.arc(cx, cy, radius, start, end);
+                    ctx.stroke();
+                }
+            }
+
+            // Image {
+            //     id: battIcon
+            //     anchors.centerIn: parent
+            //     width: 12
+            //     height: 12
+            //     source: "image://theme/" + (containerRect.charging
+            //         ? "battery-charging-symbolic"
+            //         : "battery-symbolic")
+            //     smooth: true
+            // }
+
+            Connections {
+                target: containerRect
+                function onPercentageChanged() { ringCanvas.requestPaint(); }
+                function onChargingChanged() { ringCanvas.requestPaint(); }
+            }
         }
     }
 

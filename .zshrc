@@ -217,4 +217,5 @@ path+=(
   $HOME/.local/bin
   $HOME/.spicetify
   /opt/simplicitystudio5/developer/adapter_packs/commander
+  /home/pegoku/.cache/.bun/bin
 )

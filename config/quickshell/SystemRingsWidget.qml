@@ -35,7 +35,7 @@ Item {
             "awk '/MemTotal/ {t=$2} /MemAvailable/ {a=$2} END {print \"MEM \" t \" \" a}' /proc/meminfo; " +
             "df -P / | awk 'NR==2 {print \"DISK \" $2 \" \" $4}'; " +
             "gpu=\"\"; " +
-            "for f in /sys/class/drm/card*/device/gpu_busy_percent; do if [ -r \"$f\" ]; then gpu=$(cat \"$f\"); break; fi; done; " +
+            "for f in /sys/class/drm/card2/device/gpu_busy_percent; do if [ -r \"$f\" ]; then gpu=$(cat \"$f\"); break; fi; done; " +
             "if [ -z \"$gpu\" ] && command -v nvidia-smi >/dev/null 2>&1; then gpu=$(nvidia-smi --query-gpu=utilization.gpu --format=csv,noheader,nounits | head -n1); fi; " +
             "if [ -z \"$gpu\" ]; then echo \"GPU NA\"; else echo \"GPU $gpu\"; fi; " +
             "sleep 1; done"

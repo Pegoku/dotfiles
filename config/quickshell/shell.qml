@@ -4,5 +4,6 @@ import Quickshell.Io
 
 Scope {
     Bar {}
+    OnScreenDisplay {}
 
 }

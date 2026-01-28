@@ -54,12 +54,14 @@ Scope {
             }
 
             ClockWidget {
+                id: clockWidget
                 anchors.left: workspacesWidget.right
                 anchors.verticalCenter: parent.verticalCenter
                 anchors.leftMargin: 10
             }
 
             BatteryWidget {
+                id: batteryWidget
                 anchors.right: parent.right
                 anchors.verticalCenter: parent.verticalCenter
                 anchors.rightMargin: 10

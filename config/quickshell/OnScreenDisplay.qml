@@ -4,6 +4,7 @@ import QtQuick.Controls
 import Quickshell
 import Quickshell.Hyprland
 import Quickshell.Io
+import Quickshell.Services.Pipewire
 import Quickshell.Wayland
 
 Scope {
@@ -16,6 +17,18 @@ Scope {
     property bool volumeAvailable: true
     property real brightnessValue: 0
     property bool brightnessAvailable: true
+    property bool preferPipewire: true
+    property bool usePipewire: preferPipewire && Pipewire.ready
+    property var sink: Pipewire.defaultAudioSink
+    property bool _audioInitialized: false
+    property bool _brightnessInitialized: false
+    property string backlightDevice: ""
+    property string brightnessPath: ""
+    property string maxBrightnessPath: ""
+    property int maxBrightness: 100
+    property real _lastVolumeValue: -1
+    property bool _lastVolumeMuted: false
+    property real _lastBrightnessValue: -1
 
     property string iconBase: "file:///usr/share/icons/Adwaita/symbolic/status/"
     property color fgColor: "#f2f2f2"
@@ -59,6 +72,106 @@ Scope {
         return "display-brightness-symbolic";
     }
 
+    function syncVolume(triggerOsd) {
+        var node = root.sink;
+        var audio = node?.audio ?? null;
+        root.volumeAvailable = (node?.ready ?? false) && root.usePipewire;
+
+        if (!audio) {
+            root.volumeValue = 0;
+            root.volumeMuted = false;
+            return;
+        }
+
+        var vol = audio.volume;
+        var muted = audio.muted;
+        if (!isNaN(vol))
+            root.applyVolume(vol, muted, "pipewire", triggerOsd);
+    }
+
+    function applyVolume(value, muted, source, triggerOsd) {
+        var normalized = Math.max(0, Math.min(1.5, value));
+        if (normalized === root._lastVolumeValue && muted === root._lastVolumeMuted)
+            return;
+
+        root._lastVolumeValue = normalized;
+        root._lastVolumeMuted = muted;
+        root.volumeAvailable = true;
+        root.volumeValue = normalized;
+        root.volumeMuted = muted;
+
+        console.log("[OSD] Volume changed (" + source + "):", root.volumeValue, "muted:", root.volumeMuted);
+
+        if (triggerOsd && root.volumeAvailable)
+            root.trigger("volume");
+    }
+
+    function initVolume() {
+        root.syncVolume(false);
+        root._audioInitialized = true;
+    }
+
+    function attachSink() {
+        console.log("[OSD] Pipewire ready:", Pipewire.ready, "defaultAudioSink:", root.sink);
+        root._audioInitialized = false;
+        root.syncVolume(false);
+    }
+
+    function handleVolumeEvent() {
+        if (!root._audioInitialized) {
+            root.initVolume();
+            return;
+        }
+        root.syncVolume(true);
+    }
+
+    function updateMaxBrightness() {
+        if (!root.maxBrightnessPath)
+            return;
+        var rawMax = Number(maxBrightnessView.text().trim());
+        if (!isNaN(rawMax) && rawMax > 0) {
+            root.maxBrightness = rawMax;
+        }
+    }
+
+    function updateBrightness(triggerOsd) {
+        if (!root.brightnessPath)
+            return;
+        var raw = Number(brightnessView.text().trim());
+        if (isNaN(raw)) {
+            root.brightnessAvailable = false;
+            return;
+        }
+
+        root.brightnessAvailable = true;
+        var maxVal = root.maxBrightness > 0 ? root.maxBrightness : 100;
+        root.applyBrightness(raw / maxVal, "sysfs", triggerOsd);
+
+        if (triggerOsd) {
+            if (root._brightnessInitialized)
+                root.trigger("brightness");
+            else
+                root._brightnessInitialized = true;
+        } else if (!root._brightnessInitialized) {
+            root._brightnessInitialized = true;
+        }
+    }
+
+    function applyBrightness(value, source, triggerOsd) {
+        var normalized = Math.max(0, Math.min(1, value));
+        if (normalized === root._lastBrightnessValue)
+            return;
+
+        root._lastBrightnessValue = normalized;
+        root.brightnessAvailable = true;
+        root.brightnessValue = normalized;
+
+        console.log("[OSD] Brightness changed (" + source + "):", root.brightnessValue);
+
+        if (triggerOsd)
+            root.trigger("brightness");
+    }
+
     Timer {
         id: osdTimeout
         interval: 2500
@@ -67,9 +180,28 @@ Scope {
         onTriggered: root.open = false
     }
 
-    Process {
-        id: volumeProc
+    Timer {
+        id: pipewirePoll
+        interval: 200
+        repeat: true
+        running: root.usePipewire
+        onTriggered: {
+            var audio = root.sink?.audio ?? null;
+            if (!audio || !(root.sink?.ready ?? false))
+                return;
+            var vol = audio.volume;
+            var muted = audio.muted;
+            if (isNaN(vol))
+                return;
+            if (vol !== root._lastVolumeValue || muted !== root._lastVolumeMuted)
+                root.handleVolumeEvent();
+        }
+    }
 
+    Process {
+        id: volumeFallbackProc
+
+        running: !root.usePipewire
         command: [
             "bash",
             "-lc",
@@ -84,7 +216,6 @@ Scope {
             "fi; " +
             "sleep 0.2; done"
         ]
-        running: true
 
         stdout: SplitParser {
             onRead: data => {
@@ -103,21 +234,71 @@ Scope {
                     return;
                 }
 
-                root.volumeAvailable = true;
                 var vol = Number(parts[1]);
-                if (!isNaN(vol))
-                    root.volumeValue = Math.max(0, Math.min(1.5, vol));
                 root.volumeMuted = parts.length > 2 ? (parts[2] === "1") : false;
 
-                if (root.volumeAvailable)
-                    root.trigger("volume");
+                if (!isNaN(vol))
+                    root.applyVolume(vol, root.volumeMuted, "fallback", true);
             }
         }
     }
 
     Process {
-        id: brightnessProc
+        id: backlightProc
 
+        command: ["bash", "-lc", "ls -1 /sys/class/backlight 2>/dev/null | head -n1"]
+        running: true
+
+        stdout: SplitParser {
+            onRead: data => {
+                var device = data.trim();
+                if (!device) {
+                    root.brightnessAvailable = false;
+                    return;
+                }
+                root.backlightDevice = device;
+            }
+        }
+    }
+
+    onBacklightDeviceChanged: {
+        if (!root.backlightDevice)
+            return;
+        root.brightnessPath = "/sys/class/backlight/" + root.backlightDevice + "/brightness";
+        root.maxBrightnessPath = "/sys/class/backlight/" + root.backlightDevice + "/max_brightness";
+        brightnessView.reload();
+        maxBrightnessView.reload();
+    }
+
+    FileView {
+        id: brightnessView
+
+        path: root.brightnessPath
+        preload: true
+        watchChanges: true
+
+        onLoaded: root.updateBrightness(false)
+        onFileChanged: root.updateBrightness(true)
+    }
+
+    FileView {
+        id: maxBrightnessView
+
+        path: root.maxBrightnessPath
+        preload: true
+        watchChanges: true
+
+        onLoaded: root.updateMaxBrightness()
+        onFileChanged: {
+            root.updateMaxBrightness();
+            root.updateBrightness(false);
+        }
+    }
+
+    Process {
+        id: brightnessFallbackProc
+
+        running: !root.brightnessPath
         command: [
             "bash",
             "-lc",
@@ -128,7 +309,6 @@ Scope {
             "if [ \"$val\" != \"$prev\" ]; then echo \"BRT $val\"; prev=$val; fi; fi; " +
             "sleep 0.3; done"
         ]
-        running: true
 
         stdout: SplitParser {
             onRead: data => {
@@ -146,15 +326,44 @@ Scope {
                     return;
                 }
 
-                root.brightnessAvailable = true;
                 var pct = Number(parts[1]);
                 if (!isNaN(pct))
-                    root.brightnessValue = Math.max(0, Math.min(1, pct / 100));
-
-                if (root.brightnessAvailable)
-                    root.trigger("brightness");
+                    root.applyBrightness(pct / 100, "fallback", true);
             }
         }
+    }
+
+    Connections {
+        target: Pipewire
+        function onDefaultAudioSinkChanged() {
+            root.attachSink();
+        }
+        function onReadyChanged() {
+            root.attachSink();
+        }
+    }
+
+    Connections {
+        target: root.sink ?? null
+        function onReadyChanged() {
+            root.attachSink();
+        }
+    }
+
+    Connections {
+        target: root.sink?.audio ?? null
+        function onVolumesChanged() {
+            root.handleVolumeEvent();
+        }
+        function onMutedChanged() {
+            root.handleVolumeEvent();
+        }
+    }
+
+    Component.onCompleted: root.attachSink()
+
+    PwObjectTracker {
+        objects: [root.sink, root.sink?.audio]
     }
 
     PanelWindow {

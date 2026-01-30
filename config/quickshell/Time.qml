@@ -10,7 +10,7 @@ Singleton {
     Qt.formatDateTime(clock.date, "hh:mm")
   }
 
-  readonly property var date: {
+  readonly property string date: {
     Qt.formatDateTime(clock.date, "dddd, dd/MM" )
   }
 

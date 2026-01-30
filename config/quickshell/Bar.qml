@@ -26,10 +26,9 @@ Scope {
         model: Quickshell.screens
 
         PanelWindow {
-            //     anchors.centerIn: parent
-            // }
-
-            // screen: modelData
+            required property var modelData
+            screen: modelData
+            
             implicitHeight: 40
 
             anchors {

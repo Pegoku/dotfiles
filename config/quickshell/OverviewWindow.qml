@@ -38,13 +38,13 @@ Item {
     property bool wasDragged: false
     property real lastMouseX: x + width / 2
     property real lastMouseY: y + height / 2
-    property int dragZ: 99999
+    property int dynamicZ: 0
     
     x: initX
     y: initY
     width: targetWindowWidth
     height: targetWindowHeight
-    z: isPressed ? dragZ : 0
+    z: dynamicZ
     
     Behavior on x {
         NumberAnimation { duration: 200; easing.type: Easing.OutCubic }
@@ -124,6 +124,7 @@ Item {
             root.Drag.hotSpot.x = mouse.x
             root.Drag.hotSpot.y = mouse.y
             overviewWidget.draggingFromWorkspace = windowData?.workspace?.id ?? -1
+            dynamicZ = overviewWidget.requestTopZ()
             isPressed = true
         }
 

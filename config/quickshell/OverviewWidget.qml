@@ -21,6 +21,7 @@ Item {
     property real workspaceImplicitHeight: monitor.height * scale
     property real workspaceSpacing: 10
     property real padding: 20
+    property int zCounter: 0
 
     function workspaceAtPosition(xPos, yPos) {
         const cellWidth = workspaceImplicitWidth + workspaceSpacing
@@ -33,6 +34,11 @@ Item {
         if (withinX < 0 || withinX > workspaceImplicitWidth) return -1
         if (withinY < 0 || withinY > workspaceImplicitHeight) return -1
         return row * columns + col + 1
+    }
+
+    function requestTopZ() {
+        zCounter += 1
+        return zCounter
     }
     
     implicitWidth: background.implicitWidth + padding * 2
@@ -128,6 +134,7 @@ Item {
                 delegate: Loader {
                     id: windowLoader
                     required property var modelData
+                    z: (item && item.dynamicZ !== undefined) ? item.dynamicZ : 0
                     
                     property int workspaceId: modelData.workspace?.id ?? 1
                     property int rowIndex: Math.floor((workspaceId - 1) / root.columns)

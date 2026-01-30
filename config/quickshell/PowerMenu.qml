@@ -2,6 +2,7 @@ import QtQuick
 import Quickshell
 import Quickshell.Io
 import Quickshell.Wayland
+import Qt5Compat.GraphicalEffects
 
 Scope {
     id: root
@@ -116,12 +117,11 @@ Scope {
                         border.width: 2
                         anchors.horizontalCenter: parent.horizontalCenter
 
-                        Image {
+                        ColoredIcon {
                             anchors.centerIn: parent
                             source: "file:///usr/share/icons/Adwaita/symbolic/status/avatar-default-symbolic.svg"
-                            width: 36
-                            height: 36
-                            smooth: true
+                            size: 36
+                            color: "#dcdcdc"
                         }
                     }
 
@@ -170,12 +170,11 @@ Scope {
                 border.color: button.containsMouse ? "#cfcfcf" : "#6a6a6a"
                 border.width: 1
 
-                Image {
+                ColoredIcon {
                     anchors.centerIn: parent
                     source: button.iconPath
-                    width: 24
-                    height: 24
-                    smooth: true
+                    size: 24
+                    color: button.containsMouse ? "#ffffff" : "#d0d0d0"
                 }
             }
 
@@ -197,6 +196,30 @@ Scope {
                 Quickshell.execDetached(["bash", "-c", button.command])
                 GlobalStates.powerMenuOpen = false
             }
+        }
+    }
+
+    component ColoredIcon: Item {
+        id: iconRoot
+        required property string source
+        required property int size
+        required property color color
+
+        width: size
+        height: size
+
+        Image {
+            id: iconImage
+            anchors.fill: parent
+            source: iconRoot.source
+            smooth: true
+            visible: false
+        }
+
+        ColorOverlay {
+            anchors.fill: iconImage
+            source: iconImage
+            color: iconRoot.color
         }
     }
 }

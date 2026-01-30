@@ -36,11 +36,15 @@ Item {
     property bool hovered: false
     property bool isPressed: false
     property bool wasDragged: false
+    property real lastMouseX: x + width / 2
+    property real lastMouseY: y + height / 2
+    property int dragZ: 99999
     
     x: initX
     y: initY
     width: targetWindowWidth
     height: targetWindowHeight
+    z: isPressed ? dragZ : 0
     
     Behavior on x {
         NumberAnimation { duration: 200; easing.type: Easing.OutCubic }
@@ -123,12 +127,14 @@ Item {
             isPressed = true
         }
 
-        onPositionChanged: {
+        onPositionChanged: mouse => {
             if (root.Drag.active) {
                 wasDragged = true
+                lastMouseX = root.x + mouse.x
+                lastMouseY = root.y + mouse.y
                 overviewWidget.draggingTargetWorkspace = overviewWidget.workspaceAtPosition(
-                    root.x + root.width / 2,
-                    root.y + root.height / 2
+                    lastMouseX,
+                    lastMouseY
                 )
             }
         }
@@ -137,8 +143,8 @@ Item {
             isPressed = false
             if (root.Drag.active) {
                 const targetWorkspace = overviewWidget.workspaceAtPosition(
-                    root.x + root.width / 2,
-                    root.y + root.height / 2
+                    lastMouseX,
+                    lastMouseY
                 )
                 root.Drag.active = false
                 overviewWidget.draggingFromWorkspace = -1

@@ -13,11 +13,27 @@ Item {
     readonly property int rows: 3
     readonly property int columns: 3
     readonly property real scale: 0.15
+
+    property int draggingFromWorkspace: -1
+    property int draggingTargetWorkspace: -1
     
     property real workspaceImplicitWidth: monitor.width * scale
     property real workspaceImplicitHeight: monitor.height * scale
     property real workspaceSpacing: 10
     property real padding: 20
+
+    function workspaceAtPosition(xPos, yPos) {
+        const cellWidth = workspaceImplicitWidth + workspaceSpacing
+        const cellHeight = workspaceImplicitHeight + workspaceSpacing
+        const col = Math.floor(xPos / cellWidth)
+        const row = Math.floor(yPos / cellHeight)
+        if (col < 0 || col >= columns || row < 0 || row >= rows) return -1
+        const withinX = xPos - col * cellWidth
+        const withinY = yPos - row * cellHeight
+        if (withinX < 0 || withinX > workspaceImplicitWidth) return -1
+        if (withinY < 0 || withinY > workspaceImplicitHeight) return -1
+        return row * columns + col + 1
+    }
     
     implicitWidth: background.implicitWidth + padding * 2
     implicitHeight: background.implicitHeight + padding * 2
@@ -53,10 +69,11 @@ Item {
                             property int colIndex: index
                             property int workspaceValue: row.index * root.columns + colIndex + 1
                             property bool isActive: monitor.activeWorkspace?.id === workspaceValue
+                            property bool hoveredWhileDragging: root.draggingTargetWorkspace === workspaceValue
                             
                             width: root.workspaceImplicitWidth
                             height: root.workspaceImplicitHeight
-                            color: isActive ? "#2a4a6a" : "#252525"
+                            color: hoveredWhileDragging ? "#2a2f38" : isActive ? "#2a4a6a" : "#252525"
                             radius: 8
                             border.width: isActive ? 3 : 1
                             border.color: isActive ? "#4a9eff" : "#3a3a3a"
@@ -83,10 +100,13 @@ Item {
                             MouseArea {
                                 anchors.fill: parent
                                 onClicked: {
-                                    GlobalStates.overviewOpen = false
-                                    Hyprland.dispatch(`workspace ${workspace.workspaceValue}`)
+                                    if (root.draggingTargetWorkspace === -1) {
+                                        GlobalStates.overviewOpen = false
+                                        Hyprland.dispatch(`workspace ${workspace.workspaceValue}`)
+                                    }
                                 }
                             }
+
                         }
                     }
                 }
@@ -116,6 +136,7 @@ Item {
                     property real yOffset: (root.workspaceImplicitHeight + workspaceSpacing) * rowIndex
                     
                     sourceComponent: OverviewWindow {
+                        overviewWidget: root
                         toplevel: {
                             // Find the toplevel for this window
                             var toplevels = ToplevelManager.toplevels?.values ?? [];

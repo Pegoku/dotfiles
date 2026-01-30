@@ -12,6 +12,7 @@ Item {
     required property real scale
     required property real widgetMonitorWidth
     required property real widgetMonitorHeight
+    required property var overviewWidget
     
     property real widthRatio: {
         const monitorScale = monitorData?.scale ?? 1
@@ -33,7 +34,8 @@ Item {
     property real targetWindowWidth: windowData?.size[0] * scale * widthRatio
     property real targetWindowHeight: windowData?.size[1] * scale * heightRatio
     property bool hovered: false
-    property bool pressed: false
+    property bool isPressed: false
+    property bool wasDragged: false
     
     x: initX
     y: initY
@@ -56,14 +58,14 @@ Item {
     Rectangle {
         anchors.fill: parent
         color: "#2a2a2a"
-        border.color: pressed ? "#4a9eff" : hovered ? "#3a7acc" : "#3a3a3a"
+        border.color: isPressed ? "#4a9eff" : hovered ? "#3a7acc" : "#3a3a3a"
         border.width: 2
         radius: 8
         
         // Color overlay for interactions
         Rectangle {
             anchors.fill: parent
-            color: pressed ? "#4a9eff" : hovered ? "#3a7acc" : "transparent"
+            color: isPressed ? "#4a9eff" : hovered ? "#3a7acc" : "transparent"
             opacity: 0.3
             radius: parent.radius
         }
@@ -105,20 +107,54 @@ Item {
         anchors.fill: parent
         hoverEnabled: true
         acceptedButtons: Qt.LeftButton | Qt.MiddleButton
+        drag.target: parent
         
         onEntered: hovered = true
         onExited: hovered = false
-        
+
         onPressed: mouse => {
-            pressed = true
+            if (mouse.button !== Qt.LeftButton) return;
+            wasDragged = false;
+            root.Drag.active = true
+            root.Drag.source = root
+            root.Drag.hotSpot.x = mouse.x
+            root.Drag.hotSpot.y = mouse.y
+            overviewWidget.draggingFromWorkspace = windowData?.workspace?.id ?? -1
+            isPressed = true
+        }
+
+        onPositionChanged: {
+            if (root.Drag.active) {
+                wasDragged = true
+                overviewWidget.draggingTargetWorkspace = overviewWidget.workspaceAtPosition(
+                    root.x + root.width / 2,
+                    root.y + root.height / 2
+                )
+            }
         }
         
         onReleased: {
-            pressed = false
+            isPressed = false
+            if (root.Drag.active) {
+                const targetWorkspace = overviewWidget.workspaceAtPosition(
+                    root.x + root.width / 2,
+                    root.y + root.height / 2
+                )
+                root.Drag.active = false
+                overviewWidget.draggingFromWorkspace = -1
+                overviewWidget.draggingTargetWorkspace = -1
+                if (targetWorkspace !== -1 && targetWorkspace !== windowData?.workspace?.id) {
+                    Hyprland.dispatch(`movetoworkspacesilent ${targetWorkspace}, address:${windowData?.address}`)
+                }
+                // Snap back to computed position; data refresh will place it correctly.
+                root.x = initX
+                root.y = initY
+            }
         }
         
         onClicked: event => {
             if (!windowData) return;
+            if (wasDragged) return;
             
             if (event.button === Qt.LeftButton) {
                 GlobalStates.overviewOpen = false

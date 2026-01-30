@@ -6,4 +6,5 @@ Scope {
     Bar {}
     OnScreenDisplay {}
     Overview {}
+    PowerMenu {}
 }

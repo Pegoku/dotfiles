@@ -118,6 +118,15 @@ Scope {
                 if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter || event.key === Qt.Key_Space) {
                     keyHandler.activateFocused();
                     event.accepted = true;
+                    return;
+                }
+                if (event.key >= Qt.Key_1 && event.key <= Qt.Key_9) {
+                    const index = event.key - Qt.Key_1;
+                    if (index >= 0 && index < panelWindow.powerButtons.length) {
+                        panelWindow.focusedIndex = index;
+                        keyHandler.activateFocused();
+                        event.accepted = true;
+                    }
                 }
             }
         }

@@ -47,6 +47,8 @@ Scope {
     PanelWindow {
         id: panelWindow
         visible: GlobalStates.powerMenuOpen
+        property int focusedIndex: 0
+        property var powerButtons: [sleepButton, hibernateButton, restartButton, shutdownButton, logoutButton]
 
         WlrLayershell.namespace: "quickshell:powermenu"
         WlrLayershell.layer: WlrLayer.Top
@@ -82,9 +84,39 @@ Scope {
             anchors.fill: parent
             focus: GlobalStates.powerMenuOpen
 
+            function moveFocus(delta) {
+                const total = panelWindow.powerButtons.length;
+                if (total === 0) {
+                    return;
+                }
+                panelWindow.focusedIndex = (panelWindow.focusedIndex + delta + total) % total;
+            }
+
+            function activateFocused() {
+                const target = panelWindow.powerButtons[panelWindow.focusedIndex];
+                if (target) {
+                    target.trigger();
+                }
+            }
+
             Keys.onPressed: event => {
                 if (event.key === Qt.Key_Escape) {
                     GlobalStates.powerMenuOpen = false;
+                    event.accepted = true;
+                    return;
+                }
+                if (event.key === Qt.Key_Left || event.key === Qt.Key_Up) {
+                    keyHandler.moveFocus(-1);
+                    event.accepted = true;
+                    return;
+                }
+                if (event.key === Qt.Key_Right || event.key === Qt.Key_Down) {
+                    keyHandler.moveFocus(1);
+                    event.accepted = true;
+                    return;
+                }
+                if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter || event.key === Qt.Key_Space) {
+                    keyHandler.activateFocused();
                     event.accepted = true;
                 }
             }
@@ -137,11 +169,51 @@ Scope {
                     spacing: 24
                     anchors.horizontalCenter: parent.horizontalCenter
 
-                    PowerIconButton { label: "Sleep"; iconPath: "file:///usr/share/icons/Adwaita/symbolic/status/weather-clear-night-symbolic.svg"; command: "systemctl suspend || loginctl suspend" }
-                    PowerIconButton { label: "Hibernate"; iconPath: "file:///usr/share/icons/Adwaita/symbolic/status/weather-snow-symbolic.svg"; command: "systemctl hibernate || loginctl hibernate" }
-                    PowerIconButton { label: "Restart"; iconPath: "file:///usr/share/icons/Adwaita/symbolic/actions/system-reboot-symbolic.svg"; command: "systemctl reboot || loginctl reboot" }
-                    PowerIconButton { label: "Shut Down"; iconPath: "file:///usr/share/icons/Adwaita/symbolic/actions/system-shutdown-symbolic.svg"; command: "systemctl poweroff || loginctl poweroff" }
-                    PowerIconButton { label: "Log Out"; iconPath: "file:///usr/share/icons/Adwaita/symbolic/actions/system-log-out-symbolic.svg"; command: "hyprctl dispatch exit || loginctl terminate-user $USER" }
+                    PowerIconButton {
+                        id: sleepButton
+                        label: "Sleep"
+                        iconPath: "file:///usr/share/icons/Adwaita/symbolic/status/weather-clear-night-symbolic.svg"
+                        command: "systemctl suspend || loginctl suspend"
+                        buttonIndex: 0
+                        focused: panelWindow.focusedIndex === buttonIndex
+                        onHovered: panelWindow.focusedIndex = buttonIndex
+                    }
+                    PowerIconButton {
+                        id: hibernateButton
+                        label: "Hibernate"
+                        iconPath: "file:///usr/share/icons/Adwaita/symbolic/status/weather-snow-symbolic.svg"
+                        command: "systemctl hibernate || loginctl hibernate"
+                        buttonIndex: 1
+                        focused: panelWindow.focusedIndex === buttonIndex
+                        onHovered: panelWindow.focusedIndex = buttonIndex
+                    }
+                    PowerIconButton {
+                        id: restartButton
+                        label: "Restart"
+                        iconPath: "file:///usr/share/icons/Adwaita/symbolic/actions/system-reboot-symbolic.svg"
+                        command: "systemctl reboot || loginctl reboot"
+                        buttonIndex: 2
+                        focused: panelWindow.focusedIndex === buttonIndex
+                        onHovered: panelWindow.focusedIndex = buttonIndex
+                    }
+                    PowerIconButton {
+                        id: shutdownButton
+                        label: "Shut Down"
+                        iconPath: "file:///usr/share/icons/Adwaita/symbolic/actions/system-shutdown-symbolic.svg"
+                        command: "systemctl poweroff || loginctl poweroff"
+                        buttonIndex: 3
+                        focused: panelWindow.focusedIndex === buttonIndex
+                        onHovered: panelWindow.focusedIndex = buttonIndex
+                    }
+                    PowerIconButton {
+                        id: logoutButton
+                        label: "Log Out"
+                        iconPath: "file:///usr/share/icons/Adwaita/symbolic/actions/system-log-out-symbolic.svg"
+                        command: "hyprctl dispatch exit || loginctl terminate-user $USER"
+                        buttonIndex: 4
+                        focused: panelWindow.focusedIndex === buttonIndex
+                        onHovered: panelWindow.focusedIndex = buttonIndex
+                    }
                 }
             }
         }
@@ -152,6 +224,9 @@ Scope {
         required property string label
         required property string command
         required property string iconPath
+        property int buttonIndex: 0
+        property bool focused: false
+        signal hovered(int index)
 
         width: 78
         height: 96
@@ -166,15 +241,15 @@ Scope {
                 width: 48
                 height: 48
                 radius: 24
-                color: button.containsMouse ? "#3a3a3a" : "transparent"
-                border.color: button.containsMouse ? "#cfcfcf" : "#6a6a6a"
+                color: button.active ? "#3a3a3a" : "transparent"
+                border.color: button.active ? "#cfcfcf" : "#6a6a6a"
                 border.width: 1
 
                 ColoredIcon {
                     anchors.centerIn: parent
                     source: button.iconPath
                     size: 24
-                    color: button.containsMouse ? "#ffffff" : "#d0d0d0"
+                    color: button.active ? "#ffffff" : "#d0d0d0"
                 }
             }
 
@@ -187,14 +262,23 @@ Scope {
         }
 
         property bool containsMouse: false
+        property bool active: containsMouse || focused
+
+        function trigger() {
+            Quickshell.execDetached(["bash", "-c", button.command])
+            GlobalStates.powerMenuOpen = false
+        }
+
         MouseArea {
             anchors.fill: parent
             hoverEnabled: true
-            onEntered: button.containsMouse = true
+            onEntered: {
+                button.containsMouse = true
+                button.hovered(button.buttonIndex)
+            }
             onExited: button.containsMouse = false
             onClicked: {
-                Quickshell.execDetached(["bash", "-c", button.command])
-                GlobalStates.powerMenuOpen = false
+                button.trigger()
             }
         }
     }

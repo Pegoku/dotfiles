@@ -2,6 +2,7 @@ import QtQuick
 import Quickshell
 import Quickshell.Hyprland
 import Quickshell.Io
+import Quickshell.Services.UPower
 
 Scope {
     id: root
@@ -25,10 +26,9 @@ Scope {
         model: Quickshell.screens
 
         PanelWindow {
-            //     anchors.centerIn: parent
-            // }
-
-            // screen: modelData
+            required property var modelData
+            screen: modelData
+            
             implicitHeight: 40
 
             anchors {
@@ -39,6 +39,12 @@ Scope {
 
             color: root.accentColor
             
+            SystemRingsWidget {
+                anchors.right: workspacesWidget.left
+                anchors.verticalCenter: parent.verticalCenter
+                anchors.rightMargin: 10
+            }
+
             WorkspacesWidget {
                 id: workspacesWidget
                 anchors.horizontalCenter: parent.horizontalCenter
@@ -47,16 +53,18 @@ Scope {
             }
 
             ClockWidget {
+                id: clockWidget
                 anchors.left: workspacesWidget.right
                 anchors.verticalCenter: parent.verticalCenter
                 anchors.leftMargin: 10
             }
 
             BatteryWidget {
+                id: batteryWidget
                 anchors.right: parent.right
                 anchors.verticalCenter: parent.verticalCenter
                 anchors.rightMargin: 10
-                visible: Quickshell.Io.Battery.available
+                visible: UPower.displayDevice.percentage != 0
             }
 
         }

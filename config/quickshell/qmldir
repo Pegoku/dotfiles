@@ -1,0 +1,17 @@
+singleton GlobalStates 1.0 GlobalStates.qml
+singleton HyprlandData 1.0 services/HyprlandData.qml
+
+Bar 1.0 Bar.qml
+OnScreenDisplay 1.0 OnScreenDisplay.qml
+Overview 1.0 Overview.qml
+OverviewWidget 1.0 OverviewWidget.qml
+OverviewWindow 1.0 OverviewWindow.qml
+PowerMenu 1.0 PowerMenu.qml
+SystemRingsWidget 1.0 SystemRingsWidget.qml
+WorkspacesWidget 1.0 WorkspacesWidget.qml
+WorkspaceButton 1.0 WorkspaceButton.qml
+BatteryWidget 1.0 BatteryWidget.qml
+BrightnessWidget 1.0 BrightnessWidget.qml
+ClockWidget 1.0 ClockWidget.qml
+VolumeWidget 1.0 VolumeWidget.qml
+singleton Time 1.0 Time.qml

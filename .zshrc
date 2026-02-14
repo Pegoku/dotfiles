@@ -185,6 +185,27 @@ setb() {
   ddcutil setvcp 10 $1 --display 1
 }
 
+wt() { # Git WorkTrees
+  if [ -z "$1" ]; then
+    echo "Usage: wt <branch-name>"
+    return 1
+  fi
+
+  BRANCH="$1"
+  DIR="../$(basename $(pwd))-$BRANCH"
+
+  if git show-ref --verify --quiet "refs/heads/$BRANCH"; then
+    git worktree add "$DIR" "$BRANCH"
+  else
+    git worktree add -b "$BRANCH" "$DIR"
+  fi
+
+  cd "$DIR"
+}
+
+
+
+
 alias n="nautilus"
 
 export DOCKER_HOST=unix://$XDG_RUNTIME_DIR/docker.sock

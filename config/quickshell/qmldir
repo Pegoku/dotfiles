@@ -14,4 +14,5 @@ BatteryWidget 1.0 BatteryWidget.qml
 BrightnessWidget 1.0 BrightnessWidget.qml
 ClockWidget 1.0 ClockWidget.qml
 VolumeWidget 1.0 VolumeWidget.qml
+NetworkWidget 1.0 NetworkWidget.qml
 singleton Time 1.0 Time.qml

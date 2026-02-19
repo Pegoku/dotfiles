@@ -67,6 +67,13 @@ Scope {
                 visible: UPower.displayDevice.percentage != 0
             }
 
+            NetworkWidget {
+                id: networkWidget
+                anchors.right: batteryWidget.visible ? batteryWidget.left : parent.right
+                anchors.verticalCenter: parent.verticalCenter
+                anchors.rightMargin: batteryWidget.visible ? 8 : 10
+            }
+
         }
 
     }

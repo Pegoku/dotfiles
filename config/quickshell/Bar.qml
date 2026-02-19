@@ -29,8 +29,7 @@ Scope {
             required property var modelData
             screen: modelData
             
-            implicitHeight: networkWidget.menuOpen ? 320 : 40
-            exclusiveZone: 40
+            implicitHeight: 40
 
             anchors {
                 top: true
@@ -38,44 +37,32 @@ Scope {
                 right: true
             }
 
-            color: "transparent"
-
-            Rectangle {
-                id: barSurface
-
-                anchors {
-                    top: parent.top
-                    left: parent.left
-                    right: parent.right
-                }
-                height: 40
-                color: root.accentColor
-            }
+            color: root.accentColor
             
             SystemRingsWidget {
                 anchors.right: workspacesWidget.left
-                anchors.verticalCenter: barSurface.verticalCenter
+                anchors.verticalCenter: parent.verticalCenter
                 anchors.rightMargin: 10
             }
 
             WorkspacesWidget {
                 id: workspacesWidget
                 anchors.horizontalCenter: parent.horizontalCenter
-                anchors.verticalCenter: barSurface.verticalCenter
+                anchors.verticalCenter: parent.verticalCenter
                 anchors.leftMargin: 10
             }
 
             ClockWidget {
                 id: clockWidget
                 anchors.left: workspacesWidget.right
-                anchors.verticalCenter: barSurface.verticalCenter
+                anchors.verticalCenter: parent.verticalCenter
                 anchors.leftMargin: 10
             }
 
             BatteryWidget {
                 id: batteryWidget
                 anchors.right: parent.right
-                anchors.verticalCenter: barSurface.verticalCenter
+                anchors.verticalCenter: parent.verticalCenter
                 anchors.rightMargin: 10
                 visible: UPower.displayDevice.percentage != 0
             }
@@ -83,7 +70,7 @@ Scope {
             NetworkWidget {
                 id: networkWidget
                 anchors.right: batteryWidget.visible ? batteryWidget.left : parent.right
-                anchors.verticalCenter: barSurface.verticalCenter
+                anchors.verticalCenter: parent.verticalCenter
                 anchors.rightMargin: batteryWidget.visible ? 8 : 10
             }
 

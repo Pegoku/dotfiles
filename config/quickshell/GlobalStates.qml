@@ -13,6 +13,7 @@ Singleton {
     
     property bool overviewOpen: false
     property bool powerMenuOpen: false
+    property bool networkMenuOpen: false
     
     GlobalShortcut {
         name: "overviewToggle"

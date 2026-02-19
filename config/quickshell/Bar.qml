@@ -30,6 +30,7 @@ Scope {
             screen: modelData
             
             implicitHeight: networkWidget.menuOpen ? 320 : 40
+            exclusiveZone: 40
 
             anchors {
                 top: true

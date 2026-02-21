@@ -130,7 +130,10 @@ const NetworkWiredIndicator = () => Widget.Stack({
         'fallback': SimpleNetworkIndicator(),
         'unknown': Widget.Label({ className: 'txt-norm icon-material', label: 'wifi_off' }),
         'disconnected': Widget.Label({ className: 'txt-norm icon-material', label: 'signal_wifi_off' }),
-        'connected': Widget.Label({ className: 'txt-norm icon-material', label: 'lan' }),
+        'connected': Widget.Icon({
+            icon: '/usr/share/icons/Adwaita/symbolic/devices/network-wired-symbolic.svg',
+            size: 16,
+        }),
         'connecting': Widget.Label({ className: 'txt-norm icon-material', label: 'settings_ethernet' }),
     },
     setup: (self) => self.hook(Network, stack => {

@@ -16,6 +16,7 @@ Rectangle {
     property color fgColor: "#f2f2f2"
     property color bgColor: "#1c1c1c"
     property string iconBase: "file:///usr/share/icons/Adwaita/symbolic/status/"
+    property string wiredIconPath: "file:///usr/share/icons/Adwaita/symbolic/devices/network-wired-symbolic.svg"
 
     property string sideLabel: {
         if (!networkingEnabled)
@@ -46,6 +47,13 @@ Rectangle {
             return "network-wireless-signal-good-symbolic";
 
         return "network-wireless-signal-excellent-symbolic";
+    }
+
+    function networkIconSource() {
+        if (state === "wired")
+            return wiredIconPath;
+
+        return iconBase + networkIconName() + ".svg";
     }
 
     anchors.verticalCenter: parent.verticalCenter
@@ -147,7 +155,7 @@ Rectangle {
         Image {
             width: 18
             height: 18
-            source: containerRect.iconBase + containerRect.networkIconName() + ".svg"
+            source: containerRect.networkIconSource()
             smooth: true
             layer.enabled: true
 

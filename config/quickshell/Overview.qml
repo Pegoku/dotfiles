@@ -57,25 +57,7 @@ Scope {
         }
         
         FocusScope {
-            id: keyHandler
             anchors.fill: parent
-            focus: GlobalStates.overviewOpen
-            
-            Keys.onPressed: event => {
-                if (event.key === Qt.Key_Escape) {
-                    GlobalStates.overviewOpen = false;
-                    event.accepted = true;
-                }
-            }
-        }
-
-        Connections {
-            target: GlobalStates
-            function onOverviewOpenChanged() {
-                if (GlobalStates.overviewOpen) {
-                    keyHandler.forceActiveFocus()
-                }
-            }
         }
         
         OverviewWidget {

@@ -186,6 +186,9 @@ Item {
                                     if (root.filteredApps.length > 0)
                                         root.launchEntry(root.filteredApps[root.selectedAppIndex]);
                                     event.accepted = true;
+                                } else if (event.key === Qt.Key_Escape) {
+                                    GlobalStates.overviewOpen = false;
+                                    event.accepted = true;
                                 }
                             }
                         }

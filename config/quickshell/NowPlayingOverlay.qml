@@ -136,10 +136,8 @@ Scope {
                                                 visible: source.toString().length > 0
 
                                                 onStatusChanged: {
-                                                    console.log("[NowPlayingOverlay] image status=", status, "title=", modelData.title, "source=", source);
                                                     if (status !== Image.Error)
                                                         return;
-                                                    console.log("[NowPlayingOverlay] image load error title=", modelData.title, "source=", source, "fallback=", modelData.fallbackArtUrl);
                                                     if (!modelData.fallbackArtUrl || modelData.fallbackArtUrl.length === 0)
                                                         return;
                                                     if (source === modelData.fallbackArtUrl)

@@ -53,10 +53,8 @@ Rectangle {
                 visible: source.toString().length > 0
 
                 onStatusChanged: {
-                    console.log("[NowPlayingWidget] image status=", status, "source=", source);
                     if (status !== Image.Error || !NowPlayingData.primary)
                         return;
-                    console.log("[NowPlayingWidget] image load error source=", source, "fallback=", NowPlayingData.primary.fallbackArtUrl);
                     if (source === NowPlayingData.primary.fallbackArtUrl)
                         return;
                     if (NowPlayingData.primary.fallbackArtUrl && NowPlayingData.primary.fallbackArtUrl.length > 0)

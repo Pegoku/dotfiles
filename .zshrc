@@ -206,7 +206,8 @@ wt() { # Git WorkTrees
 
 alias rm='trash'   
 
-alias n="nautilus"
+#alias n="nautilus"
+alias n="nohup nautilus . > /dev/null 2>&1 &"
 
 export DOCKER_HOST=unix://$XDG_RUNTIME_DIR/docker.sock
 

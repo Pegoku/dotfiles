@@ -1,6 +1,7 @@
 pragma ComponentBehavior: Bound
 import QtQuick
 import Quickshell
+import Quickshell.Io
 import Quickshell.Wayland
 import Quickshell.Hyprland
 import Quickshell.Widgets
@@ -27,6 +28,10 @@ Item {
     property var launcherActions: []
     property var filteredApps: []
     property int selectedAppIndex: 0
+    property string commandProbe: ""
+    property bool commandProbeExists: false
+    property bool commandProbeResolved: true
+    property string commandProbePending: ""
     readonly property bool hasSearchQuery: appQuery.trim().length > 0
     readonly property int resultCount: launcherActions.length + filteredApps.length
     readonly property string adwaitaSymbolicBase: "file:///usr/share/icons/Adwaita/symbolic/"
@@ -133,6 +138,56 @@ Item {
         return t.indexOf(" ") === -1;
     }
 
+    function commandProbeFor(text) {
+        var t = String(text).trim();
+        if (!isLikelyCommand(t))
+            return "";
+
+        var parts = t.split(/\s+/);
+        return parts.length > 0 ? parts[0] : "";
+    }
+
+    function requestCommandProbe(text) {
+        var probe = commandProbeFor(text);
+
+        if (probe === commandProbe && commandProbeResolved)
+            return;
+
+        commandProbe = probe;
+        commandProbeExists = false;
+        commandProbeResolved = probe.length === 0;
+        commandProbePending = probe;
+
+        if (probe.length === 0)
+            return;
+
+        if (!commandCheckProc.running)
+            startCommandProbeCheck();
+    }
+
+    function startCommandProbeCheck() {
+        if (commandProbePending.length === 0)
+            return;
+
+        commandCheckProc.probe = commandProbePending;
+        commandProbePending = "";
+        commandCheckProc.outputBuffer = "";
+
+        var escaped = shellEscape(commandCheckProc.probe);
+        commandCheckProc.command = [
+            "bash",
+            "-lc",
+            "p=" + escaped + "; " +
+            "if [[ \"$p\" == ~* ]]; then p=\"${p/#\\~/$HOME}\"; fi; " +
+            "if [[ \"$p\" == /* || \"$p\" == ./* || \"$p\" == ../* ]]; then " +
+            "[ -x \"$p\" ] && echo YES || echo NO; " +
+            "else " +
+            "command -v -- \"$p\" >/dev/null 2>&1 && echo YES || echo NO; " +
+            "fi"
+        ];
+        commandCheckProc.running = true;
+    }
+
     function copyToClipboard(text) {
         var escaped = shellEscape(text);
         Quickshell.execDetached(["bash", "-lc", "printf %s " + escaped + " | (wl-copy || xclip -selection clipboard || xsel --clipboard --input)"]);
@@ -200,7 +255,9 @@ Item {
             value: q
         });
 
-        if (isLikelyCommand(q)) {
+        requestCommandProbe(q);
+
+        if (isLikelyCommand(q) && commandProbeFor(q) === commandProbe && commandProbeResolved && commandProbeExists) {
             next.push({
                 kind: "command",
                 icon: adwaitaSymbolicBase + "legacy/utilities-terminal-symbolic.svg",
@@ -690,4 +747,33 @@ Item {
     onSelectedAppIndexChanged: Qt.callLater(root.ensureSelectedVisible)
 
     Component.onCompleted: root.refreshFilteredApps()
+
+    Process {
+        id: commandCheckProc
+
+        property string probe: ""
+        property string outputBuffer: ""
+
+        running: false
+
+        stdout: SplitParser {
+            onRead: data => {
+                commandCheckProc.outputBuffer += data;
+            }
+        }
+
+        onExited: {
+            var exists = commandCheckProc.outputBuffer.trim() === "YES";
+            if (commandCheckProc.probe === root.commandProbe) {
+                root.commandProbeExists = exists;
+                root.commandProbeResolved = true;
+                root.refreshLauncherActions(root.appQuery);
+            }
+
+            commandCheckProc.outputBuffer = "";
+
+            if (root.commandProbePending.length > 0)
+                root.startCommandProbeCheck();
+        }
+    }
 }

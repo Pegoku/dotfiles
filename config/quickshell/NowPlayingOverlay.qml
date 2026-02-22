@@ -210,7 +210,7 @@ Scope {
 
                                 Text {
                                     anchors.centerIn: parent
-                                    text: NowPlayingData.playerctlAvailable ? "Nothing is currently playing" : "Install playerctl to enable media tracking"
+                                    text: "Nothing is currently playing"
                                     color: "#bfbfbf"
                                     font.pixelSize: 11
                                 }

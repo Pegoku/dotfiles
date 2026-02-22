@@ -43,8 +43,6 @@ Rectangle {
             font.pixelSize: 11
             font.bold: true
             text: {
-                if (!NowPlayingData.playerctlAvailable)
-                    return "playerctl not installed";
                 if (NowPlayingData.playingCount === 0)
                     return "No media playing";
 

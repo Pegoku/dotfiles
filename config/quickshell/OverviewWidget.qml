@@ -81,18 +81,62 @@ Item {
     }
 
     function appMatches(entry, query) {
+        return appScore(entry, query) > 0;
+    }
+
+    function fuzzyScore(haystack, needle, bias) {
+        if (!haystack || !needle)
+            return 0;
+
+        var h = normalizeText(haystack);
+        var n = normalizeText(needle);
+        if (h.length === 0 || n.length === 0)
+            return 0;
+
+        if (h === n)
+            return 1200 + bias;
+        if (h.startsWith(n))
+            return 900 + bias - Math.min(200, h.length - n.length);
+
+        var idx = h.indexOf(n);
+        if (idx >= 0)
+            return 700 + bias - Math.min(400, idx * 3);
+
+        var score = 0;
+        var needlePos = 0;
+        var streak = 0;
+
+        for (var i = 0; i < h.length && needlePos < n.length; i++) {
+            if (h[i] !== n[needlePos])
+                continue;
+
+            score += 12 + streak * 8;
+            if (i === 0 || h[i - 1] === ' ' || h[i - 1] === '-' || h[i - 1] === '_' || h[i - 1] === '.')
+                score += 14;
+            if (needlePos === i)
+                score += 6;
+
+            needlePos += 1;
+            streak += 1;
+        }
+
+        if (needlePos !== n.length)
+            return 0;
+
+        return score + bias;
+    }
+
+    function appScore(entry, query) {
         if (!entry)
-            return false;
+            return 0;
 
-        var haystack = [
-            normalizeText(entry.name),
-            normalizeText(entry.genericName),
-            normalizeText(entry.comment),
-            normalizeText(entry.id),
-            appKeywords(entry)
-        ].join(" ");
-
-        return haystack.indexOf(query) !== -1;
+        var best = 0;
+        best = Math.max(best, fuzzyScore(entry.name, query, 120));
+        best = Math.max(best, fuzzyScore(entry.genericName, query, 80));
+        best = Math.max(best, fuzzyScore(entry.id, query, 60));
+        best = Math.max(best, fuzzyScore(appKeywords(entry), query, 30));
+        best = Math.max(best, fuzzyScore(entry.comment, query, 10));
+        return best;
     }
 
     function refreshFilteredApps() {
@@ -109,12 +153,18 @@ Item {
 
         for (var i = 0; i < apps.length; i++) {
             var app = apps[i];
-            if (appMatches(app, query))
-                next.push(app);
+            var score = appScore(app, query);
+            if (score > 0)
+                next.push({ entry: app, score: score });
         }
 
-        next.sort((a, b) => normalizeText(a.name).localeCompare(normalizeText(b.name)));
-        filteredApps = next;
+        next.sort((a, b) => {
+            if (a.score === b.score)
+                return normalizeText(a.entry.name).localeCompare(normalizeText(b.entry.name));
+            return b.score - a.score;
+        });
+
+        filteredApps = next.map(item => item.entry);
 
         if (selectedAppIndex >= filteredApps.length)
             selectedAppIndex = Math.max(0, filteredApps.length - 1);

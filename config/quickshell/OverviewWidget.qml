@@ -25,6 +25,7 @@ Item {
     property string appQuery: ""
     property var filteredApps: []
     property int selectedAppIndex: 0
+    readonly property bool hasSearchQuery: appQuery.trim().length > 0
     readonly property int maxLauncherRows: 7
     readonly property int visibleAppCount: Math.min(maxLauncherRows, filteredApps.length)
 
@@ -61,8 +62,6 @@ Item {
     function appMatches(entry, query) {
         if (!entry)
             return false;
-        if (query.length === 0)
-            return true;
 
         var haystack = [
             normalizeText(entry.name),
@@ -78,6 +77,13 @@ Item {
     function refreshFilteredApps() {
         var apps = DesktopEntries.applications?.values ?? [];
         var query = normalizeText(appQuery.trim());
+
+        if (query.length === 0) {
+            filteredApps = [];
+            selectedAppIndex = 0;
+            return;
+        }
+
         var next = [];
 
         for (var i = 0; i < apps.length; i++) {
@@ -125,7 +131,7 @@ Item {
             Rectangle {
                 id: launcherPanel
 
-                width: workspaceSection.width
+                width: workspaceColumnLayout.implicitWidth
                 radius: 10
                 color: "#161616"
                 border.width: 1
@@ -196,6 +202,7 @@ Item {
                     }
 
                     Rectangle {
+                        visible: root.hasSearchQuery
                         width: parent.width
                         height: listContainer.implicitHeight
                         radius: 8
@@ -242,7 +249,7 @@ Item {
                             }
 
                             Text {
-                                visible: root.filteredApps.length === 0
+                                visible: root.hasSearchQuery && root.filteredApps.length === 0
                                 width: listContainer.width - listContainer.padding * 2
                                 height: 30
                                 verticalAlignment: Text.AlignVCenter
@@ -258,6 +265,7 @@ Item {
 
             Item {
                 id: workspaceSection
+                visible: !root.hasSearchQuery
 
                 implicitWidth: workspaceColumnLayout.implicitWidth
                 implicitHeight: workspaceColumnLayout.implicitHeight

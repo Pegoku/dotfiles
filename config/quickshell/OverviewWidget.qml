@@ -3,6 +3,7 @@ import QtQuick
 import Quickshell
 import Quickshell.Wayland
 import Quickshell.Hyprland
+import Quickshell.Widgets
 import "./services"
 
 Item {
@@ -59,6 +60,18 @@ Item {
         if (value === undefined || value === null)
             return "";
         return String(value).toLowerCase();
+    }
+
+    function resolveIconSource(iconValue) {
+        var icon = iconValue ? String(iconValue) : "";
+        if (icon.length === 0)
+            return "image://icon/application-x-executable";
+        if (icon.indexOf("://") !== -1)
+            return icon;
+        if (icon.startsWith("/"))
+            return "file://" + icon;
+
+        return "image://icon/" + icon;
     }
 
     function appKeywords(entry) {
@@ -267,14 +280,24 @@ Item {
                                         color: selected ? "#314a72" : "transparent"
 
                                         Text {
-                                            anchors.left: parent.left
-                                            anchors.leftMargin: 10
+                                            anchors.left: appIcon.right
+                                            anchors.leftMargin: 8
                                             anchors.verticalCenter: parent.verticalCenter
-                                            width: parent.width - 20
+                                            width: parent.width - appIcon.width - 26
                                             color: selected ? "#ffffff" : "#d7d7d7"
                                             font.pixelSize: 12
                                             elide: Text.ElideRight
                                             text: (entry?.name ?? "") + (entry?.genericName && entry.genericName.length > 0 ? " - " + entry.genericName : "")
+                                        }
+
+                                        IconImage {
+                                            id: appIcon
+
+                                            anchors.left: parent.left
+                                            anchors.leftMargin: 8
+                                            anchors.verticalCenter: parent.verticalCenter
+                                            implicitSize: 16
+                                            source: root.resolveIconSource(entry?.icon)
                                         }
 
                                         MouseArea {

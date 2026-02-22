@@ -29,6 +29,7 @@ Item {
     property int selectedAppIndex: 0
     readonly property bool hasSearchQuery: appQuery.trim().length > 0
     readonly property int resultCount: launcherActions.length + filteredApps.length
+    readonly property string adwaitaSymbolicBase: "file:///usr/share/icons/Adwaita/symbolic/"
     readonly property int maxLauncherRows: 7
     readonly property int launcherRowHeight: 32
     readonly property int launcherRowSpacing: 2
@@ -184,7 +185,7 @@ Item {
         if (calcResult !== null) {
             next.push({
                 kind: "calc",
-                icon: "image://icon/accessories-calculator",
+                icon: adwaitaSymbolicBase + "legacy/accessories-calculator-symbolic.svg",
                 title: "Calculate",
                 detail: q + " = " + calcResult,
                 value: calcResult
@@ -193,7 +194,7 @@ Item {
 
         next.push({
             kind: "browser",
-            icon: "image://icon/web-browser",
+            icon: adwaitaSymbolicBase + "legacy/web-browser-symbolic.svg",
             title: "Open in browser",
             detail: isLikelyUrl(q) ? normalizeUrl(q) : "Brave Search: " + q,
             value: q
@@ -202,7 +203,7 @@ Item {
         if (isLikelyCommand(q)) {
             next.push({
                 kind: "command",
-                icon: "image://icon/utilities-terminal",
+                icon: adwaitaSymbolicBase + "legacy/utilities-terminal-symbolic.svg",
                 title: "Run command",
                 detail: q,
                 value: q

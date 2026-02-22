@@ -107,7 +107,7 @@ Scope {
                                     required property var modelData
 
                                     width: tracksColumn.width
-                                    height: 76
+                                    height: 98
                                     radius: 8
                                     color: "#263152"
 
@@ -193,7 +193,102 @@ Scope {
                                                     color: "#8a8a8a"
                                                     font.pixelSize: 10
                                                     elide: Text.ElideRight
-                                                    width: 120
+                                                    width: 96
+                                                }
+
+                                                Text {
+                                                    text: modelData.state
+                                                    color: modelData.isPlaying ? "#9fd7a1" : "#d6c88f"
+                                                    font.pixelSize: 10
+                                                }
+                                            }
+
+                                            Row {
+                                                spacing: 6
+
+                                                Rectangle {
+                                                    width: 24
+                                                    height: 20
+                                                    radius: 5
+                                                    color: modelData.canPrevious ? "#38446a" : "#2b2f3b"
+                                                    opacity: modelData.canPrevious ? 1 : 0.55
+
+                                                    Text {
+                                                        anchors.centerIn: parent
+                                                        text: "|<"
+                                                        color: "#f2f2f2"
+                                                        font.pixelSize: 10
+                                                    }
+
+                                                    MouseArea {
+                                                        anchors.fill: parent
+                                                        enabled: modelData.canPrevious
+                                                        onClicked: modelData.playerRef.previous()
+                                                    }
+                                                }
+
+                                                Rectangle {
+                                                    width: 34
+                                                    height: 20
+                                                    radius: 5
+                                                    color: modelData.canToggle ? "#4867a7" : "#2b2f3b"
+                                                    opacity: modelData.canToggle ? 1 : 0.55
+
+                                                    Text {
+                                                        anchors.centerIn: parent
+                                                        text: modelData.isPlaying ? "Pause" : "Play"
+                                                        color: "#f2f2f2"
+                                                        font.pixelSize: 10
+                                                        font.bold: true
+                                                    }
+
+                                                    MouseArea {
+                                                        anchors.fill: parent
+                                                        enabled: modelData.canToggle
+                                                        onClicked: modelData.playerRef.togglePlaying()
+                                                    }
+                                                }
+
+                                                Rectangle {
+                                                    width: 34
+                                                    height: 20
+                                                    radius: 5
+                                                    color: modelData.canStop ? "#7a4354" : "#2b2f3b"
+                                                    opacity: modelData.canStop ? 1 : 0.55
+
+                                                    Text {
+                                                        anchors.centerIn: parent
+                                                        text: "Stop"
+                                                        color: "#f2f2f2"
+                                                        font.pixelSize: 9
+                                                    }
+
+                                                    MouseArea {
+                                                        anchors.fill: parent
+                                                        enabled: modelData.canStop
+                                                        onClicked: modelData.playerRef.stop()
+                                                    }
+                                                }
+
+                                                Rectangle {
+                                                    width: 24
+                                                    height: 20
+                                                    radius: 5
+                                                    color: modelData.canNext ? "#38446a" : "#2b2f3b"
+                                                    opacity: modelData.canNext ? 1 : 0.55
+
+                                                    Text {
+                                                        anchors.centerIn: parent
+                                                        text: ">|"
+                                                        color: "#f2f2f2"
+                                                        font.pixelSize: 10
+                                                    }
+
+                                                    MouseArea {
+                                                        anchors.fill: parent
+                                                        enabled: modelData.canNext
+                                                        onClicked: modelData.playerRef.next()
+                                                    }
                                                 }
                                             }
                                         }

@@ -14,11 +14,8 @@ Scope {
         target: "osd"
 
         function brightness(): void {
-            if (root.brightnessPath) {
-                ipcBrightnessRefresh.restart();
-            } else {
-                root.trigger("brightness");
-            }
+            root.trigger("brightness");
+            ipcBrightnessRefresh.restart();
         }
     }
 
@@ -194,8 +191,10 @@ Scope {
         repeat: false
         running: false
         onTriggered: {
-            brightnessView.reload();
-            root.updateBrightness(true);
+            if (root.brightnessPath) {
+                brightnessView.reload();
+                root.updateBrightness(false);
+            }
         }
     }
 

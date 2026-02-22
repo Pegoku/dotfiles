@@ -10,6 +10,18 @@ import Quickshell.Wayland
 Scope {
     id: root
 
+    IpcHandler {
+        target: "osd"
+
+        function brightness(): void {
+            if (root.brightnessPath) {
+                ipcBrightnessRefresh.restart();
+            } else {
+                root.trigger("brightness");
+            }
+        }
+    }
+
     property bool open: false
     property string currentKind: "volume"
     property real volumeValue: 0
@@ -28,7 +40,7 @@ Scope {
     property int maxBrightness: 100
     property real _lastVolumeValue: -1
     property bool _lastVolumeMuted: false
-    property real _lastBrightnessValue: -1
+    property int _lastBrightnessPercent: -1
 
     property string iconBase: "file:///usr/share/icons/Adwaita/symbolic/status/"
     property color fgColor: "#f2f2f2"
@@ -145,28 +157,24 @@ Scope {
 
         root.brightnessAvailable = true;
         var maxVal = root.maxBrightness > 0 ? root.maxBrightness : 100;
-        root.applyBrightness(raw / maxVal, "sysfs", triggerOsd);
+        var pct = Math.round((raw / maxVal) * 100);
+        root.applyBrightnessPercent(pct, "sysfs", triggerOsd && root._brightnessInitialized);
 
-        if (triggerOsd) {
-            if (root._brightnessInitialized)
-                root.trigger("brightness");
-            else
-                root._brightnessInitialized = true;
-        } else if (!root._brightnessInitialized) {
+        if (!root._brightnessInitialized) {
             root._brightnessInitialized = true;
         }
     }
 
-    function applyBrightness(value, source, triggerOsd) {
-        var normalized = Math.max(0, Math.min(1, value));
-        if (normalized === root._lastBrightnessValue)
+    function applyBrightnessPercent(percent, source, triggerOsd) {
+        var pct = Math.max(0, Math.min(100, Math.round(percent)));
+        if (pct === root._lastBrightnessPercent)
             return;
 
-        root._lastBrightnessValue = normalized;
+        root._lastBrightnessPercent = pct;
         root.brightnessAvailable = true;
-        root.brightnessValue = normalized;
+        root.brightnessValue = pct / 100;
 
-        console.log("[OSD] Brightness changed (" + source + "):", root.brightnessValue);
+        console.log("[OSD] Brightness changed (" + source + "):", pct + "%");
 
         if (triggerOsd)
             root.trigger("brightness");
@@ -178,6 +186,17 @@ Scope {
         repeat: false
         running: false
         onTriggered: root.open = false
+    }
+
+    Timer {
+        id: ipcBrightnessRefresh
+        interval: 80
+        repeat: false
+        running: false
+        onTriggered: {
+            brightnessView.reload();
+            root.updateBrightness(true);
+        }
     }
 
     Timer {
@@ -246,7 +265,14 @@ Scope {
     Process {
         id: backlightProc
 
-        command: ["bash", "-lc", "ls -1 /sys/class/backlight 2>/dev/null | head -n1"]
+        command: [
+            "bash",
+            "-lc",
+            "dev=$(brightnessctl -m 2>/dev/null | awk -F',' 'NR==1{print $1}'); " +
+            "if [ -n \"$dev\" ] && [ -d \"/sys/class/backlight/$dev\" ]; then " +
+            "printf '%s\\n' \"$dev\"; " +
+            "else ls -1 /sys/class/backlight 2>/dev/null | head -n1; fi"
+        ]
         running: true
 
         stdout: SplitParser {
@@ -298,7 +324,7 @@ Scope {
     Process {
         id: brightnessFallbackProc
 
-        running: !root.brightnessPath
+        running: true
         command: [
             "bash",
             "-lc",
@@ -327,8 +353,11 @@ Scope {
                 }
 
                 var pct = Number(parts[1]);
-                if (!isNaN(pct))
-                    root.applyBrightness(pct / 100, "fallback", true);
+                if (!isNaN(pct)) {
+                    root.applyBrightnessPercent(pct, "brightnessctl", root._brightnessInitialized);
+                    if (!root._brightnessInitialized)
+                        root._brightnessInitialized = true;
+                }
             }
         }
     }

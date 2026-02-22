@@ -27,7 +27,15 @@ Item {
     property int selectedAppIndex: 0
     readonly property bool hasSearchQuery: appQuery.trim().length > 0
     readonly property int maxLauncherRows: 7
-    readonly property int visibleAppCount: Math.min(maxLauncherRows, filteredApps.length)
+    readonly property int launcherRowHeight: 32
+    readonly property int launcherRowSpacing: 2
+    readonly property int launcherListPadding: 4
+    readonly property int launcherViewportHeight: {
+        var rows = Math.min(maxLauncherRows, filteredApps.length);
+        if (rows <= 0)
+            return 30 + launcherListPadding * 2;
+        return rows * launcherRowHeight + Math.max(0, rows - 1) * launcherRowSpacing + launcherListPadding * 2;
+    }
 
     function workspaceAtPosition(xPos, yPos) {
         const cellWidth = workspaceImplicitWidth + workspaceSpacing
@@ -107,6 +115,23 @@ Item {
         appQuery = "";
         refreshFilteredApps();
         GlobalStates.overviewOpen = false;
+    }
+
+    function ensureSelectedVisible() {
+        if (!hasSearchQuery || filteredApps.length === 0)
+            return;
+        if (!appsFlick)
+            return;
+
+        var rowTop = selectedAppIndex * (launcherRowHeight + launcherRowSpacing);
+        var rowBottom = rowTop + launcherRowHeight;
+        var viewTop = appsFlick.contentY;
+        var viewBottom = viewTop + appsFlick.height - launcherListPadding * 2;
+
+        if (rowTop < viewTop)
+            appsFlick.contentY = rowTop;
+        else if (rowBottom > viewBottom)
+            appsFlick.contentY = rowBottom - (appsFlick.height - launcherListPadding * 2);
     }
     
     implicitWidth: background.implicitWidth + padding * 2
@@ -207,60 +232,78 @@ Item {
                     Rectangle {
                         visible: root.hasSearchQuery
                         width: parent.width
-                        height: listContainer.implicitHeight
+                        height: root.launcherViewportHeight
                         radius: 8
                         color: "#1d1d1d"
 
-                        Column {
-                            id: listContainer
+                        Flickable {
+                            id: appsFlick
 
-                            width: parent.width
-                            spacing: 2
-                            padding: 4
+                            anchors.fill: parent
+                            anchors.margins: root.launcherListPadding
+                            clip: true
+                            interactive: true
+                            boundsBehavior: Flickable.StopAtBounds
+                            contentWidth: width
+                            contentHeight: listContainer.implicitHeight
 
-                            Repeater {
-                                model: root.visibleAppCount
+                            Column {
+                                id: listContainer
 
-                                delegate: Rectangle {
-                                    required property int index
-                                    property var entry: root.filteredApps[index]
-                                    property bool selected: index === root.selectedAppIndex
+                                width: appsFlick.width
+                                spacing: root.launcherRowSpacing
 
-                                    width: listContainer.width - listContainer.padding * 2
-                                    height: 32
-                                    radius: 6
-                                    color: selected ? "#314a72" : "transparent"
+                                Repeater {
+                                    model: root.filteredApps.length
 
-                                    Text {
-                                        anchors.left: parent.left
-                                        anchors.leftMargin: 10
-                                        anchors.verticalCenter: parent.verticalCenter
-                                        width: parent.width - 20
-                                        color: selected ? "#ffffff" : "#d7d7d7"
-                                        font.pixelSize: 12
-                                        elide: Text.ElideRight
-                                        text: (entry?.name ?? "") + (entry?.genericName && entry.genericName.length > 0 ? " - " + entry.genericName : "")
-                                    }
+                                    delegate: Rectangle {
+                                        required property int index
+                                        property var entry: root.filteredApps[index]
+                                        property bool selected: index === root.selectedAppIndex
 
-                                    MouseArea {
-                                        anchors.fill: parent
-                                        hoverEnabled: true
-                                        onEntered: root.selectedAppIndex = index
-                                        onClicked: root.launchEntry(entry)
+                                        width: listContainer.width
+                                        height: root.launcherRowHeight
+                                        radius: 6
+                                        color: selected ? "#314a72" : "transparent"
+
+                                        Text {
+                                            anchors.left: parent.left
+                                            anchors.leftMargin: 10
+                                            anchors.verticalCenter: parent.verticalCenter
+                                            width: parent.width - 20
+                                            color: selected ? "#ffffff" : "#d7d7d7"
+                                            font.pixelSize: 12
+                                            elide: Text.ElideRight
+                                            text: (entry?.name ?? "") + (entry?.genericName && entry.genericName.length > 0 ? " - " + entry.genericName : "")
+                                        }
+
+                                        MouseArea {
+                                            anchors.fill: parent
+                                            hoverEnabled: true
+                                            onEntered: root.selectedAppIndex = index
+                                            onClicked: root.launchEntry(entry)
+                                        }
                                     }
                                 }
                             }
 
-                            Text {
-                                visible: root.hasSearchQuery && root.filteredApps.length === 0
-                                width: listContainer.width - listContainer.padding * 2
-                                height: 30
-                                verticalAlignment: Text.AlignVCenter
-                                horizontalAlignment: Text.AlignHCenter
-                                color: "#8a8a8a"
-                                font.pixelSize: 12
-                                text: "No matching apps"
+                            MouseArea {
+                                anchors.fill: parent
+                                acceptedButtons: Qt.NoButton
+
+                                onWheel: wheel => {
+                                    appsFlick.contentY -= wheel.angleDelta.y / 2;
+                                    wheel.accepted = true;
+                                }
                             }
+                        }
+
+                        Text {
+                            visible: root.hasSearchQuery && root.filteredApps.length === 0
+                            anchors.centerIn: parent
+                            color: "#8a8a8a"
+                            font.pixelSize: 12
+                            text: "No matching apps"
                         }
                     }
                 }
@@ -411,6 +454,8 @@ Item {
             root.refreshFilteredApps();
         }
     }
+
+    onSelectedAppIndexChanged: Qt.callLater(root.ensureSelectedVisible)
 
     Component.onCompleted: root.refreshFilteredApps()
 }

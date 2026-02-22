@@ -204,7 +204,7 @@ wt() { # Git WorkTrees
 }
 
 
-
+alias rm='trash'   
 
 alias n="nautilus"
 

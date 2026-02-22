@@ -24,15 +24,17 @@ Item {
     property real padding: 20
     property int zCounter: 0
     property string appQuery: ""
+    property var launcherActions: []
     property var filteredApps: []
     property int selectedAppIndex: 0
     readonly property bool hasSearchQuery: appQuery.trim().length > 0
+    readonly property int resultCount: launcherActions.length + filteredApps.length
     readonly property int maxLauncherRows: 7
     readonly property int launcherRowHeight: 32
     readonly property int launcherRowSpacing: 2
     readonly property int launcherListPadding: 4
     readonly property int launcherViewportHeight: {
-        var rows = Math.min(maxLauncherRows, filteredApps.length);
+        var rows = Math.min(maxLauncherRows, resultCount);
         if (rows <= 0)
             return 30 + launcherListPadding * 2;
         return rows * launcherRowHeight + Math.max(0, rows - 1) * launcherRowSpacing + launcherListPadding * 2;
@@ -78,6 +80,156 @@ Item {
         if (!entry || !entry.keywords)
             return "";
         return String(entry.keywords).toLowerCase();
+    }
+
+    function shellEscape(value) {
+        return "'" + String(value).replace(/'/g, "'\"'\"'") + "'";
+    }
+
+    function isLikelyUrl(text) {
+        var t = String(text).trim();
+        if (t.length === 0)
+            return false;
+        if (/^https?:\/\//i.test(t))
+            return true;
+        return /^[^\s]+\.[^\s]{2,}(\/[^\s]*)?$/i.test(t);
+    }
+
+    function normalizeUrl(text) {
+        var t = String(text).trim();
+        if (/^https?:\/\//i.test(t))
+            return t;
+        return "https://" + t;
+    }
+
+    function evaluateArithmetic(text) {
+        var expr = String(text).replace(/\s+/g, "");
+        if (!/[0-9]/.test(expr))
+            return null;
+        if (!/^[0-9+\-*/().%]+$/.test(expr))
+            return null;
+
+        try {
+            var value = Function("\"use strict\"; return (" + expr + ");")();
+            if (typeof value !== "number" || !isFinite(value))
+                return null;
+
+            var rounded = Math.abs(value - Math.round(value)) < 1e-10 ? Math.round(value) : Number(value.toFixed(10));
+            return String(rounded);
+        } catch (e) {
+            return null;
+        }
+    }
+
+    function isLikelyCommand(text) {
+        var t = String(text).trim();
+        if (t.length === 0)
+            return false;
+        if (isLikelyUrl(t) || evaluateArithmetic(t) !== null)
+            return false;
+        if (/[|&;<>]/.test(t) || t.startsWith("./") || t.startsWith("/") || t.startsWith("~"))
+            return true;
+        return t.indexOf(" ") === -1;
+    }
+
+    function copyToClipboard(text) {
+        var escaped = shellEscape(text);
+        Quickshell.execDetached(["bash", "-lc", "printf %s " + escaped + " | (wl-copy || xclip -selection clipboard || xsel --clipboard --input)"]);
+    }
+
+    function openInBrowser(text) {
+        var t = String(text).trim();
+        if (t.length === 0)
+            return;
+
+        var target = isLikelyUrl(t) ? normalizeUrl(t) : "https://search.brave.com/search?q=" + encodeURIComponent(t);
+        Quickshell.execDetached(["xdg-open", target]);
+        GlobalStates.overviewOpen = false;
+    }
+
+    function runCommandInTerminal(text) {
+        var t = String(text).trim();
+        if (t.length === 0)
+            return;
+
+        var escaped = shellEscape(t);
+        Quickshell.execDetached([
+            "bash",
+            "-lc",
+            "q=" + escaped + "; term=''; " +
+            "for x in kitty alacritty foot wezterm gnome-terminal konsole xterm; do command -v \"$x\" >/dev/null 2>&1 && { term=\"$x\"; break; }; done; " +
+            "case \"$term\" in " +
+            "kitty) exec kitty -e bash -lc \"$q\" ;; " +
+            "alacritty) exec alacritty -e bash -lc \"$q\" ;; " +
+            "foot) exec foot -e bash -lc \"$q\" ;; " +
+            "wezterm) exec wezterm start -- bash -lc \"$q\" ;; " +
+            "gnome-terminal) exec gnome-terminal -- bash -lc \"$q\" ;; " +
+            "konsole) exec konsole -e bash -lc \"$q\" ;; " +
+            "xterm) exec xterm -e bash -lc \"$q\" ;; " +
+            "*) command -v notify-send >/dev/null 2>&1 && notify-send 'Overview launcher' 'No supported terminal found' ;; " +
+            "esac"
+        ]);
+        GlobalStates.overviewOpen = false;
+    }
+
+    function refreshLauncherActions(queryText) {
+        var q = String(queryText).trim();
+        if (q.length === 0) {
+            launcherActions = [];
+            return;
+        }
+
+        var next = [];
+        var calcResult = evaluateArithmetic(q);
+        if (calcResult !== null) {
+            next.push({
+                kind: "calc",
+                icon: "image://icon/accessories-calculator",
+                title: "Calculate",
+                detail: q + " = " + calcResult,
+                value: calcResult
+            });
+        }
+
+        next.push({
+            kind: "browser",
+            icon: "image://icon/web-browser",
+            title: "Open in browser",
+            detail: isLikelyUrl(q) ? normalizeUrl(q) : "Brave Search: " + q,
+            value: q
+        });
+
+        if (isLikelyCommand(q)) {
+            next.push({
+                kind: "command",
+                icon: "image://icon/utilities-terminal",
+                title: "Run command",
+                detail: q,
+                value: q
+            });
+        }
+
+        launcherActions = next;
+    }
+
+    function activateSelection(index) {
+        if (index < 0 || index >= resultCount)
+            return;
+
+        if (index < launcherActions.length) {
+            var action = launcherActions[index];
+            if (action.kind === "calc") {
+                copyToClipboard(action.value);
+                GlobalStates.overviewOpen = false;
+            } else if (action.kind === "browser") {
+                openInBrowser(action.value);
+            } else if (action.kind === "command") {
+                runCommandInTerminal(action.value);
+            }
+            return;
+        }
+
+        launchEntry(filteredApps[index - launcherActions.length]);
     }
 
     function appMatches(entry, query) {
@@ -141,7 +293,9 @@ Item {
 
     function refreshFilteredApps() {
         var apps = DesktopEntries.applications?.values ?? [];
-        var query = normalizeText(appQuery.trim());
+        var rawQuery = appQuery.trim();
+        var query = normalizeText(rawQuery);
+        refreshLauncherActions(rawQuery);
 
         if (query.length === 0) {
             filteredApps = [];
@@ -166,8 +320,8 @@ Item {
 
         filteredApps = next.map(item => item.entry);
 
-        if (selectedAppIndex >= filteredApps.length)
-            selectedAppIndex = Math.max(0, filteredApps.length - 1);
+        if (selectedAppIndex >= resultCount)
+            selectedAppIndex = Math.max(0, resultCount - 1);
     }
 
     function launchEntry(entry) {
@@ -181,7 +335,7 @@ Item {
     }
 
     function ensureSelectedVisible() {
-        if (!hasSearchQuery || filteredApps.length === 0)
+        if (!hasSearchQuery || resultCount === 0)
             return;
         if (!appsFlick)
             return;
@@ -265,14 +419,16 @@ Item {
 
                             Keys.onPressed: event => {
                                 if (event.key === Qt.Key_Down) {
-                                    root.selectedAppIndex = Math.min(root.filteredApps.length - 1, root.selectedAppIndex + 1);
+                                    if (root.resultCount > 0)
+                                        root.selectedAppIndex = Math.min(root.resultCount - 1, root.selectedAppIndex + 1);
                                     event.accepted = true;
                                 } else if (event.key === Qt.Key_Up) {
-                                    root.selectedAppIndex = Math.max(0, root.selectedAppIndex - 1);
+                                    if (root.resultCount > 0)
+                                        root.selectedAppIndex = Math.max(0, root.selectedAppIndex - 1);
                                     event.accepted = true;
                                 } else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
-                                    if (root.filteredApps.length > 0)
-                                        root.launchEntry(root.filteredApps[root.selectedAppIndex]);
+                                    if (root.resultCount > 0)
+                                        root.activateSelection(root.selectedAppIndex);
                                     event.accepted = true;
                                 } else if (event.key === Qt.Key_Escape) {
                                     GlobalStates.overviewOpen = false;
@@ -317,11 +473,13 @@ Item {
                                 spacing: root.launcherRowSpacing
 
                                 Repeater {
-                                    model: root.filteredApps.length
+                                    model: root.resultCount
 
                                     delegate: Rectangle {
                                         required property int index
-                                        property var entry: root.filteredApps[index]
+                                        property bool isAction: index < root.launcherActions.length
+                                        property var action: isAction ? root.launcherActions[index] : null
+                                        property var entry: isAction ? null : root.filteredApps[index - root.launcherActions.length]
                                         property bool selected: index === root.selectedAppIndex
 
                                         width: listContainer.width
@@ -337,7 +495,7 @@ Item {
                                             color: selected ? "#ffffff" : "#d7d7d7"
                                             font.pixelSize: 12
                                             elide: Text.ElideRight
-                                            text: (entry?.name ?? "") + (entry?.genericName && entry.genericName.length > 0 ? " - " + entry.genericName : "")
+                                            text: isAction ? (action.title + " - " + action.detail) : ((entry?.name ?? "") + (entry?.genericName && entry.genericName.length > 0 ? " - " + entry.genericName : ""))
                                         }
 
                                         IconImage {
@@ -347,14 +505,14 @@ Item {
                                             anchors.leftMargin: 8
                                             anchors.verticalCenter: parent.verticalCenter
                                             implicitSize: 16
-                                            source: root.resolveIconSource(entry?.icon)
+                                            source: isAction ? action.icon : root.resolveIconSource(entry?.icon)
                                         }
 
                                         MouseArea {
                                             anchors.fill: parent
                                             hoverEnabled: true
                                             onEntered: root.selectedAppIndex = index
-                                            onClicked: root.launchEntry(entry)
+                                            onClicked: root.activateSelection(index)
                                         }
                                     }
                                 }
@@ -372,7 +530,7 @@ Item {
                         }
 
                         Text {
-                            visible: root.hasSearchQuery && root.filteredApps.length === 0
+                            visible: root.hasSearchQuery && root.resultCount === 0
                             anchors.centerIn: parent
                             color: "#8a8a8a"
                             font.pixelSize: 12

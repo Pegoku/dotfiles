@@ -59,7 +59,7 @@ Scope {
                 anchors.top: parent.top
                 anchors.topMargin: 46
                 anchors.left: parent.left
-                anchors.leftMargin: 12
+                anchors.leftMargin: Math.max(8, Math.min(parent.width - overlayCard.width - 8, GlobalStates.nowPlayingAnchorX - overlayCard.width / 2))
 
                 MouseArea {
                     anchors.fill: parent

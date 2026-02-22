@@ -11,6 +11,10 @@ Rectangle {
     property string iconBase: "file:///usr/share/icons/Adwaita/symbolic/status/"
     property string actionIconBase: "file:///usr/share/icons/Adwaita/symbolic/actions/"
 
+    function updateAnchorX() {
+        GlobalStates.nowPlayingAnchorX = containerRect.x + containerRect.width / 2;
+    }
+
     function currentArtUrl() {
         if (!NowPlayingData.primary)
             return "";
@@ -102,6 +106,13 @@ Rectangle {
         anchors.fill: parent
         hoverEnabled: true
         acceptedButtons: Qt.LeftButton
-        onClicked: GlobalStates.nowPlayingOpen = !GlobalStates.nowPlayingOpen
+        onClicked: {
+            containerRect.updateAnchorX();
+            GlobalStates.nowPlayingOpen = !GlobalStates.nowPlayingOpen;
+        }
     }
+
+    onXChanged: containerRect.updateAnchorX()
+    onWidthChanged: containerRect.updateAnchorX()
+    Component.onCompleted: containerRect.updateAnchorX()
 }

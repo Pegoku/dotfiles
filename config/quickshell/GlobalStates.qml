@@ -15,6 +15,7 @@ Singleton {
     property bool powerMenuOpen: false
     property bool networkMenuOpen: false
     property bool nowPlayingOpen: false
+    property real nowPlayingAnchorX: 220
     
     GlobalShortcut {
         name: "overviewToggle"

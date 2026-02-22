@@ -28,6 +28,7 @@ Item {
     property var launcherActions: []
     property var filteredApps: []
     property int selectedAppIndex: 0
+    property string activeQueryMode: "auto"
     property string commandProbe: ""
     property bool commandProbeExists: false
     property bool commandProbeResolved: true
@@ -86,6 +87,25 @@ Item {
         if (!entry || !entry.keywords)
             return "";
         return String(entry.keywords).toLowerCase();
+    }
+
+    function parseQuery(text) {
+        var raw = String(text).trim();
+        var mode = "auto";
+        var core = raw;
+
+        if (raw.startsWith(">")) {
+            mode = "command";
+            core = raw.slice(1).trim();
+        } else if (raw.startsWith("?")) {
+            mode = "browser";
+            core = raw.slice(1).trim();
+        } else if (raw.startsWith("=")) {
+            mode = "calc";
+            core = raw.slice(1).trim();
+        }
+
+        return { mode: mode, core: core };
     }
 
     function shellEscape(value) {
@@ -165,6 +185,22 @@ Item {
             startCommandProbeCheck();
     }
 
+    function resultIsAction(index) {
+        if (activeQueryMode === "auto")
+            return index >= filteredApps.length;
+        return true;
+    }
+
+    function actionIndexForResult(index) {
+        if (activeQueryMode === "auto")
+            return index - filteredApps.length;
+        return index;
+    }
+
+    function appIndexForResult(index) {
+        return index;
+    }
+
     function startCommandProbeCheck() {
         if (commandProbePending.length === 0)
             return;
@@ -228,14 +264,60 @@ Item {
         GlobalStates.overviewOpen = false;
     }
 
-    function refreshLauncherActions(queryText) {
-        var q = String(queryText).trim();
+    function refreshLauncherActions(mode, coreQuery, appCount, topAppScore) {
+        var q = String(coreQuery).trim();
         if (q.length === 0) {
             launcherActions = [];
             return;
         }
 
         var next = [];
+
+        if (mode === "calc") {
+            var prefCalcResult = evaluateArithmetic(q);
+            if (prefCalcResult !== null) {
+                next.push({
+                    kind: "calc",
+                    icon: adwaitaSymbolicBase + "legacy/accessories-calculator-symbolic.svg",
+                    title: "Calculate",
+                    detail: q + " = " + prefCalcResult,
+                    value: prefCalcResult
+                });
+            }
+
+            launcherActions = next;
+            return;
+        }
+
+        if (mode === "browser") {
+            next.push({
+                kind: "browser",
+                icon: adwaitaSymbolicBase + "legacy/web-browser-symbolic.svg",
+                title: "Open in browser",
+                detail: isLikelyUrl(q) ? normalizeUrl(q) : "Brave Search: " + q,
+                value: q
+            });
+
+            launcherActions = next;
+            return;
+        }
+
+        if (mode === "command") {
+            requestCommandProbe(q);
+            if (isLikelyCommand(q) && commandProbeFor(q) === commandProbe && commandProbeResolved && commandProbeExists) {
+                next.push({
+                    kind: "command",
+                    icon: adwaitaSymbolicBase + "legacy/utilities-terminal-symbolic.svg",
+                    title: "Run command",
+                    detail: q,
+                    value: q
+                });
+            }
+
+            launcherActions = next;
+            return;
+        }
+
         var calcResult = evaluateArithmetic(q);
         if (calcResult !== null) {
             next.push({
@@ -247,17 +329,19 @@ Item {
             });
         }
 
-        next.push({
-            kind: "browser",
-            icon: adwaitaSymbolicBase + "legacy/web-browser-symbolic.svg",
-            title: "Open in browser",
-            detail: isLikelyUrl(q) ? normalizeUrl(q) : "Brave Search: " + q,
-            value: q
-        });
+        if (isLikelyUrl(q) || appCount === 0 || topAppScore < 900) {
+            next.push({
+                kind: "browser",
+                icon: adwaitaSymbolicBase + "legacy/web-browser-symbolic.svg",
+                title: "Open in browser",
+                detail: isLikelyUrl(q) ? normalizeUrl(q) : "Brave Search: " + q,
+                value: q
+            });
+        }
 
         requestCommandProbe(q);
 
-        if (isLikelyCommand(q) && commandProbeFor(q) === commandProbe && commandProbeResolved && commandProbeExists) {
+        if (isLikelyCommand(q) && commandProbeFor(q) === commandProbe && commandProbeResolved && commandProbeExists && (appCount === 0 || topAppScore < 900)) {
             next.push({
                 kind: "command",
                 icon: adwaitaSymbolicBase + "legacy/utilities-terminal-symbolic.svg",
@@ -274,8 +358,10 @@ Item {
         if (index < 0 || index >= resultCount)
             return;
 
-        if (index < launcherActions.length) {
-            var action = launcherActions[index];
+        if (resultIsAction(index)) {
+            var action = launcherActions[actionIndexForResult(index)];
+            if (!action)
+                return;
             if (action.kind === "calc") {
                 copyToClipboard(action.value);
                 GlobalStates.overviewOpen = false;
@@ -287,7 +373,7 @@ Item {
             return;
         }
 
-        launchEntry(filteredApps[index - launcherActions.length]);
+        launchEntry(filteredApps[appIndexForResult(index)]);
     }
 
     function appMatches(entry, query) {
@@ -351,13 +437,24 @@ Item {
 
     function refreshFilteredApps() {
         var apps = DesktopEntries.applications?.values ?? [];
-        var rawQuery = appQuery.trim();
+        var parsed = parseQuery(appQuery);
+        var rawQuery = parsed.core;
         var query = normalizeText(rawQuery);
-        refreshLauncherActions(rawQuery);
+
+        activeQueryMode = parsed.mode;
 
         if (query.length === 0) {
+            refreshLauncherActions(activeQueryMode, rawQuery, 0, 0);
             filteredApps = [];
             selectedAppIndex = 0;
+            return;
+        }
+
+        if (activeQueryMode !== "auto") {
+            filteredApps = [];
+            refreshLauncherActions(activeQueryMode, rawQuery, 0, 0);
+            if (selectedAppIndex >= resultCount)
+                selectedAppIndex = Math.max(0, resultCount - 1);
             return;
         }
 
@@ -377,6 +474,8 @@ Item {
         });
 
         filteredApps = next.map(item => item.entry);
+        var topScore = next.length > 0 ? next[0].score : 0;
+        refreshLauncherActions(activeQueryMode, rawQuery, filteredApps.length, topScore);
 
         if (selectedAppIndex >= resultCount)
             selectedAppIndex = Math.max(0, resultCount - 1);
@@ -535,9 +634,9 @@ Item {
 
                                     delegate: Rectangle {
                                         required property int index
-                                        property bool isAction: index < root.launcherActions.length
-                                        property var action: isAction ? root.launcherActions[index] : null
-                                        property var entry: isAction ? null : root.filteredApps[index - root.launcherActions.length]
+                                        property bool isAction: root.resultIsAction(index)
+                                        property var action: isAction ? root.launcherActions[root.actionIndexForResult(index)] : null
+                                        property var entry: isAction ? null : root.filteredApps[root.appIndexForResult(index)]
                                         property bool selected: index === root.selectedAppIndex
 
                                         width: listContainer.width

@@ -47,6 +47,8 @@ Scope {
             Rectangle {
                 id: overlayCard
 
+                property string actionIconBase: "file:///usr/share/icons/Adwaita/symbolic/actions/"
+
                 z: 100
                 width: 420
                 height: Math.min(380, columnContent.implicitHeight + 14)
@@ -124,20 +126,35 @@ Scope {
                                             clip: true
 
                                             Image {
+                                                id: coverImage
+
                                                 anchors.fill: parent
-                                                source: modelData.artUrl
+                                                source: modelData.artUrl && modelData.artUrl.length > 0 ? modelData.artUrl : modelData.fallbackArtUrl
                                                 fillMode: Image.PreserveAspectCrop
                                                 smooth: true
-                                                visible: source && source.length > 0
+                                                asynchronous: true
+                                                visible: source.toString().length > 0
+
+                                                onStatusChanged: {
+                                                    console.log("[NowPlayingOverlay] image status=", status, "title=", modelData.title, "source=", source);
+                                                    if (status !== Image.Error)
+                                                        return;
+                                                    console.log("[NowPlayingOverlay] image load error title=", modelData.title, "source=", source, "fallback=", modelData.fallbackArtUrl);
+                                                    if (!modelData.fallbackArtUrl || modelData.fallbackArtUrl.length === 0)
+                                                        return;
+                                                    if (source === modelData.fallbackArtUrl)
+                                                        return;
+                                                    source = modelData.fallbackArtUrl;
+                                                }
                                             }
 
                                             Image {
                                                 anchors.centerIn: parent
                                                 width: 18
                                                 height: 18
-                                                source: "file:///usr/share/icons/Adwaita/symbolic/status/media-playback-start-symbolic.svg"
+                                                source: overlayCard.actionIconBase + "media-playback-start-symbolic.svg"
                                                 smooth: true
-                                                visible: !modelData.artUrl || modelData.artUrl.length === 0
+                                                visible: coverImage.status === Image.Error || coverImage.status === Image.Null || coverImage.source.toString().length === 0
                                                 layer.enabled: true
 
                                                 layer.effect: ColorOverlay {
@@ -213,11 +230,17 @@ Scope {
                                                     color: modelData.canPrevious ? "#38446a" : "#2b2f3b"
                                                     opacity: modelData.canPrevious ? 1 : 0.55
 
-                                                    Text {
+                                                    Image {
                                                         anchors.centerIn: parent
-                                                        text: "|<"
-                                                        color: "#f2f2f2"
-                                                        font.pixelSize: 10
+                                                        width: 13
+                                                        height: 13
+                                                        source: overlayCard.actionIconBase + "media-skip-backward-symbolic.svg"
+                                                        smooth: true
+                                                        layer.enabled: true
+
+                                                        layer.effect: ColorOverlay {
+                                                            color: "#f2f2f2"
+                                                        }
                                                     }
 
                                                     MouseArea {
@@ -234,12 +257,17 @@ Scope {
                                                     color: modelData.canToggle ? "#4867a7" : "#2b2f3b"
                                                     opacity: modelData.canToggle ? 1 : 0.55
 
-                                                    Text {
+                                                    Image {
                                                         anchors.centerIn: parent
-                                                        text: modelData.isPlaying ? "Pause" : "Play"
-                                                        color: "#f2f2f2"
-                                                        font.pixelSize: 10
-                                                        font.bold: true
+                                                        width: 14
+                                                        height: 14
+                                                        source: overlayCard.actionIconBase + (modelData.isPlaying ? "media-playback-pause-symbolic.svg" : "media-playback-start-symbolic.svg")
+                                                        smooth: true
+                                                        layer.enabled: true
+
+                                                        layer.effect: ColorOverlay {
+                                                            color: "#f2f2f2"
+                                                        }
                                                     }
 
                                                     MouseArea {
@@ -250,38 +278,23 @@ Scope {
                                                 }
 
                                                 Rectangle {
-                                                    width: 34
-                                                    height: 20
-                                                    radius: 5
-                                                    color: modelData.canStop ? "#7a4354" : "#2b2f3b"
-                                                    opacity: modelData.canStop ? 1 : 0.55
-
-                                                    Text {
-                                                        anchors.centerIn: parent
-                                                        text: "Stop"
-                                                        color: "#f2f2f2"
-                                                        font.pixelSize: 9
-                                                    }
-
-                                                    MouseArea {
-                                                        anchors.fill: parent
-                                                        enabled: modelData.canStop
-                                                        onClicked: modelData.playerRef.stop()
-                                                    }
-                                                }
-
-                                                Rectangle {
                                                     width: 24
                                                     height: 20
                                                     radius: 5
                                                     color: modelData.canNext ? "#38446a" : "#2b2f3b"
                                                     opacity: modelData.canNext ? 1 : 0.55
 
-                                                    Text {
+                                                    Image {
                                                         anchors.centerIn: parent
-                                                        text: ">|"
-                                                        color: "#f2f2f2"
-                                                        font.pixelSize: 10
+                                                        width: 13
+                                                        height: 13
+                                                        source: overlayCard.actionIconBase + "media-skip-forward-symbolic.svg"
+                                                        smooth: true
+                                                        layer.enabled: true
+
+                                                        layer.effect: ColorOverlay {
+                                                            color: "#f2f2f2"
+                                                        }
                                                     }
 
                                                     MouseArea {

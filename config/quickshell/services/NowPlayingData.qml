@@ -7,6 +7,7 @@ import Quickshell.Services.Mpris
 Singleton {
     id: root
 
+    property bool debugLogs: true
     property var entries: []
     readonly property int playerCount: entries.length
     property int playingCount: {
@@ -103,6 +104,9 @@ Singleton {
         var list = Mpris.players?.values ?? [];
         var nextEntries = [];
 
+        if (root.debugLogs)
+            console.log("[NowPlayingData] mpris players:", list.length);
+
         for (var i = 0; i < list.length; i++) {
             var p = list[i];
             if (!p)
@@ -117,6 +121,19 @@ Singleton {
             var artUrl = normalizeArtUrl(p.trackArtUrl);
             var fallbackArtUrl = youtubeThumbnailFromMediaUrl(mediaUrl);
 
+            if (root.debugLogs) {
+                console.log(
+                    "[NowPlayingData] player=", identity.length > 0 ? identity : (desktopEntry.length > 0 ? desktopEntry : dbusName),
+                    "state=", playbackStateLabel(p),
+                    "title=", title,
+                    "artist=", artist,
+                    "trackArtUrl=", String(p.trackArtUrl),
+                    "normalizedArtUrl=", artUrl,
+                    "xesam:url=", mediaUrl,
+                    "fallbackArtUrl=", fallbackArtUrl
+                );
+            }
+
             nextEntries.push({
                 player: identity.length > 0 ? identity : (desktopEntry.length > 0 ? desktopEntry : dbusName),
                 title: title.length > 0 ? title : "Unknown title",
@@ -127,7 +144,6 @@ Singleton {
                 fallbackArtUrl: fallbackArtUrl,
                 position: formatTime(p.position),
                 length: formatTime(p.length),
-                canStop: p.canControl,
                 canToggle: p.canTogglePlaying,
                 canNext: p.canGoNext,
                 canPrevious: p.canGoPrevious,
@@ -142,6 +158,9 @@ Singleton {
         });
 
         root.entries = nextEntries;
+
+        if (root.debugLogs)
+            console.log("[NowPlayingData] entries after sync:", root.entries.length, "playing:", root.playingCount);
     }
 
     Timer {

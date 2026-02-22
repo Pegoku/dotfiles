@@ -9,6 +9,7 @@ Rectangle {
     property color fgColor: "#f2f2f2"
     property color bgColor: "#1c1c1c"
     property string iconBase: "file:///usr/share/icons/Adwaita/symbolic/status/"
+    property string actionIconBase: "file:///usr/share/icons/Adwaita/symbolic/actions/"
 
     function currentArtUrl() {
         if (!NowPlayingData.primary)
@@ -49,11 +50,13 @@ Rectangle {
                 fillMode: Image.PreserveAspectCrop
                 smooth: true
                 asynchronous: true
-                visible: source.length > 0
+                visible: source.toString().length > 0
 
                 onStatusChanged: {
+                    console.log("[NowPlayingWidget] image status=", status, "source=", source);
                     if (status !== Image.Error || !NowPlayingData.primary)
                         return;
+                    console.log("[NowPlayingWidget] image load error source=", source, "fallback=", NowPlayingData.primary.fallbackArtUrl);
                     if (source === NowPlayingData.primary.fallbackArtUrl)
                         return;
                     if (NowPlayingData.primary.fallbackArtUrl && NowPlayingData.primary.fallbackArtUrl.length > 0)
@@ -61,14 +64,14 @@ Rectangle {
                 }
             }
 
-            Image {
-                anchors.centerIn: parent
-                width: 12
-                height: 12
-                source: containerRect.iconBase + "media-playback-start-symbolic.svg"
-                smooth: true
-                visible: !NowPlayingData.primary || !NowPlayingData.primary.artUrl || NowPlayingData.primary.artUrl.length === 0
-                layer.enabled: true
+                Image {
+                    anchors.centerIn: parent
+                    width: 12
+                    height: 12
+                    source: containerRect.actionIconBase + "media-playback-start-symbolic.svg"
+                    smooth: true
+                    visible: !NowPlayingData.primary || primaryCover.status === Image.Error || primaryCover.status === Image.Null || primaryCover.source.toString().length === 0
+                    layer.enabled: true
 
                 layer.effect: ColorOverlay {
                     color: containerRect.fgColor

@@ -40,6 +40,14 @@ Scope {
             color: root.accentColor
             
             SystemRingsWidget {
+                id: systemRingsWidget
+                anchors.right: nowPlayingWidget.left
+                anchors.verticalCenter: parent.verticalCenter
+                anchors.rightMargin: 8
+            }
+
+            NowPlayingWidget {
+                id: nowPlayingWidget
                 anchors.right: workspacesWidget.left
                 anchors.verticalCenter: parent.verticalCenter
                 anchors.rightMargin: 10

@@ -1,16 +1,38 @@
 import Qt5Compat.GraphicalEffects
 import QtQuick
 import Quickshell
+import Quickshell.Io
 import Quickshell.Wayland
 
 Scope {
+    id: root
+
+    property bool transientOpen: false
+
+    IpcHandler {
+        target: "nowplaying"
+
+        function pulse(): void {
+            root.transientOpen = true;
+            transientTimeout.restart();
+        }
+    }
+
+    Timer {
+        id: transientTimeout
+        interval: 2500
+        repeat: false
+        running: false
+        onTriggered: root.transientOpen = false
+    }
+
     Variants {
         model: Quickshell.screens
 
         PanelWindow {
             required property var modelData
             screen: modelData
-            visible: GlobalStates.nowPlayingOpen
+            visible: GlobalStates.nowPlayingOpen || root.transientOpen
             color: "transparent"
 
             WlrLayershell.namespace: "quickshell:nowplaying"

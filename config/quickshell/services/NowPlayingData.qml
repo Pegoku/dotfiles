@@ -19,6 +19,11 @@ Singleton {
     }
     readonly property var primary: {
         for (var i = 0; i < entries.length; i++) {
+            if (entries[i].isSpotify)
+                return entries[i];
+        }
+
+        for (var i = 0; i < entries.length; i++) {
             if (entries[i].isPlaying)
                 return entries[i];
         }
@@ -116,6 +121,7 @@ Singleton {
             var mediaUrl = extractMediaUrl(p.metadata);
             var artUrl = normalizeArtUrl(p.trackArtUrl);
             var fallbackArtUrl = youtubeThumbnailFromMediaUrl(mediaUrl);
+            var isSpotify = identity.toLowerCase().indexOf("spotify") !== -1 || desktopEntry.toLowerCase().indexOf("spotify") !== -1 || dbusName.toLowerCase().indexOf("spotify") !== -1;
 
             nextEntries.push({
                 player: identity.length > 0 ? identity : (desktopEntry.length > 0 ? desktopEntry : dbusName),
@@ -123,6 +129,7 @@ Singleton {
                 artist: artist.length > 0 ? artist : "Unknown artist",
                 state: playbackStateLabel(p),
                 isPlaying: p.isPlaying,
+                isSpotify: isSpotify,
                 artUrl: artUrl,
                 fallbackArtUrl: fallbackArtUrl,
                 position: formatTime(p.position),
@@ -135,6 +142,8 @@ Singleton {
         }
 
         nextEntries.sort((a, b) => {
+            if (a.isSpotify !== b.isSpotify)
+                return a.isSpotify ? -1 : 1;
             if (a.isPlaying === b.isPlaying)
                 return a.player.localeCompare(b.player);
             return a.isPlaying ? -1 : 1;

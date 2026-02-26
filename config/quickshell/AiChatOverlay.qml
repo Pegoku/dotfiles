@@ -113,7 +113,6 @@ Scope {
                 function renderMarkdown(text) {
                     var lines = String(text).replace(/\r\n/g, "\n").split("\n");
                     var html = "";
-                    var inCode = false;
                     var inUl = false;
                     var inOl = false;
 
@@ -131,23 +130,6 @@ Scope {
                     for (var i = 0; i < lines.length; i++) {
                         var line = lines[i];
                         var trimmed = line.trim();
-
-                        if (trimmed.startsWith("```")) {
-                            closeLists();
-                            if (!inCode) {
-                                html += "<pre><code>";
-                                inCode = true;
-                            } else {
-                                html += "</code></pre>";
-                                inCode = false;
-                            }
-                            continue;
-                        }
-
-                        if (inCode) {
-                            html += escapeHtml(line) + "\n";
-                            continue;
-                        }
 
                         if (trimmed.length === 0) {
                             closeLists();
@@ -187,14 +169,74 @@ Scope {
                         html += "<p>" + renderInlineMarkdown(trimmed) + "</p>";
                     }
 
-                    if (inCode)
-                        html += "</code></pre>";
                     if (inUl)
                         html += "</ul>";
                     if (inOl)
                         html += "</ol>";
 
                     return html;
+                }
+
+                function parseMarkdownBlocks(text) {
+                    var lines = String(text).replace(/\r\n/g, "\n").split("\n");
+                    var blocks = [];
+                    var textBuffer = [];
+                    var codeBuffer = [];
+                    var inCode = false;
+                    var codeLang = "";
+
+                    function flushText() {
+                        if (textBuffer.length === 0)
+                            return;
+                        blocks.push({ type: "text", text: textBuffer.join("\n") });
+                        textBuffer = [];
+                    }
+
+                    function flushCode() {
+                        blocks.push({ type: "code", lang: codeLang, text: codeBuffer.join("\n") });
+                        codeBuffer = [];
+                        codeLang = "";
+                    }
+
+                    for (var i = 0; i < lines.length; i++) {
+                        var line = lines[i];
+                        var trimmed = line.trim();
+
+                        if (trimmed.startsWith("```")) {
+                            if (!inCode) {
+                                flushText();
+                                inCode = true;
+                                codeLang = trimmed.slice(3).trim();
+                            } else {
+                                flushCode();
+                                inCode = false;
+                            }
+                            continue;
+                        }
+
+                        if (inCode)
+                            codeBuffer.push(line);
+                        else
+                            textBuffer.push(line);
+                    }
+
+                    if (inCode)
+                        flushCode();
+                    flushText();
+
+                    if (blocks.length === 0)
+                        blocks.push({ type: "text", text: "" });
+
+                    return blocks;
+                }
+
+                function copyToClipboard(text) {
+                    var escaped = root.shellEscape(String(text));
+                    Quickshell.execDetached([
+                        "bash",
+                        "-lc",
+                        "printf %s " + escaped + " | (wl-copy || xclip -selection clipboard || xsel --clipboard --input)"
+                    ]);
                 }
 
                 function tailWords(text, count) {
@@ -468,34 +510,213 @@ Scope {
                                 color: "#1f1f1f"
                                 border.width: 1
                                 border.color: "#343434"
-                                implicitHeight: reasoningText.implicitHeight + 12
+                                implicitHeight: reasoningBlocksColumn.implicitHeight + 12
 
-                                TextEdit {
-                                    id: reasoningText
+                                Column {
+                                    id: reasoningBlocksColumn
+
                                     anchors.fill: parent
                                     anchors.margins: 6
-                                    readOnly: true
-                                    selectByMouse: true
-                                    text: chatPanel.renderMarkdown(modelData.reasoning)
-                                    textFormat: TextEdit.RichText
-                                    wrapMode: TextEdit.Wrap
-                                    color: "#c6c6c6"
-                                    font.pixelSize: 11
+                                    spacing: 6
+
+                                    Repeater {
+                                        model: chatPanel.parseMarkdownBlocks(modelData.reasoning)
+
+                                        delegate: Item {
+                                            required property var modelData
+
+                                            width: reasoningBlocksColumn.width
+                                            implicitHeight: modelData.type === "code" ? reasonCodeBox.implicitHeight : reasonText.implicitHeight
+
+                                            TextEdit {
+                                                id: reasonText
+
+                                                visible: modelData.type === "text"
+                                                width: parent.width
+                                                readOnly: true
+                                                selectByMouse: true
+                                                text: chatPanel.renderMarkdown(modelData.text)
+                                                textFormat: TextEdit.RichText
+                                                wrapMode: TextEdit.Wrap
+                                                color: "#c6c6c6"
+                                                font.pixelSize: 11
+                                            }
+
+                                            Rectangle {
+                                                id: reasonCodeBox
+
+                                                visible: modelData.type === "code"
+                                                width: parent.width
+                                                radius: 6
+                                                color: "#151515"
+                                                border.width: 1
+                                                border.color: "#3c3c3c"
+                                                implicitHeight: reasonCodeText.implicitHeight + 34
+
+                                                Rectangle {
+                                                    anchors.left: parent.left
+                                                    anchors.right: parent.right
+                                                    anchors.top: parent.top
+                                                    height: 24
+                                                    radius: 6
+                                                    color: "#202020"
+
+                                                    Text {
+                                                        anchors.left: parent.left
+                                                        anchors.leftMargin: 8
+                                                        anchors.verticalCenter: parent.verticalCenter
+                                                        text: modelData.lang && modelData.lang.length > 0 ? modelData.lang : "code"
+                                                        color: "#bcbcbc"
+                                                        font.pixelSize: 10
+                                                    }
+
+                                                    Rectangle {
+                                                        anchors.right: parent.right
+                                                        anchors.rightMargin: 6
+                                                        anchors.verticalCenter: parent.verticalCenter
+                                                        width: 46
+                                                        height: 16
+                                                        radius: 4
+                                                        color: "#2f2f2f"
+
+                                                        Text {
+                                                            anchors.centerIn: parent
+                                                            text: "Copy"
+                                                            color: "#e1e1e1"
+                                                            font.pixelSize: 9
+                                                        }
+
+                                                        MouseArea {
+                                                            anchors.fill: parent
+                                                            onClicked: chatPanel.copyToClipboard(modelData.text)
+                                                        }
+                                                    }
+                                                }
+
+                                                TextEdit {
+                                                    id: reasonCodeText
+
+                                                    anchors.left: parent.left
+                                                    anchors.right: parent.right
+                                                    anchors.top: parent.top
+                                                    anchors.topMargin: 24
+                                                    anchors.margins: 6
+                                                    readOnly: true
+                                                    selectByMouse: true
+                                                    text: modelData.text
+                                                    textFormat: TextEdit.PlainText
+                                                    wrapMode: TextEdit.Wrap
+                                                    color: "#e0e0e0"
+                                                    font.pixelSize: 11
+                                                    font.family: "monospace"
+                                                }
+                                            }
+                                        }
+                                    }
                                 }
                             }
 
-                            TextEdit {
-                                id: contentText
+                            Column {
+                                id: contentBlocksColumn
 
                                 width: bubbleColumn.width
-                                readOnly: true
-                                selectByMouse: true
-                                text: chatPanel.renderMarkdown(modelData.content)
-                                textFormat: TextEdit.RichText
-                                wrapMode: TextEdit.Wrap
-                                color: "#e6e6e6"
-                                font.pixelSize: 12
-                                cursorVisible: false
+                                spacing: 6
+
+                                Repeater {
+                                    model: chatPanel.parseMarkdownBlocks(modelData.content)
+
+                                    delegate: Item {
+                                        required property var modelData
+
+                                        width: contentBlocksColumn.width
+                                        implicitHeight: modelData.type === "code" ? codeBox.implicitHeight : contentText.implicitHeight
+
+                                        TextEdit {
+                                            id: contentText
+
+                                            visible: modelData.type === "text"
+                                            width: parent.width
+                                            readOnly: true
+                                            selectByMouse: true
+                                            text: chatPanel.renderMarkdown(modelData.text)
+                                            textFormat: TextEdit.RichText
+                                            wrapMode: TextEdit.Wrap
+                                            color: "#e6e6e6"
+                                            font.pixelSize: 12
+                                            cursorVisible: false
+                                        }
+
+                                        Rectangle {
+                                            id: codeBox
+
+                                            visible: modelData.type === "code"
+                                            width: parent.width
+                                            radius: 6
+                                            color: "#151515"
+                                            border.width: 1
+                                            border.color: "#3c3c3c"
+                                            implicitHeight: codeText.implicitHeight + 34
+
+                                            Rectangle {
+                                                anchors.left: parent.left
+                                                anchors.right: parent.right
+                                                anchors.top: parent.top
+                                                height: 24
+                                                radius: 6
+                                                color: "#202020"
+
+                                                Text {
+                                                    anchors.left: parent.left
+                                                    anchors.leftMargin: 8
+                                                    anchors.verticalCenter: parent.verticalCenter
+                                                    text: modelData.lang && modelData.lang.length > 0 ? modelData.lang : "code"
+                                                    color: "#bcbcbc"
+                                                    font.pixelSize: 10
+                                                }
+
+                                                Rectangle {
+                                                    anchors.right: parent.right
+                                                    anchors.rightMargin: 6
+                                                    anchors.verticalCenter: parent.verticalCenter
+                                                    width: 46
+                                                    height: 16
+                                                    radius: 4
+                                                    color: "#2f2f2f"
+
+                                                    Text {
+                                                        anchors.centerIn: parent
+                                                        text: "Copy"
+                                                        color: "#e1e1e1"
+                                                        font.pixelSize: 9
+                                                    }
+
+                                                    MouseArea {
+                                                        anchors.fill: parent
+                                                        onClicked: chatPanel.copyToClipboard(modelData.text)
+                                                    }
+                                                }
+                                            }
+
+                                            TextEdit {
+                                                id: codeText
+
+                                                anchors.left: parent.left
+                                                anchors.right: parent.right
+                                                anchors.top: parent.top
+                                                anchors.topMargin: 24
+                                                anchors.margins: 6
+                                                readOnly: true
+                                                selectByMouse: true
+                                                text: modelData.text
+                                                textFormat: TextEdit.PlainText
+                                                wrapMode: TextEdit.Wrap
+                                                color: "#e0e0e0"
+                                                font.pixelSize: 11
+                                                font.family: "monospace"
+                                            }
+                                        }
+                                    }
+                                }
                             }
                         }
                     }

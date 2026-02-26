@@ -63,6 +63,8 @@ Scope {
 
             MouseArea {
                 anchors.fill: parent
+                enabled: GlobalStates.nowPlayingOpen
+                acceptedButtons: Qt.LeftButton
                 onClicked: GlobalStates.nowPlayingOpen = false
             }
 

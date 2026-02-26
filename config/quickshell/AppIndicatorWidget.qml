@@ -1,5 +1,4 @@
 import QtQuick
-import QtQuick.Controls
 import Quickshell
 import Quickshell.Services.SystemTray
 import Quickshell.Widgets
@@ -64,10 +63,6 @@ Rectangle {
                     }
                 }
 
-                ToolTip.visible: trayMouse.containsMouse && (modelData.tooltipTitle || modelData.title)
-                ToolTip.text: modelData.tooltipTitle && modelData.tooltipTitle.length > 0 ? modelData.tooltipTitle : modelData.title
-                ToolTip.delay: 200
-                ToolTip.timeout: 1200
             }
         }
     }

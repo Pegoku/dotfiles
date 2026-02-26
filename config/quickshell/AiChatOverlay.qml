@@ -87,6 +87,116 @@ Scope {
                     });
                 }
 
+                function escapeHtml(value) {
+                    return String(value)
+                        .replace(/&/g, "&amp;")
+                        .replace(/</g, "&lt;")
+                        .replace(/>/g, "&gt;")
+                        .replace(/\"/g, "&quot;");
+                }
+
+                function renderInlineMarkdown(text) {
+                    var src = String(text);
+                    var parts = src.split("`");
+                    var out = "";
+
+                    for (var i = 0; i < parts.length; i++) {
+                        if (i % 2 === 0)
+                            out += escapeHtml(parts[i]);
+                        else
+                            out += "<code>" + escapeHtml(parts[i]) + "</code>";
+                    }
+
+                    return out;
+                }
+
+                function renderMarkdown(text) {
+                    var lines = String(text).replace(/\r\n/g, "\n").split("\n");
+                    var html = "";
+                    var inCode = false;
+                    var inUl = false;
+                    var inOl = false;
+
+                    function closeLists() {
+                        if (inUl) {
+                            html += "</ul>";
+                            inUl = false;
+                        }
+                        if (inOl) {
+                            html += "</ol>";
+                            inOl = false;
+                        }
+                    }
+
+                    for (var i = 0; i < lines.length; i++) {
+                        var line = lines[i];
+                        var trimmed = line.trim();
+
+                        if (trimmed.startsWith("```")) {
+                            closeLists();
+                            if (!inCode) {
+                                html += "<pre><code>";
+                                inCode = true;
+                            } else {
+                                html += "</code></pre>";
+                                inCode = false;
+                            }
+                            continue;
+                        }
+
+                        if (inCode) {
+                            html += escapeHtml(line) + "\n";
+                            continue;
+                        }
+
+                        if (trimmed.length === 0) {
+                            closeLists();
+                            html += "<br/>";
+                            continue;
+                        }
+
+                        var ulMatch = line.match(/^\s*-\s+(.*)$/);
+                        if (ulMatch) {
+                            if (inOl) {
+                                html += "</ol>";
+                                inOl = false;
+                            }
+                            if (!inUl) {
+                                html += "<ul>";
+                                inUl = true;
+                            }
+                            html += "<li>" + renderInlineMarkdown(ulMatch[1]) + "</li>";
+                            continue;
+                        }
+
+                        var olMatch = line.match(/^\s*\d+\.\s+(.*)$/);
+                        if (olMatch) {
+                            if (inUl) {
+                                html += "</ul>";
+                                inUl = false;
+                            }
+                            if (!inOl) {
+                                html += "<ol>";
+                                inOl = true;
+                            }
+                            html += "<li>" + renderInlineMarkdown(olMatch[1]) + "</li>";
+                            continue;
+                        }
+
+                        closeLists();
+                        html += "<p>" + renderInlineMarkdown(trimmed) + "</p>";
+                    }
+
+                    if (inCode)
+                        html += "</code></pre>";
+                    if (inUl)
+                        html += "</ul>";
+                    if (inOl)
+                        html += "</ol>";
+
+                    return html;
+                }
+
                 function tailWords(text, count) {
                     var words = String(text).trim().split(/\s+/);
                     if (words.length <= count)
@@ -366,7 +476,8 @@ Scope {
                                     anchors.margins: 6
                                     readOnly: true
                                     selectByMouse: true
-                                    text: modelData.reasoning
+                                    text: chatPanel.renderMarkdown(modelData.reasoning)
+                                    textFormat: TextEdit.RichText
                                     wrapMode: TextEdit.Wrap
                                     color: "#c6c6c6"
                                     font.pixelSize: 11
@@ -374,13 +485,17 @@ Scope {
                             }
 
                             TextEdit {
+                                id: contentText
+
                                 width: bubbleColumn.width
                                 readOnly: true
                                 selectByMouse: true
-                                text: modelData.content
+                                text: chatPanel.renderMarkdown(modelData.content)
+                                textFormat: TextEdit.RichText
                                 wrapMode: TextEdit.Wrap
                                 color: "#e6e6e6"
                                 font.pixelSize: 12
+                                cursorVisible: false
                             }
                         }
                     }

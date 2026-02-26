@@ -18,6 +18,9 @@ Rectangle {
         if (qIndex >= 0)
             icon = icon.slice(0, qIndex);
 
+        if (icon.startsWith("image://icon/"))
+            icon = icon.slice("image://icon/".length);
+
         var pathMatch = originalIcon.match(/[?&]path=([^&]+)/);
         if (pathMatch && pathMatch.length > 1) {
             var basePath = decodeURIComponent(pathMatch[1]);
@@ -58,8 +61,7 @@ Rectangle {
                 function openTrayMenu() {
                     if (!modelData || !modelData.hasMenu)
                         return;
-                    var p = trayButton.mapToItem(null, trayButton.width / 2, trayButton.height + 6);
-                    modelData.display(trayButton.Window.window, p.x, p.y);
+                    trayMenuAnchor.open();
                 }
 
                 width: 18
@@ -101,6 +103,16 @@ Rectangle {
                         modelData.scroll(wheel.angleDelta.y, false);
                         wheel.accepted = true;
                     }
+                }
+
+                QsMenuAnchor {
+                    id: trayMenuAnchor
+
+                    menu: modelData.menu
+                    anchor.item: trayButton
+                    anchor.edges: Edges.Bottom
+                    anchor.gravity: Edges.Bottom
+                    anchor.margins.top: 6
                 }
 
             }

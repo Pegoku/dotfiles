@@ -76,19 +76,12 @@ Scope {
                 visible: UPower.displayDevice.percentage != 0
             }
 
-            NetworkWidget {
-                id: networkWidget
-                anchors.right: batteryWidget.visible ? batteryWidget.left : numLockWidget.left
-                anchors.verticalCenter: parent.verticalCenter
-                anchors.rightMargin: batteryWidget.visible ? 8 : 10
-            }
-
             AppIndicatorWidget {
                 id: appIndicatorWidget
                 trayParentWindow: panelWindow
-                anchors.right: networkWidget.left
+                anchors.right: batteryWidget.visible ? batteryWidget.left : numLockWidget.left
                 anchors.verticalCenter: parent.verticalCenter
-                anchors.rightMargin: 8
+                anchors.rightMargin: batteryWidget.visible ? 8 : 10
             }
 
             NumLockWidget {

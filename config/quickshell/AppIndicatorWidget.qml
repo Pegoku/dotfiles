@@ -13,9 +13,18 @@ Rectangle {
         if (icon.length === 0)
             return "image://icon/application-x-executable";
 
+        var originalIcon = icon;
         var qIndex = icon.indexOf("?");
         if (qIndex >= 0)
             icon = icon.slice(0, qIndex);
+
+        var pathMatch = originalIcon.match(/[?&]path=([^&]+)/);
+        if (pathMatch && pathMatch.length > 1) {
+            var basePath = decodeURIComponent(pathMatch[1]);
+            if (icon.indexOf(".") !== -1)
+                return "file://" + basePath + "/" + icon;
+            return "file://" + basePath + "/" + icon + ".png";
+        }
 
         if (icon.indexOf("://") !== -1)
             return icon;
@@ -49,7 +58,8 @@ Rectangle {
                 function openTrayMenu() {
                     if (!modelData || !modelData.hasMenu)
                         return;
-                    modelData.display(containerRect, trayButton.x + trayButton.width / 2, trayButton.y + trayButton.height + 6);
+                    var p = trayButton.mapToItem(null, trayButton.width / 2, trayButton.height + 6);
+                    modelData.display(trayButton.Window.window, p.x, p.y);
                 }
 
                 width: 18

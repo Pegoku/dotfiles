@@ -7,6 +7,9 @@ import "./services"
 Scope {
     id: root
 
+    property int topBarHeight: 40
+    readonly property int panelOuterMargin: Math.round(topBarHeight * 0.5)
+
     function shellEscape(value) {
         return "'" + String(value).replace(/'/g, "'\"'\"'") + "'";
     }
@@ -190,7 +193,9 @@ Scope {
                     top: parent.top
                     bottom: parent.bottom
                     left: parent.left
-                    topMargin: 40
+                    topMargin: topBarHeight
+                    leftMargin: panelOuterMargin
+                    bottomMargin: panelOuterMargin
                 }
                 width: 520
                 color: "#16181f"

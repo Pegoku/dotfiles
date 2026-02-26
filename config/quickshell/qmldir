@@ -1,6 +1,7 @@
 singleton GlobalStates 1.0 GlobalStates.qml
 singleton HyprlandData 1.0 services/HyprlandData.qml
 singleton NowPlayingData 1.0 services/NowPlayingData.qml
+singleton AiChatConfig 1.0 services/AiChatConfig.qml
 
 Bar 1.0 Bar.qml
 OnScreenDisplay 1.0 OnScreenDisplay.qml
@@ -21,4 +22,5 @@ NumLockWidget 1.0 NumLockWidget.qml
 AppIndicatorWidget 1.0 AppIndicatorWidget.qml
 NowPlayingWidget 1.0 NowPlayingWidget.qml
 NowPlayingOverlay 1.0 NowPlayingOverlay.qml
+AiChatOverlay 1.0 AiChatOverlay.qml
 singleton Time 1.0 Time.qml

@@ -544,6 +544,7 @@ Scope {
 
                                             Rectangle {
                                                 id: reasonCodeBox
+                                                property bool copied: false
 
                                                 visible: modelData.type === "code"
                                                 width: parent.width
@@ -581,16 +582,27 @@ Scope {
 
                                                         Text {
                                                             anchors.centerIn: parent
-                                                            text: "Copy"
+                                                            text: reasonCodeBox.copied ? "Copied" : "Copy"
                                                             color: "#e1e1e1"
                                                             font.pixelSize: 9
                                                         }
 
                                                         MouseArea {
                                                             anchors.fill: parent
-                                                            onClicked: chatPanel.copyToClipboard(modelData.text)
+                                                            onClicked: {
+                                                                chatPanel.copyToClipboard(modelData.text)
+                                                                reasonCodeBox.copied = true
+                                                                reasonCopyTimer.restart()
+                                                            }
                                                         }
                                                     }
+                                                }
+
+                                                Timer {
+                                                    id: reasonCopyTimer
+                                                    interval: 1200
+                                                    repeat: false
+                                                    onTriggered: reasonCodeBox.copied = false
                                                 }
 
                                                 TextEdit {
@@ -648,6 +660,7 @@ Scope {
 
                                         Rectangle {
                                             id: codeBox
+                                            property bool copied: false
 
                                             visible: modelData.type === "code"
                                             width: parent.width
@@ -685,16 +698,27 @@ Scope {
 
                                                     Text {
                                                         anchors.centerIn: parent
-                                                        text: "Copy"
+                                                        text: codeBox.copied ? "Copied" : "Copy"
                                                         color: "#e1e1e1"
                                                         font.pixelSize: 9
                                                     }
 
                                                     MouseArea {
                                                         anchors.fill: parent
-                                                        onClicked: chatPanel.copyToClipboard(modelData.text)
+                                                        onClicked: {
+                                                            chatPanel.copyToClipboard(modelData.text)
+                                                            codeBox.copied = true
+                                                            codeCopyTimer.restart()
+                                                        }
                                                     }
                                                 }
+                                            }
+
+                                            Timer {
+                                                id: codeCopyTimer
+                                                interval: 1200
+                                                repeat: false
+                                                onTriggered: codeBox.copied = false
                                             }
 
                                             TextEdit {

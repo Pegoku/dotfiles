@@ -229,6 +229,12 @@ Scope {
                 border.width: 1
                 border.color: "#3a3a3a"
 
+                MouseArea {
+                    anchors.fill: parent
+                    acceptedButtons: Qt.AllButtons
+                    onClicked: mouse => mouse.accepted = true
+                }
+
                 Column {
                     id: header
 

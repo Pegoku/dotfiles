@@ -29,6 +29,12 @@ Rectangle {
                 id: trayButton
                 required property var modelData
 
+                function openTrayMenu() {
+                    if (!modelData || !modelData.hasMenu)
+                        return;
+                    modelData.display(containerRect, trayButton.x + trayButton.width / 2, trayButton.y + trayButton.height + 6);
+                }
+
                 width: 18
                 height: 18
                 radius: 5
@@ -49,12 +55,19 @@ Rectangle {
                     acceptedButtons: Qt.LeftButton | Qt.MiddleButton | Qt.RightButton
 
                     onClicked: mouse => {
-                        if (mouse.button === Qt.LeftButton)
-                            modelData.activate();
-                        else if (mouse.button === Qt.MiddleButton)
+                        if (mouse.button === Qt.LeftButton) {
+                            if (modelData.hasMenu)
+                                trayButton.openTrayMenu();
+                            else
+                                modelData.activate();
+                        } else if (mouse.button === Qt.MiddleButton) {
                             modelData.secondaryActivate();
-                        else if (mouse.button === Qt.RightButton)
-                            modelData.secondaryActivate();
+                        } else if (mouse.button === Qt.RightButton) {
+                            if (modelData.hasMenu)
+                                trayButton.openTrayMenu();
+                            else
+                                modelData.secondaryActivate();
+                        }
                     }
 
                     onWheel: wheel => {

@@ -22,6 +22,13 @@ Rectangle {
         if (icon.startsWith("image://icon/"))
             icon = icon.slice("image://icon/".length);
 
+        if (icon === "bluetooth-symbolic")
+            return "file:///usr/share/icons/Adwaita/symbolic/devices/bluetooth-symbolic.svg";
+        if (icon === "bluetooth-disabled-symbolic")
+            return "file:///usr/share/icons/Adwaita/symbolic/status/bluetooth-disabled-symbolic.svg";
+        if (icon === "application-x-addon-symbolic")
+            return "file:///usr/share/icons/Adwaita/symbolic/mimetypes/application-x-addon-symbolic.svg";
+
         var pathMatch = originalIcon.match(/[?&]path=([^&]+)/);
         if (pathMatch && pathMatch.length > 1) {
             var basePath = decodeURIComponent(pathMatch[1]);

@@ -4,3 +4,4 @@ oh-my-zsh
 config/ags/user_options.js
 config/quickshell/.qmlls.ini
 config/old/
+config/hypr/hyprland/env.local.conf

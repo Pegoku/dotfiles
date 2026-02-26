@@ -8,6 +8,23 @@ Rectangle {
 
     property int padding: 6
 
+    function resolveTrayIconSource(rawIcon) {
+        var icon = rawIcon ? String(rawIcon) : "";
+        if (icon.length === 0)
+            return "image://icon/application-x-executable";
+
+        var qIndex = icon.indexOf("?");
+        if (qIndex >= 0)
+            icon = icon.slice(0, qIndex);
+
+        if (icon.indexOf("://") !== -1)
+            return icon;
+        if (icon.startsWith("/"))
+            return "file://" + icon;
+
+        return "image://icon/" + icon;
+    }
+
     anchors.verticalCenter: parent.verticalCenter
     radius: 12
     color: "#1c1c1c"
@@ -43,7 +60,7 @@ Rectangle {
                 IconImage {
                     anchors.centerIn: parent
                     implicitSize: 16
-                    source: modelData.icon
+                    source: containerRect.resolveTrayIconSource(modelData.icon)
                     asynchronous: true
                 }
 

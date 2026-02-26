@@ -9,9 +9,12 @@ Singleton {
     // Put your preferred OpenRouter models here.
     // 'id' must be the OpenRouter model id.
     property var models: [
-        { "id": "openai/gpt-4o-mini", "label": "GPT-4o mini" },
-        { "id": "anthropic/claude-3.5-sonnet", "label": "Claude 3.5 Sonnet" },
-        { "id": "meta-llama/llama-3.1-8b-instruct", "label": "Llama 3.1 8B" }
+        { "id": "qwen/qwen3.5-35b-a3b", "label": "Qwen 3.5 35B A3B" },
+        { "id": "moonshotai/kimi-k2.5", "label": "Kimi K2.5" },
+        { "id": "minimax/minimax-m2-her", "label": "MiniMax M2 Her" },
+        { "id": "z-ai/glm-4.7-flash", "label": "GLM 4.7 Flash" },
+        { "id": "openai/gpt-5.2", "label": "GPT-5.2" },
+        { "id": "anthropic/claude-haiku-4.5", "label": "Claude Haiku 4.5" }
     ]
 
     // Optional system prompt applied on each request.

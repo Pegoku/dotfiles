@@ -360,21 +360,25 @@ Scope {
                                 border.color: "#343434"
                                 implicitHeight: reasoningText.implicitHeight + 12
 
-                                Text {
+                                TextEdit {
                                     id: reasoningText
                                     anchors.fill: parent
                                     anchors.margins: 6
+                                    readOnly: true
+                                    selectByMouse: true
                                     text: modelData.reasoning
-                                    wrapMode: Text.Wrap
+                                    wrapMode: TextEdit.Wrap
                                     color: "#c6c6c6"
                                     font.pixelSize: 11
                                 }
                             }
 
-                            Text {
+                            TextEdit {
                                 width: bubbleColumn.width
+                                readOnly: true
+                                selectByMouse: true
                                 text: modelData.content
-                                wrapMode: Text.Wrap
+                                wrapMode: TextEdit.Wrap
                                 color: "#e6e6e6"
                                 font.pixelSize: 12
                             }

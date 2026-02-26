@@ -82,6 +82,13 @@ Scope {
                 anchors.rightMargin: batteryWidget.visible ? 8 : 10
             }
 
+            AppIndicatorWidget {
+                id: appIndicatorWidget
+                anchors.right: networkWidget.left
+                anchors.verticalCenter: parent.verticalCenter
+                anchors.rightMargin: 8
+            }
+
             NumLockWidget {
                 id: numLockWidget
                 anchors.right: parent.right

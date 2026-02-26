@@ -1,0 +1,14 @@
+lib
+*.map
+coverage
+__pycache__
+.pyc
+.log
+.release
+src
+publish.sh
+doc/tags
+doc/tags-cn
+node_modules
+src/__tests__/tags
+typings

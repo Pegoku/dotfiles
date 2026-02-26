@@ -18,6 +18,7 @@ VolumeWidget 1.0 VolumeWidget.qml
 NetworkWidget 1.0 NetworkWidget.qml
 NetworkOverlay 1.0 NetworkOverlay.qml
 NumLockWidget 1.0 NumLockWidget.qml
+AppIndicatorWidget 1.0 AppIndicatorWidget.qml
 NowPlayingWidget 1.0 NowPlayingWidget.qml
 NowPlayingOverlay 1.0 NowPlayingOverlay.qml
 singleton Time 1.0 Time.qml

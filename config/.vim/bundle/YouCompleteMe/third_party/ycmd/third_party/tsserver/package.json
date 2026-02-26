@@ -1,0 +1,6 @@
+{
+  "description": "ycmd tsserver runtime area with required typescript version and plugins",
+  "dependencies": {
+    "typescript": "5.4.5"
+  }
+}

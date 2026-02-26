@@ -76,13 +76,22 @@ Scope {
                 property var messages: []
                 property int selectedModelIndex: 0
                 property bool requestPending: false
+                property string pendingModelLabel: ""
 
-                function appendMessage(role, content) {
+                function appendMessage(role, content, reasoning) {
                     var text = String(content);
-                    messages = messages.concat([{ role: role, content: text }]);
+                    var reason = reasoning ? String(reasoning) : "";
+                    messages = messages.concat([{ role: role, content: text, reasoning: reason }]);
                     Qt.callLater(() => {
                         listView.positionViewAtEnd();
                     });
+                }
+
+                function tailWords(text, count) {
+                    var words = String(text).trim().split(/\s+/);
+                    if (words.length <= count)
+                        return words.join(" ");
+                    return "... " + words.slice(words.length - count).join(" ");
                 }
 
                 function cycleModel(delta) {
@@ -108,9 +117,10 @@ Scope {
                     if (prompt.length === 0)
                         return;
 
-                    appendMessage("user", prompt);
+                    appendMessage("user", prompt, "");
                     inputEdit.text = "";
                     requestPending = true;
+                    pendingModelLabel = currentModelLabel();
 
                     var modelId = root.selectedModelId(selectedModelIndex);
                     var history = JSON.stringify(messages.map(m => ({ role: m.role, content: m.content })));
@@ -171,8 +181,10 @@ Scope {
                         "    data = json.loads(body)\n" +
                         "    choices = data.get('choices') or []\n" +
                         "    content = ''\n" +
+                        "    reasoning = ''\n" +
                         "    if choices:\n" +
-                        "        msg = choices[0].get('message') or {}\n" +
+                        "        c0 = choices[0] or {}\n" +
+                        "        msg = c0.get('message') or {}\n" +
                         "        content = msg.get('content')\n" +
                         "        if isinstance(content, list):\n" +
                         "            parts = []\n" +
@@ -180,9 +192,22 @@ Scope {
                         "                if isinstance(item, dict) and item.get('type') == 'text':\n" +
                         "                    parts.append(str(item.get('text', '')))\n" +
                         "            content = ''.join(parts)\n" +
+                        "        reasoning = msg.get('reasoning') or msg.get('reasoning_content') or c0.get('reasoning') or ''\n" +
+                        "        if isinstance(reasoning, list):\n" +
+                        "            rparts = []\n" +
+                        "            for item in reasoning:\n" +
+                        "                if isinstance(item, dict):\n" +
+                        "                    if item.get('type') == 'text':\n" +
+                        "                        rparts.append(str(item.get('text', '')))\n" +
+                        "                    else:\n" +
+                        "                        rparts.append(str(item.get('content', '')))\n" +
+                        "                else:\n" +
+                        "                    rparts.append(str(item))\n" +
+                        "            reasoning = ''.join(rparts)\n" +
                         "    if not content:\n" +
                         "        content = ((data.get('error') or {}).get('message') or '').strip()\n" +
-                        "    print(content if content else '(no response text)')\n" +
+                        "    payload = {'content': content if content else '(no response text)', 'reasoning': reasoning if reasoning else ''}\n" +
+                        "    print('__JSON__' + json.dumps(payload, ensure_ascii=False))\n" +
                         "except Exception as e:\n" +
                         "    print(f'__ERR__ Failed to parse response: {e}')\n" +
                         "PY"
@@ -278,20 +303,75 @@ Scope {
 
                     delegate: Rectangle {
                         required property var modelData
+                        property bool hasReasoning: modelData.reasoning && modelData.reasoning.length > 0
+                        property bool reasoningExpanded: false
 
                         width: listView.width
                         radius: 8
                         color: modelData.role === "user" ? "#2f2f2f" : "#252525"
-                        implicitHeight: msgText.implicitHeight + 14
+                        implicitHeight: bubbleColumn.implicitHeight + 14
 
-                        Text {
-                            id: msgText
+                        Column {
+                            id: bubbleColumn
+
                             anchors.fill: parent
                             anchors.margins: 7
-                            text: modelData.content
-                            wrapMode: Text.Wrap
-                            color: "#e6e6e6"
-                            font.pixelSize: 12
+                            spacing: 6
+
+                            Rectangle {
+                                visible: modelData.role === "assistant"
+                                width: bubbleColumn.width
+                                height: 24
+                                radius: 6
+                                color: "#1f1f1f"
+
+                                MouseArea {
+                                    anchors.fill: parent
+                                    enabled: hasReasoning
+                                    onClicked: reasoningExpanded = !reasoningExpanded
+                                }
+
+                                Text {
+                                    anchors.left: parent.left
+                                    anchors.leftMargin: 8
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    width: parent.width - 16
+                                    elide: Text.ElideRight
+                                    color: "#bbbbbb"
+                                    font.pixelSize: 10
+                                    text: hasReasoning
+                                        ? (reasoningExpanded ? "Hide reasoning" : "Show reasoning")
+                                        : ("Tail: " + chatPanel.tailWords(modelData.content, 6))
+                                }
+                            }
+
+                            Rectangle {
+                                visible: modelData.role === "assistant" && hasReasoning && reasoningExpanded
+                                width: bubbleColumn.width
+                                radius: 6
+                                color: "#1f1f1f"
+                                border.width: 1
+                                border.color: "#343434"
+                                implicitHeight: reasoningText.implicitHeight + 12
+
+                                Text {
+                                    id: reasoningText
+                                    anchors.fill: parent
+                                    anchors.margins: 6
+                                    text: modelData.reasoning
+                                    wrapMode: Text.Wrap
+                                    color: "#c6c6c6"
+                                    font.pixelSize: 11
+                                }
+                            }
+
+                            Text {
+                                width: bubbleColumn.width
+                                text: modelData.content
+                                wrapMode: Text.Wrap
+                                color: "#e6e6e6"
+                                font.pixelSize: 12
+                            }
                         }
                     }
                 }
@@ -371,6 +451,71 @@ Scope {
                             onClicked: chatPanel.sendPrompt()
                         }
                     }
+
+                    Row {
+                        id: processingIndicator
+
+                        visible: chatPanel.requestPending
+                        anchors.right: sendButton.left
+                        anchors.rightMargin: 8
+                        anchors.verticalCenter: sendButton.verticalCenter
+                        spacing: 6
+
+                        Text {
+                            text: chatPanel.pendingModelLabel.length > 0 ? chatPanel.pendingModelLabel : "Thinking"
+                            color: "#b7bcc9"
+                            font.pixelSize: 10
+                            elide: Text.ElideRight
+                            width: 170
+                        }
+
+                        Rectangle {
+                            width: 5
+                            height: 5
+                            radius: 3
+                            color: "#c7ccda"
+                            opacity: 0.25
+                            SequentialAnimation on opacity {
+                                running: processingIndicator.visible
+                                loops: Animation.Infinite
+                                NumberAnimation { to: 1.0; duration: 180 }
+                                NumberAnimation { to: 0.25; duration: 180 }
+                                PauseAnimation { duration: 360 }
+                            }
+                        }
+
+                        Rectangle {
+                            width: 5
+                            height: 5
+                            radius: 3
+                            color: "#c7ccda"
+                            opacity: 0.25
+                            SequentialAnimation on opacity {
+                                running: processingIndicator.visible
+                                loops: Animation.Infinite
+                                PauseAnimation { duration: 120 }
+                                NumberAnimation { to: 1.0; duration: 180 }
+                                NumberAnimation { to: 0.25; duration: 180 }
+                                PauseAnimation { duration: 240 }
+                            }
+                        }
+
+                        Rectangle {
+                            width: 5
+                            height: 5
+                            radius: 3
+                            color: "#c7ccda"
+                            opacity: 0.25
+                            SequentialAnimation on opacity {
+                                running: processingIndicator.visible
+                                loops: Animation.Infinite
+                                PauseAnimation { duration: 240 }
+                                NumberAnimation { to: 1.0; duration: 180 }
+                                NumberAnimation { to: 0.25; duration: 180 }
+                                PauseAnimation { duration: 120 }
+                            }
+                        }
+                    }
                 }
 
                 FocusScope {
@@ -406,7 +551,19 @@ Scope {
                             response = "(empty response)";
                         if (response.startsWith("__ERR__"))
                             response = "Error: " + response.substring(7).trim();
-                        chatPanel.appendMessage("assistant", response);
+                        if (response.startsWith("__JSON__")) {
+                            var payloadText = response.substring(8);
+                            try {
+                                var payload = JSON.parse(payloadText);
+                                var content = payload.content ? String(payload.content) : "(no response text)";
+                                var reasoning = payload.reasoning ? String(payload.reasoning) : "";
+                                chatPanel.appendMessage("assistant", content, reasoning);
+                            } catch (e) {
+                                chatPanel.appendMessage("assistant", "Error: invalid response payload", "");
+                            }
+                        } else {
+                            chatPanel.appendMessage("assistant", response, "");
+                        }
                         requestProc.outputBuffer = "";
                         inputEdit.forceActiveFocus();
                     }

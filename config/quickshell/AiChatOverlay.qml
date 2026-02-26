@@ -1,4 +1,5 @@
 import QtQuick
+import QtQuick.Controls
 import Quickshell
 import Quickshell.Io
 import Quickshell.Wayland
@@ -61,7 +62,7 @@ Scope {
             Rectangle {
                 anchors.fill: parent
                 color: "#000000"
-                opacity: 0.35
+                opacity: 0.7
 
                 MouseArea {
                     anchors.fill: parent
@@ -198,11 +199,12 @@ Scope {
                     bottomMargin: panelOuterMargin
                 }
                 width: 520
-                color: "#16181f"
+                radius: 16
+                color: "#1e1e1e"
                 border.width: 1
-                border.color: "#2f3442"
+                border.color: "#3a3a3a"
 
-                Row {
+                Column {
                     id: header
 
                     anchors.left: parent.left
@@ -212,64 +214,54 @@ Scope {
                     spacing: 8
 
                     Text {
+                        anchors.horizontalCenter: parent.horizontalCenter
                         text: "AI Chat"
-                        color: "#f0f3ff"
+                        color: "#e6e6e6"
                         font.pixelSize: 16
                         font.bold: true
                     }
 
-                    Item { width: Math.max(0, chatPanel.width - 300); height: 1 }
+                    ComboBox {
+                        id: modelCombo
 
-                    Rectangle {
-                        width: 22
-                        height: 22
-                        radius: 5
-                        color: "#2a3040"
-                        Text { anchors.centerIn: parent; text: "<"; color: "#d2d8ea"; font.pixelSize: 12 }
-                        MouseArea { anchors.fill: parent; onClicked: chatPanel.cycleModel(-1) }
-                    }
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        width: Math.min(chatPanel.width - 48, 360)
+                        model: AiChatConfig.models ?? []
+                        textRole: "label"
+                        currentIndex: chatPanel.selectedModelIndex
 
-                    Rectangle {
-                        height: 22
-                        radius: 5
-                        color: "#232937"
-                        implicitWidth: modelLabel.implicitWidth + 16
-                        Text {
-                            id: modelLabel
-                            anchors.centerIn: parent
+                        onActivated: index => {
+                            chatPanel.selectedModelIndex = index;
+                        }
+
+                        background: Rectangle {
+                            radius: 8
+                            color: "#252525"
+                            border.width: 1
+                            border.color: "#3a3a3a"
+                        }
+
+                        contentItem: Text {
+                            leftPadding: 10
+                            rightPadding: 24
+                            verticalAlignment: Text.AlignVCenter
                             text: chatPanel.currentModelLabel()
-                            color: "#e4e9f7"
-                            font.pixelSize: 11
+                            color: "#dcdcdc"
+                            font.pixelSize: 12
                             elide: Text.ElideRight
                         }
-                    }
-
-                    Rectangle {
-                        width: 22
-                        height: 22
-                        radius: 5
-                        color: "#2a3040"
-                        Text { anchors.centerIn: parent; text: ">"; color: "#d2d8ea"; font.pixelSize: 12 }
-                        MouseArea { anchors.fill: parent; onClicked: chatPanel.cycleModel(1) }
-                    }
-
-                    Rectangle {
-                        width: 22
-                        height: 22
-                        radius: 5
-                        color: "#3b2930"
-                        Text { anchors.centerIn: parent; text: "x"; color: "#f1d8df"; font.pixelSize: 11 }
-                        MouseArea { anchors.fill: parent; onClicked: GlobalStates.aiChatOpen = false }
                     }
                 }
 
                 Rectangle {
+                    id: headerDivider
+
                     anchors.left: parent.left
                     anchors.right: parent.right
                     anchors.top: header.bottom
                     anchors.margins: 12
                     height: 1
-                    color: "#2e3546"
+                    color: "#3a3a3a"
                 }
 
                 ListView {
@@ -277,7 +269,7 @@ Scope {
 
                     anchors.left: parent.left
                     anchors.right: parent.right
-                    anchors.top: header.bottom
+                    anchors.top: headerDivider.bottom
                     anchors.bottom: inputWrap.top
                     anchors.margins: 12
                     spacing: 8
@@ -289,7 +281,7 @@ Scope {
 
                         width: listView.width
                         radius: 8
-                        color: modelData.role === "user" ? "#29395e" : "#202637"
+                        color: modelData.role === "user" ? "#2f2f2f" : "#252525"
                         implicitHeight: msgText.implicitHeight + 14
 
                         Text {
@@ -298,7 +290,7 @@ Scope {
                             anchors.margins: 7
                             text: modelData.content
                             wrapMode: Text.Wrap
-                            color: "#e8ecfa"
+                            color: "#e6e6e6"
                             font.pixelSize: 12
                         }
                     }
@@ -313,9 +305,9 @@ Scope {
                     anchors.margins: 12
                     height: 110
                     radius: 8
-                    color: "#1f2433"
+                    color: "#252525"
                     border.width: 1
-                    border.color: "#32405a"
+                    border.color: "#3a3a3a"
 
                     TextEdit {
                         id: inputEdit
@@ -326,7 +318,7 @@ Scope {
                         anchors.bottom: parent.bottom
                         anchors.margins: 8
                         anchors.rightMargin: 6
-                        color: "#f4f7ff"
+                        color: "#f1f1f1"
                         wrapMode: TextEdit.Wrap
                         font.pixelSize: 13
                         selectByMouse: true
@@ -349,7 +341,7 @@ Scope {
                         anchors.top: parent.top
                         anchors.margins: 12
                         text: "Ask anything... (Enter send, Shift+Enter newline)"
-                        color: "#7f8aa7"
+                        color: "#9a9a9a"
                         font.pixelSize: 11
                         visible: inputEdit.text.length === 0
                     }
@@ -363,12 +355,12 @@ Scope {
                         width: 72
                         height: 28
                         radius: 6
-                        color: chatPanel.requestPending ? "#3b465f" : "#4464a8"
+                        color: chatPanel.requestPending ? "#3f3f3f" : "#5a5a5a"
 
                         Text {
                             anchors.centerIn: parent
                             text: chatPanel.requestPending ? "Wait" : "Send"
-                            color: "#f1f4ff"
+                            color: "#f1f1f1"
                             font.pixelSize: 11
                             font.bold: true
                         }

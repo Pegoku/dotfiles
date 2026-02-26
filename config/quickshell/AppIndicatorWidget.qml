@@ -7,6 +7,7 @@ Rectangle {
     id: containerRect
 
     property int padding: 6
+    property var trayParentWindow: null
 
     function resolveTrayIconSource(rawIcon) {
         var icon = rawIcon ? String(rawIcon) : "";
@@ -61,7 +62,10 @@ Rectangle {
                 function openTrayMenu() {
                     if (!modelData || !modelData.hasMenu)
                         return;
-                    trayMenuAnchor.open();
+                    if (!containerRect.trayParentWindow)
+                        return;
+                    var p = trayButton.mapToItem(null, trayButton.width / 2, trayButton.height + 6);
+                    modelData.display(containerRect.trayParentWindow, p.x, p.y);
                 }
 
                 width: 18
@@ -103,16 +107,6 @@ Rectangle {
                         modelData.scroll(wheel.angleDelta.y, false);
                         wheel.accepted = true;
                     }
-                }
-
-                QsMenuAnchor {
-                    id: trayMenuAnchor
-
-                    menu: modelData.menu
-                    anchor.item: trayButton
-                    anchor.edges: Edges.Bottom
-                    anchor.gravity: Edges.Bottom
-                    anchor.margins.top: 6
                 }
 
             }

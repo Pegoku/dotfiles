@@ -26,6 +26,7 @@ Scope {
         model: Quickshell.screens
 
         PanelWindow {
+            id: panelWindow
             required property var modelData
             screen: modelData
             
@@ -84,6 +85,7 @@ Scope {
 
             AppIndicatorWidget {
                 id: appIndicatorWidget
+                trayParentWindow: panelWindow
                 anchors.right: networkWidget.left
                 anchors.verticalCenter: parent.verticalCenter
                 anchors.rightMargin: 8

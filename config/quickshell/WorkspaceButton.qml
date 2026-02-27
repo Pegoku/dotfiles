@@ -1,86 +1,48 @@
 import QtQuick
-import Quickshell.Hyprland
 
 Rectangle {
+    id: root
 
-    required property var workspace
     property int number: 0
-    // property bool hasWindows: workspace && workspace.toplevels && workspace.toplevels.values.length > 0
-    function hasWindows(id = number) {
-        if (id < 1 || id > 10) return false;
-        var ws = Hyprland.workspaces.values.find((ws) => {
-            return ws.id === id;
-        });
-        return ws && ws.toplevels && ws.toplevels.values.length > 0;
-    }
-    // property bool isActive: workspace && workspace.active
-    function isActive(id = number) {
-        if (id < 1 || id > 10) return false;
-        var ws = Hyprland.workspaces.values.find((ws) => {
-            return ws.id === id;
-        });
-        return ws && ws.active;
-    }
+    property bool active: false
+    property bool occupied: false
+    signal pressed(int number)
 
     property color textColor: "#c8c8c8"
     property color activeColor: "#5b7cfa"
     property color activeDotColor: "#e6ecff"
     property color occupiedDotColor: "#5a5a5a"
 
-    width: 20
+    width: 24
     height: 20
     radius: 10
-    color: isActive() ? activeColor : hasWindows() ? occupiedDotColor : "transparent"
+    color: active ? activeColor : occupied ? occupiedDotColor : "transparent"
 
     Rectangle {
         id: activeDot
+        z: 3
         width: 6
         height: 6
         radius: 3
         color: activeDotColor
         anchors.centerIn: parent
-        visible: isActive()
+        visible: active
     }
 
-    Rectangle {
-        id: rightConnector
-        width: 15
-        height: 20
-        color: occupiedDotColor
-        // anchors.horizontalCenter: parent.horizontalCenter
-        anchors.right: parent.right
-        anchors.rightMargin: -5
-        anchors.bottom: parent.bottom
-        anchors.bottomMargin: 0
-        visible: !isActive() && !isActive(number+1) && hasWindows(number+1) && hasWindows()
-    }
-
-    Rectangle {
-        id: leftConnector
-        width: 15
-        height: 20
-        color: occupiedDotColor
-        // anchors.horizontalCenter: parent.horizontalCenter
-        anchors.left: parent.left
-        anchors.leftMargin: -5
-        anchors.bottom: parent.bottom
-        anchors.bottomMargin: 0
-        visible: !isActive() && !isActive(number-1) && hasWindows(number-1) && hasWindows()
-    }
     Text {
         id: textContent
+        z: 3
 
         text: number
         color: textColor
-        font.bold: hasWindows()
+        font.bold: occupied
+        font.pixelSize: 10
         anchors.centerIn: parent
-        visible: !isActive()
+        visible: !active
     }
 
     MouseArea {
         anchors.fill: parent
-        onClicked: {
-                Hyprland.dispatch("workspace " + number)
-        }
+        onClicked: root.pressed(root.number)
     }
 }

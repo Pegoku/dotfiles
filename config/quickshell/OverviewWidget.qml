@@ -11,9 +11,11 @@ Item {
     id: root
     required property var screen
     readonly property HyprlandMonitor monitor: Hyprland.monitorFor(screen)
-    readonly property int workspacesShown: 9 // 3x3 grid
-    readonly property int rows: 3
-    readonly property int columns: 3
+    readonly property int workspacesShown: 10
+    readonly property int rows: 2
+    readonly property int columns: 5
+    readonly property int focusedWorkspaceId: Math.max(1, monitor.activeWorkspace?.id ?? 1)
+    readonly property int workspaceGroupStart: Math.floor((focusedWorkspaceId - 1) / workspacesShown) * workspacesShown + 1
     readonly property real scale: 0.15
 
     property int draggingFromWorkspace: -1
@@ -57,7 +59,7 @@ Item {
         const withinY = yPos - row * cellHeight
         if (withinX < 0 || withinX > workspaceImplicitWidth) return -1
         if (withinY < 0 || withinY > workspaceImplicitHeight) return -1
-        return row * columns + col + 1
+        return workspaceGroupStart + row * columns + col
     }
 
     function requestTopZ() {
@@ -724,7 +726,7 @@ Item {
                                     id: workspace
                                     required property int index
                                     property int colIndex: index
-                                    property int workspaceValue: row.index * root.columns + colIndex + 1
+                                    property int workspaceValue: root.workspaceGroupStart + row.index * root.columns + colIndex
                                     property bool isActive: monitor.activeWorkspace?.id === workspaceValue
                                     property bool hoveredWhileDragging: root.draggingTargetWorkspace === workspaceValue
                                     
@@ -779,7 +781,8 @@ Item {
                     
                     Repeater {
                         model: HyprlandData.windowList.filter(win => {
-                            return win.workspace?.id > 0 && win.workspace?.id <= root.workspacesShown;
+                            return win.workspace?.id >= root.workspaceGroupStart
+                                && win.workspace?.id < root.workspaceGroupStart + root.workspacesShown;
                         })
                         
                         delegate: Loader {
@@ -787,9 +790,10 @@ Item {
                             required property var modelData
                             z: (item && item.dynamicZ !== undefined) ? item.dynamicZ : 0
                             
-                            property int workspaceId: modelData.workspace?.id ?? 1
-                            property int rowIndex: Math.floor((workspaceId - 1) / root.columns)
-                            property int colIndex: (workspaceId - 1) % root.columns
+                            property int workspaceId: modelData.workspace?.id ?? root.workspaceGroupStart
+                            property int localIndex: workspaceId - root.workspaceGroupStart
+                            property int rowIndex: Math.floor(localIndex / root.columns)
+                            property int colIndex: localIndex % root.columns
                             property real xOffset: (root.workspaceImplicitWidth + workspaceSpacing) * colIndex
                             property real yOffset: (root.workspaceImplicitHeight + workspaceSpacing) * rowIndex
                             

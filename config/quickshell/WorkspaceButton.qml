@@ -36,7 +36,7 @@ Rectangle {
         text: number
         color: textColor
         font.bold: occupied
-        font.pixelSize: 10
+        font.pixelSize: 12
         anchors.centerIn: parent
         visible: !active
     }

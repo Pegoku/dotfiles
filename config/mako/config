@@ -1,0 +1,46 @@
+# Quickshell-like notification styling
+font=Rubik 11
+width=360
+height=140
+max-visible=6
+anchor=top-right
+layer=overlay
+
+margin=16
+padding=14,16
+border-size=1
+border-radius=12
+icons=1
+max-icon-size=36
+default-timeout=5500
+ignore-timeout=0
+sort=-time
+group-by=summary
+markup=1
+actions=1
+history=1
+
+background-color=#1e1e1ef2
+text-color=#efefef
+border-color=#3a3a3a
+progress-color=over #4a9effcc
+
+format=<span foreground='#8f8f8f' size='small'>%a</span>\n<b>%s</b>\n%b
+
+on-button-left=invoke-default-action
+on-button-middle=dismiss
+on-button-right=dismiss-all
+on-touch=dismiss
+
+[urgency=low]
+background-color=#1b1b1be6
+text-color=#cfcfcf
+border-color=#303030
+default-timeout=3200
+
+[urgency=high]
+background-color=#24201ff2
+text-color=#fff0ec
+border-color=#ff7a59
+progress-color=over #ff7a59cc
+default-timeout=0

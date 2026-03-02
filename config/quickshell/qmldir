@@ -20,6 +20,7 @@ NetworkWidget 1.0 NetworkWidget.qml
 NetworkOverlay 1.0 NetworkOverlay.qml
 NumLockWidget 1.0 NumLockWidget.qml
 AppIndicatorWidget 1.0 AppIndicatorWidget.qml
+ActiveWindowWidget 1.0 ActiveWindowWidget.qml
 NowPlayingWidget 1.0 NowPlayingWidget.qml
 NowPlayingOverlay 1.0 NowPlayingOverlay.qml
 AiChatOverlay 1.0 AiChatOverlay.qml

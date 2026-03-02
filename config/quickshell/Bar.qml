@@ -39,6 +39,13 @@ Scope {
             }
 
             color: root.accentColor
+
+            ActiveWindowWidget {
+                id: activeWindowWidget
+                anchors.left: parent.left
+                anchors.leftMargin: 10
+                anchors.verticalCenter: parent.verticalCenter
+            }
             
             SystemRingsWidget {
                 id: systemRingsWidget

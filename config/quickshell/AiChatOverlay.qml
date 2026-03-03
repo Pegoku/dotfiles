@@ -79,17 +79,22 @@ Scope {
                 property string pendingModelLabel: ""
                 property int activeAssistantIndex: -1
 
+                function nowLabel() {
+                    var d = new Date();
+                    return d.toLocaleTimeString(Qt.locale(), "h:mm AP");
+                }
+
                 function appendMessage(role, content, reasoning) {
                     var text = String(content);
                     var reason = reasoning ? String(reasoning) : "";
-                    messages = messages.concat([{ role: role, content: text, reasoning: reason }]);
+                    messages = messages.concat([{ role: role, content: text, reasoning: reason, streaming: false, model: pendingModelLabel, at: nowLabel() }]);
                     Qt.callLater(() => {
                         listView.positionViewAtEnd();
                     });
                 }
 
                 function beginAssistantStream() {
-                    messages = messages.concat([{ role: "assistant", content: "", reasoning: "", streaming: true }]);
+                    messages = messages.concat([{ role: "assistant", content: "", reasoning: "", streaming: true, model: pendingModelLabel, at: nowLabel() }]);
                     activeAssistantIndex = messages.length - 1;
                     Qt.callLater(() => {
                         listView.positionViewAtEnd();
@@ -120,6 +125,8 @@ Scope {
                     if (activeAssistantIndex >= 0 && activeAssistantIndex < messages.length) {
                         var next = messages.slice();
                         var msg = Object.assign({}, next[activeAssistantIndex]);
+                        if ((!msg.content || msg.content.length === 0) && msg.reasoning && msg.reasoning.length > 0)
+                            msg.content = "(reasoning available - expand to view)";
                         if ((!msg.content || msg.content.length === 0) && fallbackText && fallbackText.length > 0)
                             msg.content = fallbackText;
                         msg.streaming = false;
@@ -367,50 +374,99 @@ Scope {
                         "        'X-Title': title,\n" +
                         "    }\n" +
                         ")\n" +
+                        "emitted = [False]\n" +
+                        "def emit_from_chunk_obj(obj):\n" +
+                        "    choices = obj.get('choices') or []\n" +
+                        "    if not choices:\n" +
+                        "        err = (obj.get('error') or {}).get('message')\n" +
+                        "        if err:\n" +
+                        "            print('__ERR__ ' + str(err), flush=True)\n" +
+                        "        return\n" +
+                        "    emitted[0] = True\n" +
+                        "    c0 = choices[0] or {}\n" +
+                        "    delta = c0.get('delta') or c0.get('message') or {}\n" +
+                        "    content = delta.get('content', '')\n" +
+                        "    if isinstance(content, list):\n" +
+                        "        parts = []\n" +
+                        "        for item in content:\n" +
+                        "            if isinstance(item, dict) and item.get('type') == 'text':\n" +
+                        "                parts.append(str(item.get('text', '')))\n" +
+                        "            elif isinstance(item, dict):\n" +
+                        "                parts.append(str(item.get('content', '')))\n" +
+                        "            else:\n" +
+                        "                parts.append(str(item))\n" +
+                        "        content = ''.join(parts)\n" +
+                        "    reasoning = delta.get('reasoning') or delta.get('reasoning_content') or c0.get('reasoning') or ''\n" +
+                        "    if isinstance(reasoning, list):\n" +
+                        "        rparts = []\n" +
+                        "        for item in reasoning:\n" +
+                        "            if isinstance(item, dict) and item.get('type') == 'text':\n" +
+                        "                rparts.append(str(item.get('text', '')))\n" +
+                        "            elif isinstance(item, dict):\n" +
+                        "                rparts.append(str(item.get('content', '')))\n" +
+                        "            else:\n" +
+                        "                rparts.append(str(item))\n" +
+                        "        reasoning = ''.join(rparts)\n" +
+                        "    if content:\n" +
+                        "        print('__STREAM_CONTENT__' + json.dumps(content, ensure_ascii=False), flush=True)\n" +
+                        "    if reasoning:\n" +
+                        "        print('__STREAM_REASONING__' + json.dumps(reasoning, ensure_ascii=False), flush=True)\n" +
                         "try:\n" +
                         "    with urllib.request.urlopen(req, timeout=120) as resp:\n" +
-                        "        for raw in resp:\n" +
-                        "            line = raw.decode('utf-8', 'replace').strip()\n" +
-                        "            if not line or not line.startswith('data:'):\n" +
-                        "                continue\n" +
-                        "            payload_line = line[5:].strip()\n" +
-                        "            if payload_line == '[DONE]':\n" +
-                        "                break\n" +
+                        "        ctype = (resp.headers.get('Content-Type') or '').lower()\n" +
+                        "        print('__DEBUG_STREAM__CTYPE ' + ctype, flush=True)\n" +
+                        "        if 'text/event-stream' in ctype:\n" +
+                        "            buf = ''\n" +
+                        "            while True:\n" +
+                        "                chunk = resp.read(1024)\n" +
+                        "                if not chunk:\n" +
+                        "                    break\n" +
+                        "                buf += chunk.decode('utf-8', 'replace')\n" +
+                        "                while '\\n' in buf:\n" +
+                        "                    line, buf = buf.split('\\n', 1)\n" +
+                        "                    line = line.strip()\n" +
+                        "                    if not line or not line.startswith('data:'):\n" +
+                        "                        continue\n" +
+                        "                    print('__DEBUG_STREAM__LINE ' + line, flush=True)\n" +
+                        "                    payload_line = line[5:].strip()\n" +
+                        "                    if payload_line == '[DONE]':\n" +
+                        "                        break\n" +
+                        "                    try:\n" +
+                        "                        emit_from_chunk_obj(json.loads(payload_line))\n" +
+                        "                    except Exception:\n" +
+                        "                        pass\n" +
+                        "            if not emitted[0] and buf.strip():\n" +
+                        "                try:\n" +
+                        "                    raw = buf.strip()\n" +
+                        "                    if raw.startswith('data:'):\n" +
+                        "                        raw = raw[5:].strip()\n" +
+                        "                    if raw and raw != '[DONE]':\n" +
+                        "                        emit_from_chunk_obj(json.loads(raw))\n" +
+                        "                except Exception:\n" +
+                        "                    pass\n" +
+                        "        else:\n" +
+                        "            body = resp.read().decode('utf-8', 'replace')\n" +
+                        "            print('__DEBUG_STREAM__BODY ' + body[:1200], flush=True)\n" +
+                        "            data = json.loads(body)\n" +
+                        "            emit_from_chunk_obj(data)\n" +
+                        "        if not emitted[0]:\n" +
+                        "            payload2 = {'model': model, 'messages': msgs}\n" +
+                        "            req2 = urllib.request.Request(\n" +
+                        "                'https://openrouter.ai/api/v1/chat/completions',\n" +
+                        "                data=json.dumps(payload2).encode('utf-8'),\n" +
+                        "                headers={\n" +
+                        "                    'Authorization': f'Bearer {api}',\n" +
+                        "                    'Content-Type': 'application/json',\n" +
+                        "                    'HTTP-Referer': site,\n" +
+                        "                    'X-Title': title,\n" +
+                        "                }\n" +
+                        "            )\n" +
                         "            try:\n" +
-                        "                data = json.loads(payload_line)\n" +
-                        "            except Exception:\n" +
-                        "                continue\n" +
-                        "            choices = data.get('choices') or []\n" +
-                        "            if not choices:\n" +
-                        "                continue\n" +
-                        "            c0 = choices[0] or {}\n" +
-                        "            delta = c0.get('delta') or {}\n" +
-                        "            content = delta.get('content', '')\n" +
-                        "            if isinstance(content, list):\n" +
-                        "                parts = []\n" +
-                        "                for item in content:\n" +
-                        "                    if isinstance(item, dict) and item.get('type') == 'text':\n" +
-                        "                        parts.append(str(item.get('text', '')))\n" +
-                        "                    elif isinstance(item, dict):\n" +
-                        "                        parts.append(str(item.get('content', '')))\n" +
-                        "                    else:\n" +
-                        "                        parts.append(str(item))\n" +
-                        "                content = ''.join(parts)\n" +
-                        "            reasoning = delta.get('reasoning') or delta.get('reasoning_content') or c0.get('reasoning') or ''\n" +
-                        "            if isinstance(reasoning, list):\n" +
-                        "                rparts = []\n" +
-                        "                for item in reasoning:\n" +
-                        "                    if isinstance(item, dict) and item.get('type') == 'text':\n" +
-                        "                        rparts.append(str(item.get('text', '')))\n" +
-                        "                    elif isinstance(item, dict):\n" +
-                        "                        rparts.append(str(item.get('content', '')))\n" +
-                        "                    else:\n" +
-                        "                        rparts.append(str(item))\n" +
-                        "                reasoning = ''.join(rparts)\n" +
-                        "            if content:\n" +
-                        "                print('__STREAM_CONTENT__' + json.dumps(content, ensure_ascii=False), flush=True)\n" +
-                        "            if reasoning:\n" +
-                        "                print('__STREAM_REASONING__' + json.dumps(reasoning, ensure_ascii=False), flush=True)\n" +
+                        "                with urllib.request.urlopen(req2, timeout=120) as resp2:\n" +
+                        "                    body2 = resp2.read().decode('utf-8', 'replace')\n" +
+                        "                emit_from_chunk_obj(json.loads(body2))\n" +
+                        "            except Exception as e:\n" +
+                        "                print('__ERR__ ' + str(e), flush=True)\n" +
                         "except urllib.error.HTTPError as e:\n" +
                         "    detail = e.read().decode('utf-8', 'replace')\n" +
                         "    print(f'__ERR__ HTTP {e.code}: {detail}')\n" +
@@ -518,10 +574,11 @@ Scope {
                         required property var modelData
                         property bool hasReasoning: modelData.reasoning && modelData.reasoning.length > 0
                         property bool reasoningExpanded: false
+                        property bool isAssistant: modelData.role === "assistant"
 
                         width: listView.width
                         radius: 8
-                        color: modelData.role === "user" ? "#2f2f2f" : "#252525"
+                        color: isAssistant ? "transparent" : "#252525"
                         implicitHeight: bubbleColumn.implicitHeight + 14
 
                         Column {
@@ -532,11 +589,53 @@ Scope {
                             spacing: 6
 
                             Rectangle {
-                                visible: modelData.role === "assistant"
+                                visible: isAssistant
+                                width: bubbleColumn.width
+                                height: modelMeta.implicitHeight
+                                color: "transparent"
+
+                                Row {
+                                    id: modelMeta
+                                    spacing: 8
+
+                                    Text {
+                                        text: modelData.model && modelData.model.length > 0 ? modelData.model : chatPanel.currentModelLabel()
+                                        color: "#e3e7f0"
+                                        font.pixelSize: 12
+                                        font.bold: true
+                                    }
+
+                                    Text {
+                                        text: modelData.at ? "Today at " + modelData.at : ""
+                                        color: "#9aa3b7"
+                                        font.pixelSize: 11
+                                    }
+                                }
+                            }
+
+                            Rectangle {
+                                visible: isAssistant && modelData.streaming
                                 width: bubbleColumn.width
                                 height: 24
                                 radius: 6
-                                color: "#1f1f1f"
+                                color: "#161b25"
+
+                                Text {
+                                    anchors.left: parent.left
+                                    anchors.leftMargin: 8
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    text: "Thinking..."
+                                    color: "#98a2b8"
+                                    font.pixelSize: 10
+                                }
+                            }
+
+                            Rectangle {
+                                visible: isAssistant && !modelData.streaming
+                                width: bubbleColumn.width
+                                height: 24
+                                radius: 6
+                                color: "#161b25"
 
                                 MouseArea {
                                     anchors.fill: parent
@@ -550,7 +649,7 @@ Scope {
                                     anchors.verticalCenter: parent.verticalCenter
                                     width: parent.width - 16
                                     elide: Text.ElideRight
-                                    color: "#bbbbbb"
+                                    color: "#98a2b8"
                                     font.pixelSize: 10
                                     text: hasReasoning
                                         ? (reasoningExpanded ? "Hide reasoning" : "Show reasoning")
@@ -965,60 +1064,96 @@ Scope {
                     property string streamBuffer: ""
                     property string lastError: ""
 
+                    function processTaggedBuffer(flush) {
+                        var tags = ["__STREAM_CONTENT__", "__STREAM_REASONING__", "__ERR__", "__DEBUG_STREAM__"];
+
+                        function nextTagIndex(text, from) {
+                            var best = -1;
+                            for (var i = 0; i < tags.length; i++) {
+                                var idx = text.indexOf(tags[i], from);
+                                if (idx !== -1 && (best === -1 || idx < best))
+                                    best = idx;
+                            }
+                            return best;
+                        }
+
+                        var buf = requestProc.streamBuffer;
+
+                        while (true) {
+                            var start = nextTagIndex(buf, 0);
+                            if (start === -1) {
+                                if (flush && buf.trim().length > 0)
+                                    requestProc.outputBuffer += buf;
+                                requestProc.streamBuffer = "";
+                                return;
+                            }
+
+                            if (start > 0) {
+                                var leading = buf.slice(0, start);
+                                if (leading.trim().length > 0)
+                                    requestProc.outputBuffer += leading;
+                                buf = buf.slice(start);
+                                start = 0;
+                            }
+
+                            var tag = "";
+                            for (var t = 0; t < tags.length; t++) {
+                                if (buf.startsWith(tags[t])) {
+                                    tag = tags[t];
+                                    break;
+                                }
+                            }
+
+                            if (tag.length === 0) {
+                                requestProc.streamBuffer = buf;
+                                return;
+                            }
+
+                            var payloadStart = tag.length;
+                            var next = nextTagIndex(buf, payloadStart);
+
+                            if (next === -1) {
+                                if (!flush) {
+                                    requestProc.streamBuffer = buf;
+                                    return;
+                                }
+                                next = buf.length;
+                            }
+
+                            var payload = buf.slice(payloadStart, next).trim();
+
+                            if (tag === "__STREAM_CONTENT__") {
+                                try {
+                                    var c = JSON.parse(payload);
+                                    chatPanel.appendAssistantStream(String(c), "");
+                                } catch (e) {
+                                }
+                            } else if (tag === "__STREAM_REASONING__") {
+                                try {
+                                    var r = JSON.parse(payload);
+                                    chatPanel.appendAssistantStream("", String(r));
+                                } catch (e) {
+                                }
+                            } else if (tag === "__ERR__") {
+                                requestProc.lastError = payload;
+                            } else if (tag === "__DEBUG_STREAM__") {
+                                console.log("[AIChatStream] " + payload);
+                            }
+
+                            buf = buf.slice(next);
+                        }
+                    }
+
                     stdout: SplitParser {
                         onRead: data => {
                             requestProc.streamBuffer += data;
-
-                            var idx = requestProc.streamBuffer.indexOf("\n");
-                            while (idx !== -1) {
-                                var line = requestProc.streamBuffer.slice(0, idx).trim();
-                                requestProc.streamBuffer = requestProc.streamBuffer.slice(idx + 1);
-
-                                if (line.startsWith("__STREAM_CONTENT__")) {
-                                    try {
-                                        var c = JSON.parse(line.substring(17));
-                                        chatPanel.appendAssistantStream(String(c), "");
-                                    } catch (e) {
-                                    }
-                                } else if (line.startsWith("__STREAM_REASONING__")) {
-                                    try {
-                                        var r = JSON.parse(line.substring(19));
-                                        chatPanel.appendAssistantStream("", String(r));
-                                    } catch (e) {
-                                    }
-                                } else if (line.startsWith("__ERR__")) {
-                                    requestProc.lastError = line.substring(7).trim();
-                                } else if (line.length > 0) {
-                                    requestProc.outputBuffer += line + "\n";
-                                }
-
-                                idx = requestProc.streamBuffer.indexOf("\n");
-                            }
+                            requestProc.processTaggedBuffer(false);
                         }
                     }
 
                     onExited: {
                         chatPanel.requestPending = false;
-                        if (requestProc.streamBuffer.trim().length > 0) {
-                            var tailLine = requestProc.streamBuffer.trim();
-                            if (tailLine.startsWith("__STREAM_CONTENT__")) {
-                                try {
-                                    var tc = JSON.parse(tailLine.substring(17));
-                                    chatPanel.appendAssistantStream(String(tc), "");
-                                } catch (e) {
-                                }
-                            } else if (tailLine.startsWith("__STREAM_REASONING__")) {
-                                try {
-                                    var tr = JSON.parse(tailLine.substring(19));
-                                    chatPanel.appendAssistantStream("", String(tr));
-                                } catch (e) {
-                                }
-                            } else if (tailLine.startsWith("__ERR__")) {
-                                requestProc.lastError = tailLine.substring(7).trim();
-                            } else {
-                                requestProc.outputBuffer += tailLine;
-                            }
-                        }
+                        requestProc.processTaggedBuffer(true);
 
                         var fallback = "";
                         if (requestProc.lastError.length > 0)

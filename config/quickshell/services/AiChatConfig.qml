@@ -9,8 +9,8 @@ Singleton {
     // Put your preferred OpenRouter models here.
     // 'id' must be the OpenRouter model id.
     property var models: [
-        { "id": "qwen/qwen3.5-35b-a3b", "label": "Qwen 3.5 35B A3B" },
         { "id": "moonshotai/kimi-k2.5", "label": "Kimi K2.5" },
+        { "id": "qwen/qwen3.5-35b-a3b", "label": "Qwen 3.5 35B A3B" },
         { "id": "minimax/minimax-m2-her", "label": "MiniMax M2 Her" },
         { "id": "z-ai/glm-4.7-flash", "label": "GLM 4.7 Flash" },
         { "id": "openai/gpt-5.2", "label": "GPT-5.2" },

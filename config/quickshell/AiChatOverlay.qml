@@ -151,13 +151,26 @@ Scope {
                 }
 
                 function renderInlineMarkdown(text) {
+                    function formatInline(segment) {
+                        var s = escapeHtml(segment);
+
+                        s = s.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2">$1</a>');
+                        s = s.replace(/\*\*([^*][\s\S]*?)\*\*/g, '<strong>$1</strong>');
+                        s = s.replace(/__([^_][\s\S]*?)__/g, '<strong>$1</strong>');
+                        s = s.replace(/\*([^*][\s\S]*?)\*/g, '<em>$1</em>');
+                        s = s.replace(/_([^_][\s\S]*?)_/g, '<em>$1</em>');
+                        s = s.replace(/~~([^~][\s\S]*?)~~/g, '<s>$1</s>');
+
+                        return s;
+                    }
+
                     var src = String(text);
                     var parts = src.split("`");
                     var out = "";
 
                     for (var i = 0; i < parts.length; i++) {
                         if (i % 2 === 0)
-                            out += escapeHtml(parts[i]);
+                            out += formatInline(parts[i]);
                         else
                             out += "<code>" + escapeHtml(parts[i]) + "</code>";
                     }
@@ -186,13 +199,34 @@ Scope {
                         var line = lines[i];
                         var trimmed = line.trim();
 
+                        var headingMatch = trimmed.match(/^(#{1,6})\s+(.*)$/);
+                        if (headingMatch) {
+                            closeLists();
+                            var level = Math.min(6, headingMatch[1].length);
+                            html += "<h" + level + ">" + renderInlineMarkdown(headingMatch[2]) + "</h" + level + ">";
+                            continue;
+                        }
+
+                        if (/^(-{3,}|\*{3,}|_{3,})$/.test(trimmed)) {
+                            closeLists();
+                            html += "<hr/>";
+                            continue;
+                        }
+
+                        var quoteMatch = line.match(/^\s*>\s?(.*)$/);
+                        if (quoteMatch) {
+                            closeLists();
+                            html += "<blockquote>" + renderInlineMarkdown(quoteMatch[1]) + "</blockquote>";
+                            continue;
+                        }
+
                         if (trimmed.length === 0) {
                             closeLists();
                             html += "<br/>";
                             continue;
                         }
 
-                        var ulMatch = line.match(/^\s*-\s+(.*)$/);
+                        var ulMatch = line.match(/^\s*[-*+]\s+(.*)$/);
                         if (ulMatch) {
                             if (inOl) {
                                 html += "</ol>";

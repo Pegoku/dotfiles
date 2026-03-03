@@ -345,7 +345,7 @@ Scope {
                         "import json, os, sys, urllib.request, urllib.error\n" +
                         "api = os.environ.get('OPENROUTER_API_KEY', '').strip()\n" +
                         "if not api:\n" +
-                        "    print('__ERR__ Missing OPENROUTER_API_KEY')\n" +
+                        "    print('__QS__' + json.dumps({'type': 'error', 'data': 'Missing OPENROUTER_API_KEY'}, ensure_ascii=False), flush=True)\n" +
                         "    raise SystemExit(0)\n" +
                         "model = os.environ.get('QS_MODEL', 'openai/gpt-4o-mini')\n" +
                         "system_prompt = os.environ.get('QS_SYSTEM', '').strip()\n" +
@@ -375,12 +375,14 @@ Scope {
                         "    }\n" +
                         ")\n" +
                         "emitted = [False]\n" +
+                        "def emit(kind, data):\n" +
+                        "    print('__QS__' + json.dumps({'type': kind, 'data': data}, ensure_ascii=False), flush=True)\n" +
                         "def emit_from_chunk_obj(obj):\n" +
                         "    choices = obj.get('choices') or []\n" +
                         "    if not choices:\n" +
                         "        err = (obj.get('error') or {}).get('message')\n" +
                         "        if err:\n" +
-                        "            print('__ERR__ ' + str(err), flush=True)\n" +
+                        "            emit('error', str(err))\n" +
                         "        return\n" +
                         "    emitted[0] = True\n" +
                         "    c0 = choices[0] or {}\n" +
@@ -408,13 +410,12 @@ Scope {
                         "                rparts.append(str(item))\n" +
                         "        reasoning = ''.join(rparts)\n" +
                         "    if content:\n" +
-                        "        print('__STREAM_CONTENT__' + json.dumps(content, ensure_ascii=False), flush=True)\n" +
+                        "        emit('content', content)\n" +
                         "    if reasoning:\n" +
-                        "        print('__STREAM_REASONING__' + json.dumps(reasoning, ensure_ascii=False), flush=True)\n" +
+                        "        emit('reasoning', reasoning)\n" +
                         "try:\n" +
                         "    with urllib.request.urlopen(req, timeout=120) as resp:\n" +
                         "        ctype = (resp.headers.get('Content-Type') or '').lower()\n" +
-                        "        print('__DEBUG_STREAM__CTYPE ' + ctype, flush=True)\n" +
                         "        if 'text/event-stream' in ctype:\n" +
                         "            buf = ''\n" +
                         "            while True:\n" +
@@ -427,7 +428,6 @@ Scope {
                         "                    line = line.strip()\n" +
                         "                    if not line or not line.startswith('data:'):\n" +
                         "                        continue\n" +
-                        "                    print('__DEBUG_STREAM__LINE ' + line, flush=True)\n" +
                         "                    payload_line = line[5:].strip()\n" +
                         "                    if payload_line == '[DONE]':\n" +
                         "                        break\n" +
@@ -446,7 +446,6 @@ Scope {
                         "                    pass\n" +
                         "        else:\n" +
                         "            body = resp.read().decode('utf-8', 'replace')\n" +
-                        "            print('__DEBUG_STREAM__BODY ' + body[:1200], flush=True)\n" +
                         "            data = json.loads(body)\n" +
                         "            emit_from_chunk_obj(data)\n" +
                         "        if not emitted[0]:\n" +
@@ -466,13 +465,13 @@ Scope {
                         "                    body2 = resp2.read().decode('utf-8', 'replace')\n" +
                         "                emit_from_chunk_obj(json.loads(body2))\n" +
                         "            except Exception as e:\n" +
-                        "                print('__ERR__ ' + str(e), flush=True)\n" +
+                        "                emit('error', str(e))\n" +
                         "except urllib.error.HTTPError as e:\n" +
                         "    detail = e.read().decode('utf-8', 'replace')\n" +
-                        "    print(f'__ERR__ HTTP {e.code}: {detail}')\n" +
+                        "    emit('error', f'HTTP {e.code}: {detail}')\n" +
                         "    raise SystemExit(0)\n" +
                         "except Exception as e:\n" +
-                        "    print(f'__ERR__ {e}')\n" +
+                        "    emit('error', str(e))\n" +
                         "PY"
                     ];
                     requestProc.running = true;
@@ -573,6 +572,8 @@ Scope {
                     delegate: Rectangle {
                         required property var modelData
                         property bool hasReasoning: modelData.reasoning && modelData.reasoning.length > 0
+                        property bool hasContent: modelData.content && modelData.content.trim().length > 0
+                        property bool showLiveReasoning: isAssistant && modelData.streaming && !hasContent && hasReasoning
                         property bool reasoningExpanded: false
                         property bool isAssistant: modelData.role === "assistant"
 
@@ -614,7 +615,7 @@ Scope {
                             }
 
                             Rectangle {
-                                visible: isAssistant && modelData.streaming
+                                visible: isAssistant && modelData.streaming && !showLiveReasoning
                                 width: bubbleColumn.width
                                 height: 24
                                 radius: 6
@@ -761,6 +762,138 @@ Scope {
 
                                                 TextEdit {
                                                     id: reasonCodeText
+
+                                                    anchors.left: parent.left
+                                                    anchors.right: parent.right
+                                                    anchors.top: parent.top
+                                                    anchors.topMargin: 24
+                                                    anchors.margins: 6
+                                                    readOnly: true
+                                                    selectByMouse: true
+                                                    text: modelData.text
+                                                    textFormat: TextEdit.PlainText
+                                                    wrapMode: TextEdit.Wrap
+                                                    color: "#e0e0e0"
+                                                    font.pixelSize: 11
+                                                    font.family: "monospace"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+
+                            Rectangle {
+                                visible: showLiveReasoning
+                                width: bubbleColumn.width
+                                radius: 6
+                                color: "#1f1f1f"
+                                border.width: 1
+                                border.color: "#343434"
+                                implicitHeight: liveReasoningColumn.implicitHeight + 12
+
+                                Column {
+                                    id: liveReasoningColumn
+
+                                    anchors.fill: parent
+                                    anchors.margins: 6
+                                    spacing: 6
+
+                                    Text {
+                                        width: parent.width
+                                        text: "Thinking..."
+                                        color: "#98a2b8"
+                                        font.pixelSize: 10
+                                    }
+
+                                    Repeater {
+                                        model: chatPanel.parseMarkdownBlocks(modelData.reasoning)
+
+                                        delegate: Item {
+                                            required property var modelData
+
+                                            width: liveReasoningColumn.width
+                                            implicitHeight: modelData.type === "code" ? liveReasonCodeBox.implicitHeight : liveReasonText.implicitHeight
+
+                                            TextEdit {
+                                                id: liveReasonText
+
+                                                visible: modelData.type === "text"
+                                                width: parent.width
+                                                readOnly: true
+                                                selectByMouse: true
+                                                text: chatPanel.renderMarkdown(modelData.text)
+                                                textFormat: TextEdit.RichText
+                                                wrapMode: TextEdit.Wrap
+                                                color: "#c6c6c6"
+                                                font.pixelSize: 11
+                                            }
+
+                                            Rectangle {
+                                                id: liveReasonCodeBox
+                                                property bool copied: false
+
+                                                visible: modelData.type === "code"
+                                                width: parent.width
+                                                radius: 6
+                                                color: "#151515"
+                                                border.width: 1
+                                                border.color: "#3c3c3c"
+                                                implicitHeight: liveReasonCodeText.implicitHeight + 34
+
+                                                Rectangle {
+                                                    anchors.left: parent.left
+                                                    anchors.right: parent.right
+                                                    anchors.top: parent.top
+                                                    height: 24
+                                                    radius: 6
+                                                    color: "#202020"
+
+                                                    Text {
+                                                        anchors.left: parent.left
+                                                        anchors.leftMargin: 8
+                                                        anchors.verticalCenter: parent.verticalCenter
+                                                        text: modelData.lang && modelData.lang.length > 0 ? modelData.lang : "code"
+                                                        color: "#bcbcbc"
+                                                        font.pixelSize: 10
+                                                    }
+
+                                                    Rectangle {
+                                                        anchors.right: parent.right
+                                                        anchors.rightMargin: 6
+                                                        anchors.verticalCenter: parent.verticalCenter
+                                                        width: 46
+                                                        height: 16
+                                                        radius: 4
+                                                        color: "#2f2f2f"
+
+                                                        Text {
+                                                            anchors.centerIn: parent
+                                                            text: liveReasonCodeBox.copied ? "Copied" : "Copy"
+                                                            color: "#e1e1e1"
+                                                            font.pixelSize: 9
+                                                        }
+
+                                                        MouseArea {
+                                                            anchors.fill: parent
+                                                            onClicked: {
+                                                                chatPanel.copyToClipboard(modelData.text)
+                                                                liveReasonCodeBox.copied = true
+                                                                liveReasonCopyTimer.restart()
+                                                            }
+                                                        }
+                                                    }
+                                                }
+
+                                                Timer {
+                                                    id: liveReasonCopyTimer
+                                                    interval: 1200
+                                                    repeat: false
+                                                    onTriggered: liveReasonCodeBox.copied = false
+                                                }
+
+                                                TextEdit {
+                                                    id: liveReasonCodeText
 
                                                     anchors.left: parent.left
                                                     anchors.right: parent.right
@@ -1064,28 +1197,61 @@ Scope {
                     property string streamBuffer: ""
                     property string lastError: ""
 
-                    function processTaggedBuffer(flush) {
-                        var tags = ["__STREAM_CONTENT__", "__STREAM_REASONING__", "__ERR__", "__DEBUG_STREAM__"];
-
-                        function nextTagIndex(text, from) {
-                            var best = -1;
-                            for (var i = 0; i < tags.length; i++) {
-                                var idx = text.indexOf(tags[i], from);
-                                if (idx !== -1 && (best === -1 || idx < best))
-                                    best = idx;
-                            }
-                            return best;
-                        }
-
+                    function processStreamBuffer(flush) {
+                        var marker = "__QS__";
                         var buf = requestProc.streamBuffer;
 
+                        function parseJsonObjectEnd(text, startIndex) {
+                            var depth = 0;
+                            var inString = false;
+                            var escaped = false;
+
+                            for (var i = startIndex; i < text.length; i++) {
+                                var ch = text.charAt(i);
+
+                                if (inString) {
+                                    if (escaped)
+                                        escaped = false;
+                                    else if (ch === "\\")
+                                        escaped = true;
+                                    else if (ch === "\"")
+                                        inString = false;
+                                    continue;
+                                }
+
+                                if (ch === "\"") {
+                                    inString = true;
+                                    continue;
+                                }
+
+                                if (ch === "{")
+                                    depth++;
+                                else if (ch === "}") {
+                                    depth--;
+                                    if (depth === 0)
+                                        return i + 1;
+                                }
+                            }
+
+                            return -1;
+                        }
+
                         while (true) {
-                            var start = nextTagIndex(buf, 0);
+                            var start = buf.indexOf(marker);
+
                             if (start === -1) {
-                                if (flush && buf.trim().length > 0)
-                                    requestProc.outputBuffer += buf;
-                                requestProc.streamBuffer = "";
-                                return;
+                                if (flush) {
+                                    if (buf.trim().length > 0)
+                                        requestProc.outputBuffer += buf;
+                                    buf = "";
+                                } else {
+                                    var keep = Math.min(marker.length - 1, buf.length);
+                                    var passthrough = buf.slice(0, buf.length - keep);
+                                    if (passthrough.trim().length > 0)
+                                        requestProc.outputBuffer += passthrough;
+                                    buf = buf.slice(buf.length - keep);
+                                }
+                                break;
                             }
 
                             if (start > 0) {
@@ -1093,67 +1259,61 @@ Scope {
                                 if (leading.trim().length > 0)
                                     requestProc.outputBuffer += leading;
                                 buf = buf.slice(start);
-                                start = 0;
                             }
 
-                            var tag = "";
-                            for (var t = 0; t < tags.length; t++) {
-                                if (buf.startsWith(tags[t])) {
-                                    tag = tags[t];
+                            var jsonStart = marker.length;
+                            while (jsonStart < buf.length && /\s/.test(buf.charAt(jsonStart)))
+                                jsonStart++;
+
+                            if (jsonStart >= buf.length || buf.charAt(jsonStart) !== "{") {
+                                if (!flush)
                                     break;
-                                }
+                                requestProc.outputBuffer += buf;
+                                buf = "";
+                                break;
                             }
 
-                            if (tag.length === 0) {
-                                requestProc.streamBuffer = buf;
-                                return;
+                            var jsonEnd = parseJsonObjectEnd(buf, jsonStart);
+                            if (jsonEnd === -1) {
+                                if (!flush)
+                                    break;
+                                requestProc.outputBuffer += buf;
+                                buf = "";
+                                break;
                             }
 
-                            var payloadStart = tag.length;
-                            var next = nextTagIndex(buf, payloadStart);
+                            var payload = buf.slice(jsonStart, jsonEnd);
+                            try {
+                                var event = JSON.parse(payload);
+                                var kind = String(event.type || "");
+                                var data = String(event.data || "");
 
-                            if (next === -1) {
-                                if (!flush) {
-                                    requestProc.streamBuffer = buf;
-                                    return;
-                                }
-                                next = buf.length;
+                                if (kind === "content")
+                                    chatPanel.appendAssistantStream(data, "");
+                                else if (kind === "reasoning")
+                                    chatPanel.appendAssistantStream("", data);
+                                else if (kind === "error")
+                                    requestProc.lastError = data;
+                            } catch (e) {
+                                requestProc.outputBuffer += payload;
                             }
 
-                            var payload = buf.slice(payloadStart, next).trim();
-
-                            if (tag === "__STREAM_CONTENT__") {
-                                try {
-                                    var c = JSON.parse(payload);
-                                    chatPanel.appendAssistantStream(String(c), "");
-                                } catch (e) {
-                                }
-                            } else if (tag === "__STREAM_REASONING__") {
-                                try {
-                                    var r = JSON.parse(payload);
-                                    chatPanel.appendAssistantStream("", String(r));
-                                } catch (e) {
-                                }
-                            } else if (tag === "__ERR__") {
-                                requestProc.lastError = payload;
-                            } else if (tag === "__DEBUG_STREAM__") {
-                                console.log("[AIChatStream] " + payload);
-                            }
-
-                            buf = buf.slice(next);
+                            buf = buf.slice(jsonEnd);
                         }
+
+                        requestProc.streamBuffer = buf;
                     }
 
                     stdout: SplitParser {
                         onRead: data => {
                             requestProc.streamBuffer += data;
-                            requestProc.processTaggedBuffer(false);
+                            requestProc.processStreamBuffer(false);
                         }
                     }
 
                     onExited: {
                         chatPanel.requestPending = false;
-                        requestProc.processTaggedBuffer(true);
+                        requestProc.processStreamBuffer(true);
 
                         var fallback = "";
                         if (requestProc.lastError.length > 0)

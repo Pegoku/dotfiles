@@ -76,8 +76,18 @@ Scope {
                 property var messages: []
                 property int selectedModelIndex: 0
                 property bool requestPending: false
+                property bool showReasoning: true
+                property bool autoFollowOutput: false
                 property string pendingModelLabel: ""
                 property int activeAssistantIndex: -1
+
+                function maybeScrollToEnd(force) {
+                    if (!force && !autoFollowOutput)
+                        return;
+                    Qt.callLater(() => {
+                        listView.positionViewAtEnd();
+                    });
+                }
 
                 function nowLabel() {
                     var d = new Date();
@@ -88,17 +98,13 @@ Scope {
                     var text = String(content);
                     var reason = reasoning ? String(reasoning) : "";
                     messages = messages.concat([{ role: role, content: text, reasoning: reason, streaming: false, model: pendingModelLabel, at: nowLabel() }]);
-                    Qt.callLater(() => {
-                        listView.positionViewAtEnd();
-                    });
+                    maybeScrollToEnd(false);
                 }
 
                 function beginAssistantStream() {
                     messages = messages.concat([{ role: "assistant", content: "", reasoning: "", streaming: true, model: pendingModelLabel, at: nowLabel() }]);
                     activeAssistantIndex = messages.length - 1;
-                    Qt.callLater(() => {
-                        listView.positionViewAtEnd();
-                    });
+                    maybeScrollToEnd(true);
                 }
 
                 function appendAssistantStream(contentChunk, reasoningChunk) {
@@ -115,10 +121,7 @@ Scope {
 
                     next[activeAssistantIndex] = msg;
                     messages = next;
-
-                    Qt.callLater(() => {
-                        listView.positionViewAtEnd();
-                    });
+                    maybeScrollToEnd(false);
                 }
 
                 function finishAssistantStream(fallbackText) {
@@ -544,6 +547,59 @@ Scope {
                             elide: Text.ElideRight
                         }
                     }
+
+                    Row {
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        spacing: 8
+
+                        Rectangle {
+                            width: 144
+                            height: 24
+                            radius: 6
+                            color: chatPanel.showReasoning ? "#2b3447" : "#232323"
+                            border.width: 1
+                            border.color: chatPanel.showReasoning ? "#5a6e98" : "#3a3a3a"
+
+                            Text {
+                                anchors.centerIn: parent
+                                text: chatPanel.showReasoning ? "Reasoning: On" : "Reasoning: Off"
+                                color: "#d7deee"
+                                font.pixelSize: 10
+                                font.bold: true
+                            }
+
+                            MouseArea {
+                                anchors.fill: parent
+                                onClicked: chatPanel.showReasoning = !chatPanel.showReasoning
+                            }
+                        }
+
+                        Rectangle {
+                            width: 144
+                            height: 24
+                            radius: 6
+                            color: chatPanel.autoFollowOutput ? "#274233" : "#232323"
+                            border.width: 1
+                            border.color: chatPanel.autoFollowOutput ? "#4f8b6e" : "#3a3a3a"
+
+                            Text {
+                                anchors.centerIn: parent
+                                text: chatPanel.autoFollowOutput ? "Follow Output: On" : "Follow Output: Off"
+                                color: "#d7deee"
+                                font.pixelSize: 10
+                                font.bold: true
+                            }
+
+                            MouseArea {
+                                anchors.fill: parent
+                                onClicked: {
+                                    chatPanel.autoFollowOutput = !chatPanel.autoFollowOutput
+                                    if (chatPanel.autoFollowOutput)
+                                        chatPanel.maybeScrollToEnd(true)
+                                }
+                            }
+                        }
+                    }
                 }
 
                 Rectangle {
@@ -571,7 +627,8 @@ Scope {
 
                     delegate: Rectangle {
                         required property var modelData
-                        property bool hasReasoning: modelData.reasoning && modelData.reasoning.length > 0
+                        property bool hasReasoningRaw: modelData.reasoning && modelData.reasoning.length > 0
+                        property bool hasReasoning: chatPanel.showReasoning && hasReasoningRaw
                         property bool hasContent: modelData.content && modelData.content.trim().length > 0
                         property bool showLiveReasoning: isAssistant && modelData.streaming && !hasContent && hasReasoning
                         property bool reasoningExpanded: false

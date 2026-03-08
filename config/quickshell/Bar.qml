@@ -77,7 +77,7 @@ Scope {
 
             BatteryWidget {
                 id: batteryWidget
-                anchors.right: numLockWidget.left
+                anchors.right: caffeineWidget.left
                 anchors.verticalCenter: parent.verticalCenter
                 anchors.rightMargin: 8
                 visible: UPower.displayDevice.percentage != 0
@@ -86,9 +86,16 @@ Scope {
             AppIndicatorWidget {
                 id: appIndicatorWidget
                 trayParentWindow: panelWindow
-                anchors.right: batteryWidget.visible ? batteryWidget.left : numLockWidget.left
+                anchors.right: batteryWidget.visible ? batteryWidget.left : caffeineWidget.left
                 anchors.verticalCenter: parent.verticalCenter
                 anchors.rightMargin: batteryWidget.visible ? 8 : 10
+            }
+
+            CaffeineWidget {
+                id: caffeineWidget
+                anchors.right: numLockWidget.left
+                anchors.verticalCenter: parent.verticalCenter
+                anchors.rightMargin: 8
             }
 
             NumLockWidget {

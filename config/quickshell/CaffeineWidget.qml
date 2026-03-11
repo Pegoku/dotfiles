@@ -1,3 +1,4 @@
+import Qt5Compat.GraphicalEffects
 import QtQuick
 import Quickshell
 import Quickshell.Io
@@ -7,6 +8,7 @@ Rectangle {
 
     property int padding: 5
     property bool caffeineOn: false
+    property string iconBase: "file:///usr/share/icons/Adwaita/symbolic/status/"
 
     function applyState(enabled) {
         caffeineOn = enabled;
@@ -19,16 +21,22 @@ Rectangle {
     radius: 9
     color: caffeineOn ? "#6a4b1f" : "#353535"
     opacity: 0.9
-    width: mug.implicitWidth + padding * 2
-    height: mug.implicitHeight + padding * 2
+    width: 24
+    height: 24
 
-    Text {
-        id: mug
+    Image {
+        id: icon
 
         anchors.centerIn: parent
-        text: "☕"
-        color: "#f2f2f2"
-        font.pixelSize: 12
+        width: 14
+        height: 14
+        source: containerRect.iconBase + (containerRect.caffeineOn ? "night-light-disabled-symbolic.svg" : "night-light-symbolic.svg")
+        smooth: true
+        layer.enabled: true
+
+        layer.effect: ColorOverlay {
+            color: "#f2f2f2"
+        }
     }
 
     MouseArea {

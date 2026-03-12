@@ -4,8 +4,8 @@ set -euo pipefail
 
 enabled_zoom="${1:-2}"
 
-pinch_in_args="2, pinchin, cursorZoom, 0.833333, mult"
-pinch_out_args="2, pinchout, cursorZoom, 1.2, mult"
+pinch_in_args="2, pinchin, cursorZoom, 1.15, mult"
+pinch_out_args="2, pinchout, cursorZoom, 0.869565, mult"
 
 current_zoom="$({ hyprctl getoption cursor:zoom_factor -j 2>/dev/null || printf '{"float":1}'; } | jq -r '.float // 1')"
 

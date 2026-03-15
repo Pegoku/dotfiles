@@ -204,6 +204,10 @@ wt() { # Git WorkTrees
 }
 
 
+es() {
+  easyeda2kicad --full --lcsc_id=$1
+}
+
 alias rm='trash'   
 
 #alias n="nautilus"

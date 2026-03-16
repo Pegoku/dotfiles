@@ -93,6 +93,13 @@ Scope {
 
             CaffeineWidget {
                 id: caffeineWidget
+                anchors.right: recordingWidget.visible ? recordingWidget.left : numLockWidget.left
+                anchors.verticalCenter: parent.verticalCenter
+                anchors.rightMargin: 8
+            }
+
+            RecordingWidget {
+                id: recordingWidget
                 anchors.right: numLockWidget.left
                 anchors.verticalCenter: parent.verticalCenter
                 anchors.rightMargin: 8

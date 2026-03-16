@@ -10,20 +10,34 @@ getactivemonitor() {
     hyprctl monitors -j | jq -r '.[] | select(.focused == true) | .name'
 }
 
+statefile="${XDG_RUNTIME_DIR:-/tmp}/record-script.active"
+
+start_recording() {
+    touch "$statefile"
+
+    (
+        trap 'rm -f "$statefile"' EXIT
+        "$@"
+    ) & disown
+}
+
 mkdir -p "$(xdg-user-dir VIDEOS)"
 cd "$(xdg-user-dir VIDEOS)" || exit
 if pgrep wf-recorder > /dev/null; then
     notify-send "Recording Stopped" "Stopped" -a 'record-script.sh' &
+    rm -f "$statefile"
     pkill wf-recorder &
 else
     notify-send "Starting recording" 'recording_'"$(getdate)"'.mp4' -a 'record-script.sh'
     if [[ "$1" == "--sound" ]]; then
-        wf-recorder --pixel-format yuv420p -f './recording_'"$(getdate)"'.mp4' -t --geometry "$(slurp)" --audio="$(getaudiooutput)" & disown
+        geometry="$(slurp)" || exit
+        start_recording wf-recorder --pixel-format yuv420p -f './recording_'"$(getdate)"'.mp4' -t --geometry "$geometry" --audio="$(getaudiooutput)"
     elif [[ "$1" == "--fullscreen-sound" ]]; then
-        wf-recorder -o $(getactivemonitor) --pixel-format yuv420p -f './recording_'"$(getdate)"'.mp4' -t --audio="$(getaudiooutput)" & disown
+        start_recording wf-recorder -o "$(getactivemonitor)" --pixel-format yuv420p -f './recording_'"$(getdate)"'.mp4' -t --audio="$(getaudiooutput)"
     elif [[ "$1" == "--fullscreen" ]]; then
-        wf-recorder -o $(getactivemonitor) --pixel-format yuv420p -f './recording_'"$(getdate)"'.mp4' -t & disown
+        start_recording wf-recorder -o "$(getactivemonitor)" --pixel-format yuv420p -f './recording_'"$(getdate)"'.mp4' -t
     else
-        wf-recorder --pixel-format yuv420p -f './recording_'"$(getdate)"'.mp4' -t --geometry "$(slurp)" & disown
+        geometry="$(slurp)" || exit
+        start_recording wf-recorder --pixel-format yuv420p -f './recording_'"$(getdate)"'.mp4' -t --geometry "$geometry"
     fi
 fi

@@ -16,7 +16,16 @@ Item {
     readonly property int columns: 5
     readonly property int focusedWorkspaceId: Math.max(1, monitor.activeWorkspace?.id ?? 1)
     readonly property int workspaceGroupStart: Math.floor((focusedWorkspaceId - 1) / workspacesShown) * workspacesShown + 1
-    readonly property real scale: 0.15
+    readonly property real baseScale: 0.15
+    readonly property real minScale: 0.08
+    readonly property real topClearance: 72
+    readonly property real outerMargin: 24
+    readonly property real launcherCollapsedHeight: 50
+    readonly property real availableWidth: Math.max(320, screen.width - outerMargin * 2)
+    readonly property real availableHeight: Math.max(240, screen.height - topClearance - outerMargin * 2)
+    readonly property real widthLimitedScale: (availableWidth - padding * 4 - workspaceSpacing * Math.max(0, columns - 1)) / Math.max(1, monitor.width * columns)
+    readonly property real heightLimitedScale: (availableHeight - padding * 4 - launcherCollapsedHeight - workspaceSpacing * Math.max(0, rows - 1)) / Math.max(1, monitor.height * rows)
+    readonly property real scale: Math.max(minScale, Math.min(baseScale, widthLimitedScale, heightLimitedScale))
 
     property int draggingFromWorkspace: -1
     property int draggingTargetWorkspace: -1

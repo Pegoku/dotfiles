@@ -14,7 +14,7 @@ Scope {
         target: "overview"
 
         function toggle(): void {
-            GlobalStates.overviewOpen = !GlobalStates.overviewOpen;
+            GlobalStates.toggleOverview();
         }
     }
     
@@ -57,7 +57,7 @@ Scope {
                 MouseArea {
                     anchors.fill: parent
                     onClicked: {
-                        GlobalStates.overviewOpen = false
+                        GlobalStates.setOverviewOpen(false)
                     }
                 }
             }

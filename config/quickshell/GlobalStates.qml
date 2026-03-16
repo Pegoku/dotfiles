@@ -17,13 +17,47 @@ Singleton {
     property bool nowPlayingOpen: false
     property bool aiChatOpen: false
     property real nowPlayingAnchorX: 220
+    property bool overviewAnimationsSuspended: false
+    readonly property int overviewAnimationSuspendMs: 350
+
+    function suspendOverviewAnimations() {
+        if (!overviewAnimationsSuspended)
+            Quickshell.execDetached(["hyprctl", "keyword", "animations:enabled", "0"]);
+
+        overviewAnimationsSuspended = true;
+        overviewAnimationRestoreTimer.restart();
+    }
+
+    function setOverviewOpen(open) {
+        if (overviewOpen === open)
+            return;
+
+        suspendOverviewAnimations();
+        overviewOpen = open;
+    }
+
+    function toggleOverview() {
+        suspendOverviewAnimations();
+        overviewOpen = !overviewOpen;
+    }
+
+    Timer {
+        id: overviewAnimationRestoreTimer
+        interval: root.overviewAnimationSuspendMs
+        repeat: false
+
+        onTriggered: {
+            root.overviewAnimationsSuspended = false;
+            Quickshell.execDetached(["hyprctl", "keyword", "animations:enabled", "1"]);
+        }
+    }
     
     GlobalShortcut {
         name: "overviewToggle"
         description: "Toggles overview on press"
 
         onPressed: {
-            root.overviewOpen = !root.overviewOpen;
+            root.toggleOverview();
         }
     }
 }

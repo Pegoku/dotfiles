@@ -164,7 +164,7 @@ Item {
             if (wasDragged) return;
             
             if (event.button === Qt.LeftButton) {
-                GlobalStates.overviewOpen = false
+                GlobalStates.setOverviewOpen(false)
                 Hyprland.dispatch(`focuswindow address:${windowData.address}`)
                 event.accepted = true
             } else if (event.button === Qt.MiddleButton) {

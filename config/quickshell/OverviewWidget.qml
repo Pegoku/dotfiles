@@ -247,7 +247,7 @@ Item {
 
         var target = isLikelyUrl(t) ? normalizeUrl(t) : "https://search.brave.com/search?q=" + encodeURIComponent(t);
         Quickshell.execDetached(["xdg-open", target]);
-        GlobalStates.overviewOpen = false;
+        GlobalStates.setOverviewOpen(false);
     }
 
     function runCommandInTerminal(text) {
@@ -272,7 +272,7 @@ Item {
             "*) command -v notify-send >/dev/null 2>&1 && notify-send 'Overview launcher' 'No supported terminal found' ;; " +
             "esac"
         ]);
-        GlobalStates.overviewOpen = false;
+        GlobalStates.setOverviewOpen(false);
     }
 
     function refreshLauncherActions(mode, coreQuery, appCount, topAppScore) {
@@ -375,7 +375,7 @@ Item {
                 return;
             if (action.kind === "calc") {
                 copyToClipboard(action.value);
-                GlobalStates.overviewOpen = false;
+                GlobalStates.setOverviewOpen(false);
             } else if (action.kind === "browser") {
                 openInBrowser(action.value);
             } else if (action.kind === "command") {
@@ -499,7 +499,7 @@ Item {
         entry.execute();
         appQuery = "";
         refreshFilteredApps();
-        GlobalStates.overviewOpen = false;
+        GlobalStates.setOverviewOpen(false);
     }
 
     function ensureSelectedVisible() {
@@ -599,7 +599,7 @@ Item {
                                         root.activateSelection(root.selectedAppIndex);
                                     event.accepted = true;
                                 } else if (event.key === Qt.Key_Escape) {
-                                    GlobalStates.overviewOpen = false;
+                                    GlobalStates.setOverviewOpen(false);
                                     event.accepted = true;
                                 }
                             }
@@ -769,7 +769,7 @@ Item {
                                         anchors.fill: parent
                                         onClicked: {
                                             if (root.draggingTargetWorkspace === -1) {
-                                                GlobalStates.overviewOpen = false
+                                                GlobalStates.setOverviewOpen(false)
                                                 Hyprland.dispatch(`workspace ${workspace.workspaceValue}`)
                                             }
                                         }

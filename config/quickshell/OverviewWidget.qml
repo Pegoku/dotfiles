@@ -51,6 +51,64 @@ Item {
     readonly property int launcherRowHeight: 32
     readonly property int launcherRowSpacing: 2
     readonly property int launcherListPadding: 4
+    readonly property var launcherShortcuts: [
+        {
+            kind: "shortcut",
+            icon: adwaitaSymbolicBase + "legacy/system-search-symbolic.svg",
+            title: "App search",
+            detail: "Start typing to launch an app",
+            value: "",
+            keywords: "apps launch desktop entries search"
+        },
+        {
+            kind: "shortcut",
+            icon: adwaitaSymbolicBase + "legacy/web-browser-symbolic.svg",
+            title: "Open in browser",
+            detail: "Prefix with ? to open a URL or search the web",
+            value: "? ",
+            keywords: "browser web search url link open"
+        },
+        {
+            kind: "shortcut",
+            icon: adwaitaSymbolicBase + "legacy/utilities-terminal-symbolic.svg",
+            title: "Run command",
+            detail: "Prefix with > to run a command in a terminal",
+            value: "> ",
+            keywords: "command shell terminal exec run"
+        },
+        {
+            kind: "shortcut",
+            icon: adwaitaSymbolicBase + "legacy/accessories-calculator-symbolic.svg",
+            title: "Calculate",
+            detail: "Prefix with = to evaluate and copy a result",
+            value: "= ",
+            keywords: "calculator calc math evaluate copy"
+        },
+        {
+            kind: "shortcut",
+            icon: adwaitaSymbolicBase + "legacy/input-keyboard-symbolic.svg",
+            title: "Move selection",
+            detail: "Use Up and Down to move through results",
+            value: "",
+            keywords: "keyboard arrows up down navigation"
+        },
+        {
+            kind: "shortcut",
+            icon: adwaitaSymbolicBase + "legacy/input-keyboard-symbolic.svg",
+            title: "Launch selection",
+            detail: "Press Enter to launch or trigger the selected result",
+            value: "",
+            keywords: "keyboard enter return activate open"
+        },
+        {
+            kind: "shortcut",
+            icon: adwaitaSymbolicBase + "legacy/input-keyboard-symbolic.svg",
+            title: "Close launcher",
+            detail: "Press Escape to close the overview",
+            value: "",
+            keywords: "keyboard escape esc close dismiss"
+        }
+    ]
     readonly property int launcherViewportHeight: {
         var rows = Math.min(maxLauncherRows, resultCount);
         if (rows <= 0)
@@ -105,7 +163,10 @@ Item {
         var mode = "auto";
         var core = raw;
 
-        if (raw.startsWith(">")) {
+        if (raw === "?") {
+            mode = "shortcuts";
+            core = "";
+        } else if (raw.startsWith(">")) {
             mode = "command";
             core = raw.slice(1).trim();
         } else if (raw.startsWith("?")) {
@@ -277,6 +338,12 @@ Item {
 
     function refreshLauncherActions(mode, coreQuery, appCount, topAppScore) {
         var q = String(coreQuery).trim();
+
+        if (mode === "shortcuts") {
+            launcherActions = launcherShortcuts;
+            return;
+        }
+
         if (q.length === 0) {
             launcherActions = [];
             return;
@@ -380,6 +447,10 @@ Item {
                 openInBrowser(action.value);
             } else if (action.kind === "command") {
                 runCommandInTerminal(action.value);
+            } else if (action.kind === "shortcut") {
+                searchInput.text = action.value;
+                searchInput.forceActiveFocus();
+                searchInput.cursorPosition = searchInput.text.length;
             }
             return;
         }
@@ -453,6 +524,14 @@ Item {
         var query = normalizeText(rawQuery);
 
         activeQueryMode = parsed.mode;
+
+        if (activeQueryMode === "shortcuts") {
+            filteredApps = [];
+            refreshLauncherActions(activeQueryMode, rawQuery, 0, 0);
+            if (selectedAppIndex >= resultCount)
+                selectedAppIndex = Math.max(0, resultCount - 1);
+            return;
+        }
 
         if (query.length === 0) {
             refreshLauncherActions(activeQueryMode, rawQuery, 0, 0);
@@ -611,7 +690,7 @@ Item {
                             anchors.verticalCenter: parent.verticalCenter
                             color: "#8f8f8f"
                             font.pixelSize: 13
-                            text: "Type to launch an app..."
+                            text: "Type to launch an app, or ? for shortcuts..."
                             visible: searchInput.text.length === 0
                         }
                     }

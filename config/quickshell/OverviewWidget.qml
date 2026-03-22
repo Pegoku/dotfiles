@@ -83,30 +83,6 @@ Item {
             detail: "Prefix with = to evaluate and copy a result",
             value: "= ",
             keywords: "calculator calc math evaluate copy"
-        },
-        {
-            kind: "shortcut",
-            icon: adwaitaSymbolicBase + "legacy/input-keyboard-symbolic.svg",
-            title: "Move selection",
-            detail: "Use Up and Down to move through results",
-            value: "",
-            keywords: "keyboard arrows up down navigation"
-        },
-        {
-            kind: "shortcut",
-            icon: adwaitaSymbolicBase + "legacy/input-keyboard-symbolic.svg",
-            title: "Launch selection",
-            detail: "Press Enter to launch or trigger the selected result",
-            value: "",
-            keywords: "keyboard enter return activate open"
-        },
-        {
-            kind: "shortcut",
-            icon: adwaitaSymbolicBase + "legacy/input-keyboard-symbolic.svg",
-            title: "Close launcher",
-            detail: "Press Escape to close the overview",
-            value: "",
-            keywords: "keyboard escape esc close dismiss"
         }
     ]
     readonly property int launcherViewportHeight: {

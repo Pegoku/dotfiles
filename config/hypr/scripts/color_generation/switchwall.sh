@@ -3,6 +3,15 @@
 XDG_CONFIG_HOME="${XDG_CONFIG_HOME:-$HOME/.config}"
 CONFIG_DIR="$XDG_CONFIG_HOME/hypr"
 
+if command -v swww >/dev/null 2>&1; then
+	WALLPAPER_BIN="swww"
+elif command -v awww >/dev/null 2>&1; then
+	WALLPAPER_BIN="awww"
+else
+	printf 'No supported wallpaper backend found. Install swww or awww.\n' >&2
+	exit 1
+fi
+
 switch() {
 	imgpath=$1
 	read scale screenx screeny screensizey < <(hyprctl monitors -j | jq '.[] | select(.focused) | .scale, .x, .y, .height' | xargs)
@@ -19,13 +28,13 @@ switch() {
 
 	# ags run-js "wallpaper.set('')"
 	# sleep 0.1 && ags run-js "wallpaper.set('${imgpath}')" &
-	swww img "$imgpath" --transition-step 100 --transition-fps 120 \
+	"$WALLPAPER_BIN" img "$imgpath" --transition-step 100 --transition-fps 120 \
 		--transition-type grow --transition-angle 30 --transition-duration 1 \
 		--transition-pos "$cursorposx, $cursorposy_inverted"
 }
 
 if [ "$1" == "--noswitch" ]; then
-	imgpath=$(swww query | awk -F 'image: ' '{print $2}')
+	imgpath=$("$WALLPAPER_BIN" query | awk -F 'image: ' '{print $2}')
 	# imgpath=$(ags run-js 'wallpaper.get(0)')
 elif [[ "$1" ]]; then
 	switch "$1"
@@ -35,6 +44,3 @@ else
     cd "$(xdg-user-dir PICTURES)" || return 1
 	switch "$(yad --width 1200 --height 800 --file --add-preview --large-preview --title='Choose wallpaper')"
 fi
-
-# Generate colors for ags n stuff
-"$CONFIG_DIR"/scripts/color_generation/colorgen.sh "${imgpath}" --apply --smart

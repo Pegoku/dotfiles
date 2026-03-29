@@ -8,7 +8,7 @@ Item {
 
     property real cpuUsage: 0
     property real memUsage: 0
-    property real gpuUsage: -1
+    property var gpuUsages: []
     property real diskUsage: 0
 
     property color ringBg: "#3a3a3a"
@@ -19,7 +19,7 @@ Item {
     property string gpuIcon: iconBase + "devices/video-display-symbolic.svg"
     property string diskIcon: iconBase + "devices/drive-harddisk-system-symbolic.svg"
 
-    readonly property bool gpuPresent: root.gpuUsage >= 0
+    readonly property bool gpuPresent: root.gpuUsages.length > 0
 
     width: ringsRow.implicitWidth
     height: ringsRow.implicitHeight
@@ -34,10 +34,10 @@ Item {
             "echo \"CPU $(head -n1 /proc/stat)\"; " +
             "awk '/MemTotal/ {t=$2} /MemAvailable/ {a=$2} END {print \"MEM \" t \" \" a}' /proc/meminfo; " +
             "df -P / | awk 'NR==2 {print \"DISK \" $2 \" \" $4}'; " +
-            "gpu=\"\"; " +
-            "for f in /sys/class/drm/card2/device/gpu_busy_percent; do if [ -r \"$f\" ]; then gpu=$(cat \"$f\"); break; fi; done; " +
-            "if [ -z \"$gpu\" ] && command -v nvidia-smi >/dev/null 2>&1; then gpu=$(nvidia-smi --query-gpu=utilization.gpu --format=csv,noheader,nounits | head -n1); fi; " +
-            "if [ -z \"$gpu\" ]; then echo \"GPU NA\"; else echo \"GPU $gpu\"; fi; " +
+            "gpus=\"\"; " +
+            "for f in /sys/class/drm/card*/device/gpu_busy_percent; do if [ -r \"$f\" ]; then gpu=$(cat \"$f\" 2>/dev/null); if [ -n \"$gpu\" ]; then gpus=\"${gpus}${gpus:+,}$gpu\"; fi; fi; done; " +
+            "if [ -z \"$gpus\" ] && command -v nvidia-smi >/dev/null 2>&1; then while IFS= read -r gpu; do gpu=${gpu//[[:space:]]/}; if [ -n \"$gpu\" ]; then gpus=\"${gpus}${gpus:+,}$gpu\"; fi; done < <(nvidia-smi --query-gpu=utilization.gpu --format=csv,noheader,nounits 2>/dev/null); fi; " +
+            "if [ -z \"$gpus\" ]; then echo \"GPU NA\"; else echo \"GPU $gpus\"; fi; " +
             "sleep 1; done"
         ]
         running: true
@@ -112,17 +112,20 @@ Item {
 
     function updateGpu(line) {
         if (line === "NA") {
-            root.gpuUsage = -1;
+            root.gpuUsages = [];
             return;
         }
 
-        var val = Number(line);
-        if (isNaN(val)) {
-            root.gpuUsage = -1;
-            return;
+        var parts = line.trim().split(/\s*,\s*/);
+        var values = [];
+
+        for (var i = 0; i < parts.length && values.length < 4; i++) {
+            var val = Number(parts[i]);
+            if (!isNaN(val))
+                values.push(Math.max(0, Math.min(1, val / 100)));
         }
 
-        root.gpuUsage = Math.max(0, Math.min(1, val / 100));
+        root.gpuUsages = values;
     }
 
     Row {
@@ -134,28 +137,28 @@ Item {
         RingIndicator {
             iconSource: root.cpuIcon
             label: "CPU"
-            value: root.cpuUsage
+            values: [root.cpuUsage]
             visible: true
         }
 
         RingIndicator {
             iconSource: root.memIcon
             label: "RAM"
-            value: root.memUsage
+            values: [root.memUsage]
             visible: true
         }
 
         RingIndicator {
             iconSource: root.gpuIcon
             label: "GPU"
-            value: root.gpuUsage
+            values: root.gpuUsages
             visible: root.gpuPresent
         }
 
         RingIndicator {
             iconSource: root.diskIcon
             label: "Disk usage"
-            value: root.diskUsage
+            values: [root.diskUsage]
             visible: true
         }
     }
@@ -165,8 +168,9 @@ Item {
 
         property string iconSource: ""
         property string label: ""
-        property real value: 0
+        property var values: []
         property bool hovered: hoverArea.containsMouse
+        readonly property int segmentCount: Math.max(1, Math.min(values.length > 0 ? values.length : 1, 4))
 
         width: 24
         height: 24
@@ -174,9 +178,17 @@ Item {
         ToolTip.visible: ring.hovered
         ToolTip.delay: 150
         ToolTip.timeout: 0
-        ToolTip.text: label + " · " + Math.round(value * 100) + "%"
+        ToolTip.text: {
+            if (ring.values.length <= 1)
+                return label + " · " + Math.round(ring.values.length ? ring.values[0] * 100 : 0) + "%";
 
-        Behavior on value {
+            var entries = [];
+            for (var i = 0; i < ring.values.length && i < 4; i++)
+                entries.push(label + " " + (i + 1) + " · " + Math.round(ring.values[i] * 100) + "%");
+            return entries.join("\n");
+        }
+
+        Behavior on values {
             NumberAnimation {
                 duration: 350
                 easing.type: Easing.InOutQuad
@@ -197,20 +209,32 @@ Item {
                 var centerX = width / 2;
                 var centerY = height / 2;
                 var start = -Math.PI / 2;
-                var end = start + Math.PI * 2 * ring.value;
+                var segmentSpan = (Math.PI * 2) / ring.segmentCount;
 
                 ctx.lineWidth = stroke;
-                ctx.lineCap = "round";
+                ctx.lineCap = "butt";
 
-                ctx.strokeStyle = root.ringBg;
-                ctx.beginPath();
-                ctx.arc(centerX, centerY, radius, 0, Math.PI * 2, false);
-                ctx.stroke();
+                for (var i = 0; i < ring.segmentCount; i++) {
+                    var segmentStart = start + segmentSpan * i;
+                    var segmentEnd = segmentStart + segmentSpan;
+                    var value = 0;
 
-                ctx.strokeStyle = root.ringFg;
-                ctx.beginPath();
-                ctx.arc(centerX, centerY, radius, start, end, false);
-                ctx.stroke();
+                    if (i < ring.values.length)
+                        value = Math.max(0, Math.min(1, Number(ring.values[i]) || 0));
+
+                    ctx.strokeStyle = root.ringBg;
+                    ctx.beginPath();
+                    ctx.arc(centerX, centerY, radius, segmentStart, segmentEnd, false);
+                    ctx.stroke();
+
+                    if (value <= 0)
+                        continue;
+
+                    ctx.strokeStyle = root.ringFg;
+                    ctx.beginPath();
+                    ctx.arc(centerX, centerY, radius, segmentStart, segmentStart + segmentSpan * value, false);
+                    ctx.stroke();
+                }
             }
         }
 
@@ -234,7 +258,7 @@ Item {
             acceptedButtons: Qt.NoButton
         }
 
-        onValueChanged: ringCanvas.requestPaint()
+        onValuesChanged: ringCanvas.requestPaint()
         onWidthChanged: ringCanvas.requestPaint()
         onHeightChanged: ringCanvas.requestPaint()
     }

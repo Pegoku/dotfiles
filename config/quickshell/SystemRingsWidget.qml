@@ -188,13 +188,6 @@ Item {
             return entries.join("\n");
         }
 
-        Behavior on values {
-            NumberAnimation {
-                duration: 350
-                easing.type: Easing.InOutQuad
-            }
-        }
-
         Canvas {
             id: ringCanvas
 
@@ -212,7 +205,7 @@ Item {
                 var segmentSpan = (Math.PI * 2) / ring.segmentCount;
 
                 ctx.lineWidth = stroke;
-                ctx.lineCap = "butt";
+                ctx.lineCap = ring.segmentCount > 1 ? "butt" : "round";
 
                 for (var i = 0; i < ring.segmentCount; i++) {
                     var segmentStart = start + segmentSpan * i;

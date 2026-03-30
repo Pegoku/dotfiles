@@ -28,17 +28,94 @@ Item {
         id: metricsProc
 
         command: [
-            "bash",
-            "-lc",
-            "while true; do " +
-            "echo \"CPU $(head -n1 /proc/stat)\"; " +
-            "awk '/MemTotal/ {t=$2} /MemAvailable/ {a=$2} END {print \"MEM \" t \" \" a}' /proc/meminfo; " +
-            "df -P / | awk 'NR==2 {print \"DISK \" $2 \" \" $4}'; " +
-            "gpus=\"\"; " +
-            "for f in /sys/class/drm/card*/device/gpu_busy_percent; do if [ -r \"$f\" ]; then dev=$(dirname \"$f\"); gpu=$(cat \"$f\" 2>/dev/null); slot=$(basename \"$(readlink -f \"$dev\")\"); name=\"\"; if command -v lspci >/dev/null 2>&1; then name=$(lspci -s \"$slot\" 2>/dev/null); name=${name#*: }; name=${name#*: }; fi; if [ -z \"$name\" ]; then name=$(basename \"$(dirname \"$dev\")\"); fi; if [ -n \"$gpu\" ]; then gpus=\"${gpus}${gpus:+||}${name}::${gpu}\"; fi; fi; done; " +
-            "if [ -z \"$gpus\" ] && command -v nvidia-smi >/dev/null 2>&1; then while IFS=',' read -r name gpu; do name=${name%% }; gpu=${gpu//[[:space:]]/}; if [ -n \"$gpu\" ]; then gpus=\"${gpus}${gpus:+||}${name}::${gpu}\"; fi; done < <(nvidia-smi --query-gpu=name,utilization.gpu --format=csv,noheader,nounits 2>/dev/null); fi; " +
-            "if [ -z \"$gpus\" ]; then echo \"GPU NA\"; else echo \"GPU $gpus\"; fi; " +
-            "sleep 1; done"
+            "python3",
+            "-u",
+            "-c",
+            "import json, os, subprocess, time\n"
+            + "\n"
+            + "def read_text(path):\n"
+            + "    try:\n"
+            + "        with open(path, 'r', encoding='utf-8', errors='ignore') as handle:\n"
+            + "            return handle.read().strip()\n"
+            + "    except OSError:\n"
+            + "        return ''\n"
+            + "\n"
+            + "def gpu_entries():\n"
+            + "    if shutil.which('nvtop'):\n"
+            + "        try:\n"
+            + "            out = subprocess.check_output(['nvtop', '-s'], text=True, stderr=subprocess.DEVNULL)\n"
+            + "            data = json.loads(out)\n"
+            + "            entries = []\n"
+            + "            for index, gpu in enumerate(data, 1):\n"
+            + "                name = str(gpu.get('device_name') or '').strip() or f'GPU {index}'\n"
+            + "                util = str(gpu.get('gpu_util') or '').strip().rstrip('%')\n"
+            + "                try:\n"
+            + "                    value = float(util)\n"
+            + "                except ValueError:\n"
+            + "                    continue\n"
+            + "                entries.append((name.replace('||', '/').replace('::', ':'), value))\n"
+            + "            if entries:\n"
+            + "                return entries\n"
+            + "        except Exception:\n"
+            + "            pass\n"
+            + "\n"
+            + "    if shutil.which('nvidia-smi'):\n"
+            + "        try:\n"
+            + "            out = subprocess.check_output(['nvidia-smi', '--query-gpu=name,utilization.gpu', '--format=csv,noheader,nounits'], text=True, stderr=subprocess.DEVNULL)\n"
+            + "            entries = []\n"
+            + "            for index, line in enumerate(out.splitlines(), 1):\n"
+            + "                parts = [part.strip() for part in line.split(',', 1)]\n"
+            + "                if len(parts) != 2:\n"
+            + "                    continue\n"
+            + "                try:\n"
+            + "                    value = float(parts[1])\n"
+            + "                except ValueError:\n"
+            + "                    continue\n"
+            + "                name = parts[0] or f'GPU {index}'\n"
+            + "                entries.append((name.replace('||', '/').replace('::', ':'), value))\n"
+            + "            if entries:\n"
+            + "                return entries\n"
+            + "        except Exception:\n"
+            + "            pass\n"
+            + "\n"
+            + "    entries = []\n"
+            + "    for index, card in enumerate(sorted(name for name in os.listdir('/sys/class/drm') if name.startswith('card') and name[4:].isdigit()), 1):\n"
+            + "        busy = read_text(f'/sys/class/drm/{card}/device/gpu_busy_percent')\n"
+            + "        if not busy:\n"
+            + "            continue\n"
+            + "        try:\n"
+            + "            value = float(busy)\n"
+            + "        except ValueError:\n"
+            + "            continue\n"
+            + "        entries.append((f'GPU {index}', value))\n"
+            + "    return entries\n"
+            + "\n"
+            + "import shutil\n"
+            + "while True:\n"
+            + "    stat = read_text('/proc/stat').splitlines()\n"
+            + "    if stat:\n"
+            + "        print('CPU ' + stat[0], flush=True)\n"
+            + "    mem_total = '0'\n"
+            + "    mem_avail = '0'\n"
+            + "    for line in read_text('/proc/meminfo').splitlines():\n"
+            + "        if line.startswith('MemTotal:'):\n"
+            + "            mem_total = line.split()[1]\n"
+            + "        elif line.startswith('MemAvailable:'):\n"
+            + "            mem_avail = line.split()[1]\n"
+            + "    print(f'MEM {mem_total} {mem_avail}', flush=True)\n"
+            + "    try:\n"
+            + "        st = os.statvfs('/')\n"
+            + "        total = st.f_blocks * st.f_frsize\n"
+            + "        avail = st.f_bavail * st.f_frsize\n"
+            + "        print(f'DISK {total} {avail}', flush=True)\n"
+            + "    except OSError:\n"
+            + "        pass\n"
+            + "    gpus = gpu_entries()\n"
+            + "    if gpus:\n"
+            + "        print('GPU ' + '||'.join(f'{name}::{value}' for name, value in gpus), flush=True)\n"
+            + "    else:\n"
+            + "        print('GPU NA', flush=True)\n"
+            + "    time.sleep(1)"
         ]
         running: true
 
@@ -196,6 +273,7 @@ Item {
         ToolTip.visible: ring.hovered
         ToolTip.delay: 150
         ToolTip.timeout: 0
+        ToolTip.textFormat: Text.PlainText
         ToolTip.text: {
             if (ring.details.length > 0) {
                 var detailEntries = [];

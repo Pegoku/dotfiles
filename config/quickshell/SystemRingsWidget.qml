@@ -266,30 +266,25 @@ Item {
         property var details: []
         property bool hovered: hoverArea.containsMouse
         readonly property int segmentCount: Math.max(1, Math.min(values.length > 0 ? values.length : 1, 4))
-
-        width: 24
-        height: 24
-
-        ToolTip.visible: ring.hovered
-        ToolTip.delay: 150
-        ToolTip.timeout: 0
-        ToolTip.textFormat: Text.PlainText
-        ToolTip.text: {
+        readonly property string tooltipText: {
             if (ring.details.length > 0) {
                 var detailEntries = [];
                 for (var i = 0; i < ring.details.length; i++)
-                    detailEntries.push(ring.details[i].name + " · " + Math.round(ring.details[i].usage * 100) + "%");
+                    detailEntries.push(ring.details[i].name + " - " + Math.round(ring.details[i].usage * 100) + "%");
                 return detailEntries.join("\n");
             }
 
             if (ring.values.length <= 1)
-                return label + " · " + Math.round(ring.values.length ? ring.values[0] * 100 : 0) + "%";
+                return label + " - " + Math.round(ring.values.length ? ring.values[0] * 100 : 0) + "%";
 
             var entries = [];
-            for (var i = 0; i < ring.values.length && i < 4; i++)
-                entries.push(label + " " + (i + 1) + " · " + Math.round(ring.values[i] * 100) + "%");
+            for (var j = 0; j < ring.values.length && j < 4; j++)
+                entries.push(label + " " + (j + 1) + " - " + Math.round(ring.values[j] * 100) + "%");
             return entries.join("\n");
         }
+
+        width: 24
+        height: 24
 
         Canvas {
             id: ringCanvas
@@ -352,6 +347,32 @@ Item {
             anchors.fill: parent
             hoverEnabled: true
             acceptedButtons: Qt.NoButton
+        }
+
+        Rectangle {
+            visible: ring.hovered && ring.tooltipText.length > 0
+            z: 1000
+            anchors.horizontalCenter: parent.horizontalCenter
+            anchors.bottom: parent.top
+            anchors.bottomMargin: 6
+            color: Qt.rgba(0.08, 0.08, 0.08, 0.96)
+            radius: 6
+            border.width: 1
+            border.color: Qt.rgba(1, 1, 1, 0.18)
+            opacity: visible ? 1 : 0
+
+            implicitWidth: tooltipLabel.implicitWidth + 14
+            implicitHeight: tooltipLabel.implicitHeight + 10
+
+            Text {
+                id: tooltipLabel
+
+                anchors.fill: parent
+                anchors.margins: 5
+                text: ring.tooltipText
+                color: root.ringFg
+                textFormat: Text.PlainText
+            }
         }
 
         onValuesChanged: ringCanvas.requestPaint()

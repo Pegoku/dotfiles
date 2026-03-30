@@ -8,7 +8,7 @@ Item {
 
     property real cpuUsage: 0
     property real memUsage: 0
-    property var gpuUsages: []
+    property var gpuStats: []
     property real diskUsage: 0
 
     property color ringBg: "#3a3a3a"
@@ -19,7 +19,7 @@ Item {
     property string gpuIcon: iconBase + "devices/video-display-symbolic.svg"
     property string diskIcon: iconBase + "devices/drive-harddisk-system-symbolic.svg"
 
-    readonly property bool gpuPresent: root.gpuUsages.length > 0
+    readonly property bool gpuPresent: root.gpuStats.length > 0
 
     width: ringsRow.implicitWidth
     height: ringsRow.implicitHeight
@@ -35,8 +35,8 @@ Item {
             "awk '/MemTotal/ {t=$2} /MemAvailable/ {a=$2} END {print \"MEM \" t \" \" a}' /proc/meminfo; " +
             "df -P / | awk 'NR==2 {print \"DISK \" $2 \" \" $4}'; " +
             "gpus=\"\"; " +
-            "for f in /sys/class/drm/card*/device/gpu_busy_percent; do if [ -r \"$f\" ]; then gpu=$(cat \"$f\" 2>/dev/null); if [ -n \"$gpu\" ]; then gpus=\"${gpus}${gpus:+,}$gpu\"; fi; fi; done; " +
-            "if [ -z \"$gpus\" ] && command -v nvidia-smi >/dev/null 2>&1; then while IFS= read -r gpu; do gpu=${gpu//[[:space:]]/}; if [ -n \"$gpu\" ]; then gpus=\"${gpus}${gpus:+,}$gpu\"; fi; done < <(nvidia-smi --query-gpu=utilization.gpu --format=csv,noheader,nounits 2>/dev/null); fi; " +
+            "for f in /sys/class/drm/card*/device/gpu_busy_percent; do if [ -r \"$f\" ]; then dev=$(dirname \"$f\"); gpu=$(cat \"$f\" 2>/dev/null); slot=$(basename \"$(readlink -f \"$dev\")\"); name=\"\"; if command -v lspci >/dev/null 2>&1; then name=$(lspci -s \"$slot\" 2>/dev/null); name=${name#*: }; name=${name#*: }; fi; if [ -z \"$name\" ]; then name=$(basename \"$(dirname \"$dev\")\"); fi; if [ -n \"$gpu\" ]; then gpus=\"${gpus}${gpus:+||}${name}::${gpu}\"; fi; fi; done; " +
+            "if [ -z \"$gpus\" ] && command -v nvidia-smi >/dev/null 2>&1; then while IFS=',' read -r name gpu; do name=${name%% }; gpu=${gpu//[[:space:]]/}; if [ -n \"$gpu\" ]; then gpus=\"${gpus}${gpus:+||}${name}::${gpu}\"; fi; done < <(nvidia-smi --query-gpu=name,utilization.gpu --format=csv,noheader,nounits 2>/dev/null); fi; " +
             "if [ -z \"$gpus\" ]; then echo \"GPU NA\"; else echo \"GPU $gpus\"; fi; " +
             "sleep 1; done"
         ]
@@ -112,20 +112,36 @@ Item {
 
     function updateGpu(line) {
         if (line === "NA") {
-            root.gpuUsages = [];
+            root.gpuStats = [];
             return;
         }
 
-        var parts = line.trim().split(/\s*,\s*/);
-        var values = [];
+        var parts = line.trim().split(/\|\|/);
+        var stats = [];
 
-        for (var i = 0; i < parts.length && values.length < 4; i++) {
-            var val = Number(parts[i]);
-            if (!isNaN(val))
-                values.push(Math.max(0, Math.min(1, val / 100)));
+        for (var i = 0; i < parts.length; i++) {
+            var fields = parts[i].split("::");
+            if (fields.length < 2)
+                continue;
+
+            var val = Number(fields[fields.length - 1]);
+            if (isNaN(val))
+                continue;
+
+            stats.push({
+                name: fields.slice(0, fields.length - 1).join("::").trim() || ("GPU " + (stats.length + 1)),
+                usage: Math.max(0, Math.min(1, val / 100))
+            });
         }
 
-        root.gpuUsages = values;
+        root.gpuStats = stats;
+    }
+
+    function gpuUsages() {
+        var usages = [];
+        for (var i = 0; i < root.gpuStats.length; i++)
+            usages.push(root.gpuStats[i].usage);
+        return usages;
     }
 
     Row {
@@ -151,7 +167,8 @@ Item {
         RingIndicator {
             iconSource: root.gpuIcon
             label: "GPU"
-            values: root.gpuUsages
+            values: root.gpuUsages()
+            details: root.gpuStats
             visible: root.gpuPresent
         }
 
@@ -169,6 +186,7 @@ Item {
         property string iconSource: ""
         property string label: ""
         property var values: []
+        property var details: []
         property bool hovered: hoverArea.containsMouse
         readonly property int segmentCount: Math.max(1, Math.min(values.length > 0 ? values.length : 1, 4))
 
@@ -179,6 +197,13 @@ Item {
         ToolTip.delay: 150
         ToolTip.timeout: 0
         ToolTip.text: {
+            if (ring.details.length > 0) {
+                var detailEntries = [];
+                for (var i = 0; i < ring.details.length; i++)
+                    detailEntries.push(ring.details[i].name + " · " + Math.round(ring.details[i].usage * 100) + "%");
+                return detailEntries.join("\n");
+            }
+
             if (ring.values.length <= 1)
                 return label + " · " + Math.round(ring.values.length ? ring.values[0] * 100 : 0) + "%";
 

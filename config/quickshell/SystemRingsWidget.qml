@@ -271,7 +271,7 @@ Item {
                 var detailEntries = [];
                 for (var i = 0; i < ring.details.length; i++)
                     detailEntries.push(ring.details[i].name + " - " + Math.round(ring.details[i].usage * 100) + "%");
-                return detailEntries.join("\n");
+                return detailEntries.join(" | ");
             }
 
             if (ring.values.length <= 1)
@@ -280,7 +280,7 @@ Item {
             var entries = [];
             for (var j = 0; j < ring.values.length && j < 4; j++)
                 entries.push(label + " " + (j + 1) + " - " + Math.round(ring.values[j] * 100) + "%");
-            return entries.join("\n");
+            return entries.join(" | ");
         }
 
         width: 24
@@ -353,8 +353,8 @@ Item {
             visible: ring.hovered && ring.tooltipText.length > 0
             z: 1000
             anchors.horizontalCenter: parent.horizontalCenter
-            anchors.bottom: parent.top
-            anchors.bottomMargin: 6
+            anchors.top: parent.bottom
+            anchors.topMargin: 6
             color: Qt.rgba(0.08, 0.08, 0.08, 0.96)
             radius: 6
             border.width: 1
@@ -372,6 +372,7 @@ Item {
                 text: ring.tooltipText
                 color: root.ringFg
                 textFormat: Text.PlainText
+                wrapMode: Text.NoWrap
             }
         }
 

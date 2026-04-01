@@ -286,6 +286,11 @@ Item {
         width: 24
         height: 24
 
+        ToolTip.visible: ring.hovered && ring.tooltipText.length > 0
+        ToolTip.delay: 150
+        ToolTip.timeout: 0
+        ToolTip.text: ring.tooltipText
+
         Canvas {
             id: ringCanvas
 
@@ -347,33 +352,6 @@ Item {
             anchors.fill: parent
             hoverEnabled: true
             acceptedButtons: Qt.NoButton
-        }
-
-        Rectangle {
-            visible: ring.hovered && ring.tooltipText.length > 0
-            z: 1000
-            anchors.horizontalCenter: parent.horizontalCenter
-            anchors.top: parent.bottom
-            anchors.topMargin: 6
-            color: Qt.rgba(0.08, 0.08, 0.08, 0.96)
-            radius: 6
-            border.width: 1
-            border.color: Qt.rgba(1, 1, 1, 0.18)
-            opacity: visible ? 1 : 0
-
-            implicitWidth: tooltipLabel.implicitWidth + 14
-            implicitHeight: tooltipLabel.implicitHeight + 10
-
-            Text {
-                id: tooltipLabel
-
-                anchors.fill: parent
-                anchors.margins: 5
-                text: ring.tooltipText
-                color: root.ringFg
-                textFormat: Text.PlainText
-                wrapMode: Text.NoWrap
-            }
         }
 
         onValuesChanged: ringCanvas.requestPaint()

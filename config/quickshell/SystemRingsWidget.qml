@@ -265,6 +265,10 @@ Item {
         property var values: []
         property var details: []
         property bool hovered: hoverArea.containsMouse
+        property real displayedValue0: 0
+        property real displayedValue1: 0
+        property real displayedValue2: 0
+        property real displayedValue3: 0
         readonly property int segmentCount: Math.max(1, Math.min(values.length > 0 ? values.length : 1, 4))
         readonly property string tooltipText: {
             if (ring.details.length > 0) {
@@ -281,6 +285,34 @@ Item {
             for (var j = 0; j < ring.values.length && j < 4; j++)
                 entries.push(label + " " + (j + 1) + " - " + Math.round(ring.values[j] * 100) + "%");
             return entries.join(" | ");
+        }
+
+        Behavior on displayedValue0 {
+            NumberAnimation {
+                duration: 350
+                easing.type: Easing.InOutQuad
+            }
+        }
+
+        Behavior on displayedValue1 {
+            NumberAnimation {
+                duration: 350
+                easing.type: Easing.InOutQuad
+            }
+        }
+
+        Behavior on displayedValue2 {
+            NumberAnimation {
+                duration: 350
+                easing.type: Easing.InOutQuad
+            }
+        }
+
+        Behavior on displayedValue3 {
+            NumberAnimation {
+                duration: 350
+                easing.type: Easing.InOutQuad
+            }
         }
 
         width: 24
@@ -313,10 +345,7 @@ Item {
                 for (var i = 0; i < ring.segmentCount; i++) {
                     var segmentStart = start + segmentSpan * i;
                     var segmentEnd = segmentStart + segmentSpan;
-                    var value = 0;
-
-                    if (i < ring.values.length)
-                        value = Math.max(0, Math.min(1, Number(ring.values[i]) || 0));
+                    var value = ring.displayedValueAt(i);
 
                     ctx.strokeStyle = root.ringBg;
                     ctx.beginPath();
@@ -354,8 +383,39 @@ Item {
             acceptedButtons: Qt.NoButton
         }
 
-        onValuesChanged: ringCanvas.requestPaint()
+        function targetValue(index) {
+            if (index >= ring.values.length)
+                return 0;
+
+            return Math.max(0, Math.min(1, Number(ring.values[index]) || 0));
+        }
+
+        function displayedValueAt(index) {
+            if (index === 0)
+                return ring.displayedValue0;
+            if (index === 1)
+                return ring.displayedValue1;
+            if (index === 2)
+                return ring.displayedValue2;
+            if (index === 3)
+                return ring.displayedValue3;
+            return 0;
+        }
+
+        function syncDisplayedValues() {
+            ring.displayedValue0 = ring.targetValue(0);
+            ring.displayedValue1 = ring.targetValue(1);
+            ring.displayedValue2 = ring.targetValue(2);
+            ring.displayedValue3 = ring.targetValue(3);
+        }
+
+        onValuesChanged: syncDisplayedValues()
+        onDisplayedValue0Changed: ringCanvas.requestPaint()
+        onDisplayedValue1Changed: ringCanvas.requestPaint()
+        onDisplayedValue2Changed: ringCanvas.requestPaint()
+        onDisplayedValue3Changed: ringCanvas.requestPaint()
         onWidthChanged: ringCanvas.requestPaint()
         onHeightChanged: ringCanvas.requestPaint()
+        Component.onCompleted: syncDisplayedValues()
     }
 }

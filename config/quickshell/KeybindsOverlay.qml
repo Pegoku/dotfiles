@@ -52,6 +52,13 @@ Scope {
         setPage(currentPage + delta);
     }
 
+    function displayAction(action) {
+        var text = String(action || "").trim();
+        if (text.startsWith("exec "))
+            return text.substring(5);
+        return text;
+    }
+
     function parsePages(raw) {
         var lines = String(raw || "").split("\n");
         var pageOrder = [];
@@ -219,145 +226,143 @@ Scope {
                 id: helpCard
                 visible: panelWindow.isFocusedScreen
                 anchors.centerIn: parent
-                width: Math.min(parent.width - 80, 980)
-                height: Math.min(parent.height - 100, 760)
-                radius: 18
-                color: "#171717"
-                border.color: "#333333"
+                width: Math.min(parent.width - 64, 1220)
+                height: Math.min(parent.height - 72, 820)
+                radius: 24
+                color: "#121214"
+                border.color: "#40354f"
                 border.width: 1
 
-                Column {
+                Rectangle {
                     anchors.fill: parent
-                    anchors.margins: 22
-                    spacing: 16
+                    anchors.margins: 1
+                    radius: parent.radius - 1
+                    color: "#18181b"
+                    border.color: "#2a2a31"
+                    border.width: 1
+                }
 
-                    Row {
-                        width: parent.width
-                        spacing: 12
-
-                        Column {
-                            width: parent.width - pageBadge.width - 12
-                            spacing: 6
-
-                            Text {
-                                width: parent.width
-                                text: panelWindow.activePage ? panelWindow.activePage.title : "Keybinds"
-                                color: "#f3f3f3"
-                                font.pixelSize: 30
-                                font.bold: true
-                                elide: Text.ElideRight
-                            }
-
-                            Text {
-                                width: parent.width
-                                text: panelWindow.activePage ? panelWindow.activePage.entries.length + " shortcuts from ~/.config/hypr/hyprland/keybinds.conf" : "No shortcuts found"
-                                color: "#a8a8a8"
-                                font.pixelSize: 13
-                                elide: Text.ElideRight
-                            }
-                        }
-
-                        Rectangle {
-                            id: pageBadge
-                            width: 90
-                            height: 34
-                            radius: 17
-                            color: "#242424"
-                            border.color: "#3a3a3a"
-
-                            Text {
-                                anchors.centerIn: parent
-                                text: root.pages.length > 0 ? (root.currentPage + 1) + " / " + root.pages.length : "0 / 0"
-                                color: "#dddddd"
-                                font.pixelSize: 14
-                                font.bold: true
-                            }
-                        }
-                    }
+                Row {
+                    anchors.fill: parent
+                    anchors.margins: 20
+                    spacing: 20
 
                     Rectangle {
-                        width: parent.width
-                        height: 1
-                        color: "#2a2a2a"
-                    }
-
-                    Flickable {
-                        id: entryList
-                        width: parent.width
-                        height: parent.height - navigationRow.height - 84
-                        contentWidth: width
-                        contentHeight: entryColumn.height
-                        boundsBehavior: Flickable.StopAtBounds
-                        clip: true
-
-                        onVisibleChanged: if (visible) contentY = 0
+                        id: sidebar
+                        width: 260
+                        height: parent.height
+                        radius: 20
+                        color: "#14141a"
+                        border.color: "#2b2b36"
+                        border.width: 1
 
                         Column {
-                            id: entryColumn
-                            width: entryList.width
-                            spacing: 10
+                            anchors.fill: parent
+                            anchors.margins: 18
+                            spacing: 16
 
-                            Repeater {
-                                model: panelWindow.activePage ? panelWindow.activePage.entries : []
+                            Column {
+                                width: parent.width
+                                spacing: 6
 
-                                delegate: Rectangle {
-                                    required property var modelData
+                                Text {
+                                    width: parent.width
+                                    text: "Keybind Help"
+                                    color: "#f6f2ff"
+                                    font.pixelSize: 28
+                                    font.bold: true
+                                }
 
-                                    width: entryColumn.width
-                                    height: implicitHeight
-                                    radius: 12
-                                    color: "#1d1d1d"
-                                    border.color: "#2f2f2f"
-                                    border.width: 1
-                                    implicitHeight: Math.max(62, rowLayout.implicitHeight + 22)
+                                Text {
+                                    width: parent.width
+                                    text: "Pages are read from ~/.config/hypr/hyprland/keybinds.conf headings."
+                                    color: "#9f9cab"
+                                    font.pixelSize: 13
+                                    wrapMode: Text.Wrap
+                                }
+                            }
 
-                                    Row {
-                                        id: rowLayout
-                                        x: 14
-                                        y: 11
-                                        width: parent.width - 28
-                                        spacing: 16
+                            Rectangle {
+                                width: parent.width
+                                height: 1
+                                color: "#272732"
+                            }
 
-                                        Rectangle {
-                                            width: 220
-                                            height: implicitHeight
-                                            radius: 10
-                                            color: "#2a2232"
-                                            border.color: "#4c3a57"
+                            Flickable {
+                                width: parent.width
+                                height: parent.height - 150
+                                contentWidth: width
+                                contentHeight: pageColumn.height
+                                boundsBehavior: Flickable.StopAtBounds
+                                clip: true
+
+                                Column {
+                                    id: pageColumn
+                                    width: parent.width
+                                    spacing: 8
+
+                                    Repeater {
+                                        model: root.pages
+
+                                        delegate: Rectangle {
+                                            required property var modelData
+                                            required property int index
+
+                                            width: pageColumn.width
+                                            height: 56
+                                            radius: 14
+                                            color: root.currentPage === index ? "#2a2233" : "#1b1b22"
+                                            border.color: root.currentPage === index ? "#7f5ab5" : "#30303a"
                                             border.width: 1
-                                            implicitHeight: shortcutLabel.implicitHeight + 18
 
-                                            Text {
-                                                id: shortcutLabel
-                                                anchors.centerIn: parent
-                                                width: parent.width - 20
-                                                text: modelData.shortcut
-                                                color: "#f5eaff"
-                                                font.pixelSize: 14
-                                                font.bold: true
-                                                horizontalAlignment: Text.AlignHCenter
-                                                wrapMode: Text.Wrap
-                                            }
-                                        }
-
-                                        Column {
-                                            width: rowLayout.width - 236
-                                            spacing: 4
-
-                                            Text {
-                                                width: parent.width
-                                                text: modelData.description
-                                                color: "#f0f0f0"
-                                                font.pixelSize: 14
-                                                wrapMode: Text.Wrap
+                                            MouseArea {
+                                                anchors.fill: parent
+                                                onClicked: root.setPage(index)
                                             }
 
-                                            Text {
-                                                width: parent.width
-                                                text: modelData.action
-                                                color: "#8f8f8f"
-                                                font.pixelSize: 12
-                                                wrapMode: Text.WrapAnywhere
+                                            Column {
+                                                anchors.left: parent.left
+                                                anchors.right: pageCountBadge.left
+                                                anchors.leftMargin: 14
+                                                anchors.rightMargin: 12
+                                                anchors.verticalCenter: parent.verticalCenter
+                                                spacing: 3
+
+                                                Text {
+                                                    width: parent.width
+                                                    text: modelData.title
+                                                    color: root.currentPage === index ? "#fbf7ff" : "#d5d2dc"
+                                                    font.pixelSize: 14
+                                                    font.bold: true
+                                                    elide: Text.ElideRight
+                                                }
+
+                                                Text {
+                                                    width: parent.width
+                                                    text: modelData.entries.length + " shortcuts"
+                                                    color: root.currentPage === index ? "#c8b6e7" : "#888594"
+                                                    font.pixelSize: 12
+                                                    elide: Text.ElideRight
+                                                }
+                                            }
+
+                                            Rectangle {
+                                                id: pageCountBadge
+                                                anchors.right: parent.right
+                                                anchors.rightMargin: 12
+                                                anchors.verticalCenter: parent.verticalCenter
+                                                width: 34
+                                                height: 24
+                                                radius: 12
+                                                color: root.currentPage === index ? "#4b3866" : "#262630"
+
+                                                Text {
+                                                    anchors.centerIn: parent
+                                                    text: index + 1
+                                                    color: root.currentPage === index ? "#ffffff" : "#a7a4b1"
+                                                    font.pixelSize: 12
+                                                    font.bold: true
+                                                }
                                             }
                                         }
                                     }
@@ -366,64 +371,281 @@ Scope {
                         }
                     }
 
-                    Row {
-                        id: navigationRow
-                        width: parent.width
-                        spacing: 10
+                    Column {
+                        width: parent.width - sidebar.width - 20
+                        height: parent.height
+                        spacing: 16
 
                         Rectangle {
-                            width: 110
-                            height: 38
-                            radius: 10
-                            color: root.currentPage > 0 ? "#2a2a2a" : "#202020"
-                            border.color: root.currentPage > 0 ? "#4a4a4a" : "#303030"
+                            width: parent.width
+                            height: 118
+                            radius: 20
+                            color: "#15151a"
+                            border.color: "#2c2c36"
+                            border.width: 1
 
-                            MouseArea {
+                            Rectangle {
+                                anchors.left: parent.left
+                                anchors.top: parent.top
+                                anchors.bottom: parent.bottom
+                                width: 6
+                                radius: 3
+                                color: "#8b5cf6"
+                            }
+
+                            Row {
                                 anchors.fill: parent
-                                enabled: root.currentPage > 0
-                                onClicked: root.changePage(-1)
-                            }
+                                anchors.margins: 22
+                                spacing: 18
 
-                            Text {
-                                anchors.centerIn: parent
-                                text: "Prev"
-                                color: root.currentPage > 0 ? "#f0f0f0" : "#727272"
-                                font.pixelSize: 14
-                                font.bold: true
+                                Column {
+                                    width: parent.width - pageBadge.width - navPill.width - 36
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    spacing: 8
+
+                                    Text {
+                                        width: parent.width
+                                        text: panelWindow.activePage ? panelWindow.activePage.title : "Keybinds"
+                                        color: "#faf7ff"
+                                        font.pixelSize: 34
+                                        font.bold: true
+                                        elide: Text.ElideRight
+                                    }
+
+                                    Text {
+                                        width: parent.width
+                                        text: panelWindow.activePage ? panelWindow.activePage.entries.length + " shortcuts in this section" : "No shortcuts found"
+                                        color: "#aea8bc"
+                                        font.pixelSize: 14
+                                        elide: Text.ElideRight
+                                    }
+
+                                    Text {
+                                        width: parent.width
+                                        text: "Use Left/Right, PageUp/PageDown, Home/End. Press Esc or H to close."
+                                        color: "#7e7a89"
+                                        font.pixelSize: 12
+                                        elide: Text.ElideRight
+                                    }
+                                }
+
+                                Rectangle {
+                                    id: navPill
+                                    width: 152
+                                    height: 36
+                                    radius: 18
+                                    color: "#1f1f26"
+                                    border.color: "#333341"
+
+                                    Text {
+                                        anchors.centerIn: parent
+                                        text: "Section navigation"
+                                        color: "#c9c6d2"
+                                        font.pixelSize: 12
+                                        font.bold: true
+                                    }
+                                }
+
+                                Rectangle {
+                                    id: pageBadge
+                                    width: 88
+                                    height: 42
+                                    radius: 21
+                                    color: "#241f2d"
+                                    border.color: "#57426f"
+                                    anchors.verticalCenter: parent.verticalCenter
+
+                                    Text {
+                                        anchors.centerIn: parent
+                                        text: root.pages.length > 0 ? (root.currentPage + 1) + " / " + root.pages.length : "0 / 0"
+                                        color: "#f2ecff"
+                                        font.pixelSize: 15
+                                        font.bold: true
+                                    }
+                                }
                             }
                         }
 
-                        Text {
-                            anchors.verticalCenter: parent.verticalCenter
-                            text: "Left/Right to switch pages. Esc or H to close."
-                            color: "#9e9e9e"
-                            font.pixelSize: 13
-                        }
+                        Flickable {
+                            id: entryList
+                            width: parent.width
+                            height: parent.height - footerBar.height - 134
+                            contentWidth: width
+                            contentHeight: entryColumn.height
+                            boundsBehavior: Flickable.StopAtBounds
+                            clip: true
 
-                        Item {
-                            width: parent.width - 340
-                            height: 1
+                            onVisibleChanged: if (visible) contentY = 0
+
+                            Column {
+                                id: entryColumn
+                                width: entryList.width
+                                spacing: 12
+
+                                Repeater {
+                                    model: panelWindow.activePage ? panelWindow.activePage.entries : []
+
+                                    delegate: Rectangle {
+                                        required property var modelData
+
+                                        width: entryColumn.width
+                                        height: implicitHeight
+                                        radius: 16
+                                        color: "#1a1a1f"
+                                        border.color: "#2f2f38"
+                                        border.width: 1
+                                        implicitHeight: Math.max(84, rowLayout.implicitHeight + 24)
+
+                                        Row {
+                                            id: rowLayout
+                                            x: 18
+                                            y: 12
+                                            width: parent.width - 36
+                                            spacing: 18
+
+                                            Rectangle {
+                                                width: 210
+                                                height: implicitHeight
+                                                radius: 13
+                                                color: "#2a2233"
+                                                border.color: "#64458b"
+                                                border.width: 1
+                                                implicitHeight: shortcutLabel.implicitHeight + 22
+
+                                                Text {
+                                                    id: shortcutLabel
+                                                    anchors.centerIn: parent
+                                                    width: parent.width - 24
+                                                    text: modelData.shortcut
+                                                    color: "#fbf6ff"
+                                                    font.pixelSize: 15
+                                                    font.bold: true
+                                                    horizontalAlignment: Text.AlignHCenter
+                                                    wrapMode: Text.Wrap
+                                                }
+                                            }
+
+                                            Column {
+                                                width: rowLayout.width - 228
+                                                spacing: 8
+
+                                                Text {
+                                                    width: parent.width
+                                                    text: modelData.description
+                                                    color: "#f2f0f7"
+                                                    font.pixelSize: 16
+                                                    font.bold: true
+                                                    wrapMode: Text.Wrap
+                                                }
+
+                                                Rectangle {
+                                                    width: parent.width
+                                                    height: commandText.implicitHeight + 16
+                                                    radius: 10
+                                                    color: "#141419"
+                                                    border.color: "#2a2a33"
+                                                    border.width: 1
+
+                                                    Text {
+                                                        id: commandText
+                                                        anchors.fill: parent
+                                                        anchors.margins: 8
+                                                        text: root.displayAction(modelData.action)
+                                                        color: "#9ca3af"
+                                                        font.pixelSize: 12
+                                                        font.family: "monospace"
+                                                        wrapMode: Text.WrapAnywhere
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
                         }
 
                         Rectangle {
-                            width: 110
-                            height: 38
-                            radius: 10
-                            color: root.currentPage < root.pages.length - 1 ? "#2a2a2a" : "#202020"
-                            border.color: root.currentPage < root.pages.length - 1 ? "#4a4a4a" : "#303030"
+                            id: footerBar
+                            width: parent.width
+                            height: 56
+                            radius: 16
+                            color: "#15151a"
+                            border.color: "#2b2b34"
+                            border.width: 1
 
-                            MouseArea {
+                            Row {
                                 anchors.fill: parent
-                                enabled: root.currentPage < root.pages.length - 1
-                                onClicked: root.changePage(1)
-                            }
+                                anchors.margins: 10
+                                spacing: 10
 
-                            Text {
-                                anchors.centerIn: parent
-                                text: "Next"
-                                color: root.currentPage < root.pages.length - 1 ? "#f0f0f0" : "#727272"
-                                font.pixelSize: 14
-                                font.bold: true
+                                Rectangle {
+                                    width: 104
+                                    height: parent.height - 4
+                                    radius: 12
+                                    color: root.currentPage > 0 ? "#241f2d" : "#1c1c23"
+                                    border.color: root.currentPage > 0 ? "#57426f" : "#30303a"
+
+                                    MouseArea {
+                                        anchors.fill: parent
+                                        enabled: root.currentPage > 0
+                                        onClicked: root.changePage(-1)
+                                    }
+
+                                    Text {
+                                        anchors.centerIn: parent
+                                        text: "Prev"
+                                        color: root.currentPage > 0 ? "#f5efff" : "#72727f"
+                                        font.pixelSize: 14
+                                        font.bold: true
+                                    }
+                                }
+
+                                Rectangle {
+                                    height: parent.height - 4
+                                    width: 168
+                                    radius: 12
+                                    color: "#1b1b22"
+                                    border.color: "#2f2f38"
+
+                                    Text {
+                                        anchors.centerIn: parent
+                                        text: panelWindow.activePage ? panelWindow.activePage.entries.length + " visible binds" : "0 visible binds"
+                                        color: "#c0bdc9"
+                                        font.pixelSize: 13
+                                        font.bold: true
+                                    }
+                                }
+
+                                Text {
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    text: "This view updates from your Hyprland keybind file when the menu opens."
+                                    color: "#8d8997"
+                                    font.pixelSize: 13
+                                    elide: Text.ElideRight
+                                    width: parent.width - 410
+                                }
+
+                                Rectangle {
+                                    width: 104
+                                    height: parent.height - 4
+                                    radius: 12
+                                    color: root.currentPage < root.pages.length - 1 ? "#241f2d" : "#1c1c23"
+                                    border.color: root.currentPage < root.pages.length - 1 ? "#57426f" : "#30303a"
+
+                                    MouseArea {
+                                        anchors.fill: parent
+                                        enabled: root.currentPage < root.pages.length - 1
+                                        onClicked: root.changePage(1)
+                                    }
+
+                                    Text {
+                                        anchors.centerIn: parent
+                                        text: "Next"
+                                        color: root.currentPage < root.pages.length - 1 ? "#f5efff" : "#72727f"
+                                        font.pixelSize: 14
+                                        font.bold: true
+                                    }
+                                }
                             }
                         }
                     }

@@ -9,6 +9,7 @@ Overview 1.0 Overview.qml
 OverviewWidget 1.0 OverviewWidget.qml
 OverviewWindow 1.0 OverviewWindow.qml
 PowerMenu 1.0 PowerMenu.qml
+KeybindsOverlay 1.0 KeybindsOverlay.qml
 SystemRingsWidget 1.0 SystemRingsWidget.qml
 WorkspacesWidget 1.0 WorkspacesWidget.qml
 WorkspaceButton 1.0 WorkspaceButton.qml

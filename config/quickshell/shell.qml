@@ -10,4 +10,5 @@ Scope {
     OnScreenDisplay {}
     Overview {}
     PowerMenu {}
+    KeybindsOverlay {}
 }

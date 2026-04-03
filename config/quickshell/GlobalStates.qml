@@ -16,6 +16,7 @@ Singleton {
     property bool networkMenuOpen: false
     property bool nowPlayingOpen: false
     property bool aiChatOpen: false
+    property bool keybindsHelpOpen: false
     property real nowPlayingAnchorX: 220
     property bool overviewAnimationsSuspended: false
     readonly property int overviewAnimationSuspendMs: 350
@@ -39,6 +40,14 @@ Singleton {
     function toggleOverview() {
         suspendOverviewAnimations();
         overviewOpen = !overviewOpen;
+    }
+
+    function setKeybindsHelpOpen(open) {
+        keybindsHelpOpen = open;
+    }
+
+    function toggleKeybindsHelp() {
+        keybindsHelpOpen = !keybindsHelpOpen;
     }
 
     Timer {

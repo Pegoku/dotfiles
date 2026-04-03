@@ -21,6 +21,7 @@ NetworkOverlay 1.0 NetworkOverlay.qml
 NumLockWidget 1.0 NumLockWidget.qml
 RecordingWidget 1.0 RecordingWidget.qml
 CaffeineWidget 1.0 CaffeineWidget.qml
+DndWidget 1.0 DndWidget.qml
 AppIndicatorWidget 1.0 AppIndicatorWidget.qml
 ActiveWindowWidget 1.0 ActiveWindowWidget.qml
 NowPlayingWidget 1.0 NowPlayingWidget.qml

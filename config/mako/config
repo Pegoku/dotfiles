@@ -44,3 +44,6 @@ text-color=#fff0ec
 border-color=#ff7a59
 progress-color=over #ff7a59cc
 default-timeout=0
+
+[mode=do-not-disturb]
+invisible=1

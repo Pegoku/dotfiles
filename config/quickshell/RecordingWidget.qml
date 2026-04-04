@@ -6,6 +6,25 @@ Rectangle {
 
     property int padding: 5
     property bool recording: false
+    property int startedAt: 0
+    property int currentEpoch: Math.floor(Date.now() / 1000)
+
+    function formatElapsed(totalSeconds) {
+        var seconds = Math.max(0, totalSeconds);
+        var hours = Math.floor(seconds / 3600);
+        var minutes = Math.floor((seconds % 3600) / 60);
+        var secs = seconds % 60;
+
+        function pad(value) {
+            return value < 10 ? "0" + value : "" + value;
+        }
+
+        if (hours > 0)
+            return hours + ":" + pad(minutes) + ":" + pad(secs);
+
+        return pad(minutes) + ":" + pad(secs);
+    }
+
     anchors.verticalCenter: parent.verticalCenter
     radius: 9
     color: "#8f1d1d"
@@ -18,10 +37,17 @@ Rectangle {
         id: label
 
         anchors.centerIn: parent
-        text: "REC"
+        text: containerRect.recording ? "REC " + containerRect.formatElapsed(containerRect.currentEpoch - containerRect.startedAt) : "REC"
         color: "#f7f0f0"
         font.pixelSize: 10
         font.bold: true
+    }
+
+    Timer {
+        interval: 1000
+        running: true
+        repeat: true
+        onTriggered: containerRect.currentEpoch = Math.floor(Date.now() / 1000)
     }
 
     Process {
@@ -32,7 +58,11 @@ Rectangle {
             "-lc",
             "while true; do " +
             "statefile=\"${XDG_RUNTIME_DIR:-/tmp}/record-script.active\"; " +
-            "if [ -e \"$statefile\" ]; then echo 'REC ON'; else echo 'REC OFF'; fi; " +
+            "if [ -e \"$statefile\" ]; then " +
+            "started=$(cat \"$statefile\" 2>/dev/null); " +
+            "case $started in ''|*[!0-9]*) started=0 ;; esac; " +
+            "echo \"REC ON $started\"; " +
+            "else echo 'REC OFF 0'; fi; " +
             "sleep 1; " +
             "done"
         ]
@@ -44,7 +74,9 @@ Rectangle {
                 if (!line.startsWith("REC "))
                     return;
 
-                containerRect.recording = line.substring(4) === "ON";
+                var parts = line.split(" ");
+                containerRect.recording = parts.length >= 2 && parts[1] === "ON";
+                containerRect.startedAt = parts.length >= 3 ? parseInt(parts[2], 10) || 0 : 0;
             }
         }
     }

@@ -13,7 +13,7 @@ getactivemonitor() {
 statefile="${XDG_RUNTIME_DIR:-/tmp}/record-script.active"
 
 start_recording() {
-    touch "$statefile"
+    date +%s > "$statefile"
 
     (
         trap 'rm -f "$statefile"' EXIT

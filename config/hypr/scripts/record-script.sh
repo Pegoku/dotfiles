@@ -28,16 +28,16 @@ if pgrep wf-recorder > /dev/null; then
     rm -f "$statefile"
     pkill wf-recorder &
 else
-    notify-send "Starting recording" 'recording_'"$(getdate)"'.mp4' -a 'record-script.sh'
+    notify-send "Starting recording" 'recording_'"$(getdate)"'.mkv' -a 'record-script.sh'
     if [[ "$1" == "--sound" ]]; then
         geometry="$(slurp)" || exit
-        start_recording wf-recorder --pixel-format yuv420p -f './recording_'"$(getdate)"'.mp4' -t --geometry "$geometry" --audio="$(getaudiooutput)"
+        start_recording wf-recorder --pixel-format yuv420p -f './recording_'"$(getdate)"'.mkv' -t --geometry "$geometry" --audio="$(getaudiooutput)"
     elif [[ "$1" == "--fullscreen-sound" ]]; then
-        start_recording wf-recorder -o "$(getactivemonitor)" --pixel-format yuv420p -f './recording_'"$(getdate)"'.mp4' -t --audio="$(getaudiooutput)"
+        start_recording wf-recorder -o "$(getactivemonitor)" --pixel-format yuv420p -f './recording_'"$(getdate)"'.mkv' -t --audio="$(getaudiooutput)"
     elif [[ "$1" == "--fullscreen" ]]; then
-        start_recording wf-recorder -o "$(getactivemonitor)" --pixel-format yuv420p -f './recording_'"$(getdate)"'.mp4' -t
+        start_recording wf-recorder -o "$(getactivemonitor)" --pixel-format yuv420p -f './recording_'"$(getdate)"'.mkv' -t
     else
         geometry="$(slurp)" || exit
-        start_recording wf-recorder --pixel-format yuv420p -f './recording_'"$(getdate)"'.mp4' -t --geometry "$geometry"
+        start_recording wf-recorder --pixel-format yuv420p -f './recording_'"$(getdate)"'.mkv' -t --geometry "$geometry"
     fi
 fi

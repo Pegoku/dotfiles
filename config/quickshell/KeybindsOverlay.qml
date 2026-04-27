@@ -11,6 +11,9 @@ Scope {
     property var pages: []
     property int currentPage: 0
     property string parserOutput: ""
+    property string searchQuery: ""
+    readonly property string normalizedSearchQuery: root.normalizeText(searchQuery).trim()
+    readonly property var visiblePages: root.filterPages()
     readonly property string parserScriptPath: Qt.resolvedUrl("scripts/parse-keybinds-help.sh").toString().replace("file://", "")
 
     function refreshPages() {
@@ -27,6 +30,7 @@ Scope {
 
     function openOverlay() {
         currentPage = 0;
+        searchQuery = "";
         refreshPages();
         GlobalStates.setKeybindsHelpOpen(true);
     }
@@ -39,9 +43,9 @@ Scope {
     }
 
     function clampPage(index) {
-        if (!pages || pages.length === 0)
+        if (!visiblePages || visiblePages.length === 0)
             return 0;
-        return Math.max(0, Math.min(index, pages.length - 1));
+        return Math.max(0, Math.min(index, visiblePages.length - 1));
     }
 
     function setPage(index) {
@@ -57,6 +61,45 @@ Scope {
         if (text.startsWith("exec "))
             return text.substring(5);
         return text;
+    }
+
+    function normalizeText(value) {
+        if (value === undefined || value === null)
+            return "";
+        return String(value).toLowerCase();
+    }
+
+    function entryMatchesQuery(entry, query) {
+        if (!query || query.length === 0)
+            return true;
+
+        var haystack = [entry.shortcut, entry.description, root.displayAction(entry.action)].map(root.normalizeText).join("\n");
+        return haystack.indexOf(query) !== -1;
+    }
+
+    function filterPages() {
+        if (!pages || pages.length === 0)
+            return [];
+
+        var query = normalizedSearchQuery;
+        if (query.length === 0)
+            return pages;
+
+        var filtered = [];
+        for (var i = 0; i < pages.length; ++i) {
+            var page = pages[i];
+            var matchedEntries = [];
+
+            for (var j = 0; j < page.entries.length; ++j) {
+                if (entryMatchesQuery(page.entries[j], query))
+                    matchedEntries.push(page.entries[j]);
+            }
+
+            if (matchedEntries.length > 0)
+                filtered.push({ title: page.title, entries: matchedEntries });
+        }
+
+        return filtered;
     }
 
     function parsePages(raw) {
@@ -139,10 +182,10 @@ Scope {
 
         onExited: {
             root.pages = root.parsePages(root.parserOutput);
-            if (root.pages.length === 0)
+            if (root.visiblePages.length === 0)
                 root.currentPage = 0;
-            else if (root.currentPage >= root.pages.length)
-                root.currentPage = root.pages.length - 1;
+            else if (root.currentPage >= root.visiblePages.length)
+                root.currentPage = root.visiblePages.length - 1;
         }
     }
 
@@ -154,7 +197,7 @@ Scope {
             required property var modelData
             screen: modelData
             readonly property bool isFocusedScreen: panelWindow.screen?.name === root.focusedMonitorName
-            readonly property var activePage: root.pages.length > 0 ? root.pages[root.currentPage] : null
+            readonly property var activePage: root.visiblePages.length > 0 ? root.visiblePages[root.currentPage] : null
 
             visible: GlobalStates.keybindsHelpOpen
             color: "transparent"
@@ -216,7 +259,7 @@ Scope {
                     }
 
                     if (event.key === Qt.Key_End) {
-                        root.setPage(root.pages.length - 1);
+                        root.setPage(root.visiblePages.length - 1);
                         event.accepted = true;
                     }
                 }
@@ -288,9 +331,48 @@ Scope {
                                 color: "#272732"
                             }
 
+                            Rectangle {
+                                width: parent.width
+                                height: 42
+                                radius: 14
+                                color: "#1b1b22"
+                                border.color: searchInput.activeFocus ? "#7f5ab5" : "#30303a"
+                                border.width: 1
+
+                                TextInput {
+                                    id: searchInput
+                                    anchors.fill: parent
+                                    anchors.leftMargin: 14
+                                    anchors.rightMargin: 14
+                                    verticalAlignment: TextInput.AlignVCenter
+                                    color: "#f2eef9"
+                                    selectionColor: "#6c4ba0"
+                                    selectedTextColor: "#ffffff"
+                                    font.pixelSize: 13
+                                    clip: true
+                                    focus: GlobalStates.keybindsHelpOpen && panelWindow.isFocusedScreen
+                                    text: root.searchQuery
+
+                                    onTextChanged: {
+                                        root.searchQuery = text;
+                                        root.setPage(0);
+                                    }
+                                }
+
+                                Text {
+                                    anchors.left: parent.left
+                                    anchors.leftMargin: 14
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    text: "Search shortcuts, descriptions, or commands"
+                                    color: "#8d8997"
+                                    font.pixelSize: 13
+                                    visible: searchInput.text.length === 0
+                                }
+                            }
+
                             Flickable {
                                 width: parent.width
-                                height: parent.height - 150
+                                height: parent.height - 208
                                 contentWidth: width
                                 contentHeight: pageColumn.height
                                 boundsBehavior: Flickable.StopAtBounds
@@ -302,7 +384,7 @@ Scope {
                                     spacing: 8
 
                                     Repeater {
-                                        model: root.pages
+                                        model: root.visiblePages
 
                                         delegate: Rectangle {
                                             required property var modelData
@@ -339,7 +421,7 @@ Scope {
 
                                                 Text {
                                                     width: parent.width
-                                                    text: modelData.entries.length + " shortcuts"
+                                                    text: modelData.entries.length + (root.normalizedSearchQuery.length > 0 ? " matches" : " shortcuts")
                                                     color: root.currentPage === index ? "#c8b6e7" : "#888594"
                                                     font.pixelSize: 12
                                                     elide: Text.ElideRight
@@ -414,7 +496,7 @@ Scope {
 
                                     Text {
                                         width: parent.width
-                                        text: panelWindow.activePage ? panelWindow.activePage.entries.length + " shortcuts in this section" : "No shortcuts found"
+                                        text: panelWindow.activePage ? panelWindow.activePage.entries.length + (root.normalizedSearchQuery.length > 0 ? " matching shortcuts in this section" : " shortcuts in this section") : (root.normalizedSearchQuery.length > 0 ? "No matching shortcuts found" : "No shortcuts found")
                                         color: "#aea8bc"
                                         font.pixelSize: 14
                                         elide: Text.ElideRight
@@ -422,7 +504,7 @@ Scope {
 
                                     Text {
                                         width: parent.width
-                                        text: "Use Left/Right, PageUp/PageDown, Home/End. Press Esc or H to close."
+                                        text: root.normalizedSearchQuery.length > 0 ? "Search matches shortcut keys, descriptions, and command text. Press Esc or H to close." : "Use Left/Right, PageUp/PageDown, Home/End. Press Esc or H to close."
                                         color: "#7e7a89"
                                         font.pixelSize: 12
                                         elide: Text.ElideRight
@@ -457,7 +539,7 @@ Scope {
 
                                     Text {
                                         anchors.centerIn: parent
-                                        text: root.pages.length > 0 ? (root.currentPage + 1) + " / " + root.pages.length : "0 / 0"
+                                        text: root.visiblePages.length > 0 ? (root.currentPage + 1) + " / " + root.visiblePages.length : "0 / 0"
                                         color: "#f2ecff"
                                         font.pixelSize: 15
                                         font.bold: true
@@ -562,6 +644,14 @@ Scope {
                                     }
                                 }
                             }
+
+                            Text {
+                                anchors.centerIn: parent
+                                visible: !panelWindow.activePage
+                                text: root.normalizedSearchQuery.length > 0 ? "No shortcuts match your search." : "No shortcuts found."
+                                color: "#8d8997"
+                                font.pixelSize: 15
+                            }
                         }
 
                         Rectangle {
@@ -609,7 +699,7 @@ Scope {
 
                                     Text {
                                         anchors.centerIn: parent
-                                        text: panelWindow.activePage ? panelWindow.activePage.entries.length + " visible binds" : "0 visible binds"
+                                        text: panelWindow.activePage ? panelWindow.activePage.entries.length + (root.normalizedSearchQuery.length > 0 ? " matches" : " visible binds") : "0 visible binds"
                                         color: "#c0bdc9"
                                         font.pixelSize: 13
                                         font.bold: true
@@ -629,19 +719,19 @@ Scope {
                                     width: 104
                                     height: parent.height - 4
                                     radius: 12
-                                    color: root.currentPage < root.pages.length - 1 ? "#241f2d" : "#1c1c23"
-                                    border.color: root.currentPage < root.pages.length - 1 ? "#57426f" : "#30303a"
+                                    color: root.currentPage < root.visiblePages.length - 1 ? "#241f2d" : "#1c1c23"
+                                    border.color: root.currentPage < root.visiblePages.length - 1 ? "#57426f" : "#30303a"
 
                                     MouseArea {
                                         anchors.fill: parent
-                                        enabled: root.currentPage < root.pages.length - 1
+                                        enabled: root.currentPage < root.visiblePages.length - 1
                                         onClicked: root.changePage(1)
                                     }
 
                                     Text {
                                         anchors.centerIn: parent
                                         text: "Next"
-                                        color: root.currentPage < root.pages.length - 1 ? "#f5efff" : "#72727f"
+                                        color: root.currentPage < root.visiblePages.length - 1 ? "#f5efff" : "#72727f"
                                         font.pixelSize: 14
                                         font.bold: true
                                     }

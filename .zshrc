@@ -213,6 +213,8 @@ alias rm='trash'
 #alias n="nautilus"
 alias n="nohup nautilus . > /dev/null 2>&1 &"
 
+alias ,="yay -F"
+
 export DOCKER_HOST=unix://$XDG_RUNTIME_DIR/docker.sock
 
 #typeset -g POWERLEVEL9K_INSTANT_PROMPT=quiet

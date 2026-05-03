@@ -263,3 +263,6 @@ fi
 unset __conda_setup
 # <<< conda initialize <<<
 
+
+# opencode
+export PATH=/home/pegoku/.opencode/bin:$PATH

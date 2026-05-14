@@ -3,6 +3,7 @@ import QtQuick
 import Quickshell
 import Quickshell.Wayland
 import Quickshell.Hyprland
+import "./services"
 
 Item {
     id: root
@@ -39,6 +40,7 @@ Item {
     property real lastMouseX: x + width / 2
     property real lastMouseY: y + height / 2
     property int dynamicZ: 0
+    readonly property var currentWindowData: HyprlandData.windowByAddress[windowData?.address] ?? windowData
     
     x: initX
     y: initY
@@ -79,7 +81,7 @@ Item {
             anchors.fill: parent
             anchors.margins: 2
             captureSource: GlobalStates.overviewOpen ? root.toplevel : null
-            live: true
+            live: false
         }
         
         // Window title
@@ -97,7 +99,7 @@ Item {
             
             Text {
                 anchors.centerIn: parent
-                text: windowData?.title ?? ""
+                text: currentWindowData?.title ?? ""
                 color: "#ffffff"
                 font.pixelSize: 12
                 elide: Text.ElideRight

@@ -844,7 +844,7 @@ Item {
                     height: workspaceColumnLayout.height
                     
                     Repeater {
-                        model: HyprlandData.windowList.filter(win => {
+                        model: HyprlandData.layoutWindowList.filter(win => {
                             return win.workspace?.id >= root.workspaceGroupStart
                                 && win.workspace?.id < root.workspaceGroupStart + root.workspacesShown;
                         })

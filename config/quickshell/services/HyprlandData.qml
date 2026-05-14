@@ -13,6 +13,7 @@ import Quickshell.Hyprland
 Singleton {
     id: root
     property var windowList: []
+    property var layoutWindowList: []
     property var addresses: []
     property var windowByAddress: ({})
     property var workspaces: []
@@ -36,6 +37,26 @@ Singleton {
         updateWindowList();
         updateMonitors();
         updateWorkspaces();
+    }
+
+    function layoutSignatureFor(windows) {
+        var parts = [];
+        for (var i = 0; i < windows.length; ++i) {
+            var win = windows[i];
+            parts.push([
+                win.address,
+                win.workspace?.id ?? -1,
+                win.monitor ?? -1,
+                win.at ? win.at[0] : 0,
+                win.at ? win.at[1] : 0,
+                win.size ? win.size[0] : 0,
+                win.size ? win.size[1] : 0,
+                win.floating ? 1 : 0,
+                win.mapped ? 1 : 0,
+                win.hidden ? 1 : 0
+            ].join(":"));
+        }
+        return parts.join("|");
     }
 
     Component.onCompleted: {
@@ -66,14 +87,17 @@ Singleton {
         onExited: {
             if (outputBuffer.length > 0) {
                 try {
-                    root.windowList = JSON.parse(outputBuffer)
+                    var nextWindowList = JSON.parse(outputBuffer)
                     let tempWinByAddress = {};
-                    for (var i = 0; i < root.windowList.length; ++i) {
-                        var win = root.windowList[i];
+                    for (var i = 0; i < nextWindowList.length; ++i) {
+                        var win = nextWindowList[i];
                         tempWinByAddress[win.address] = win;
                     }
+                    if (layoutSignatureFor(nextWindowList) !== layoutSignatureFor(root.layoutWindowList))
+                        root.layoutWindowList = nextWindowList;
+                    root.windowList = nextWindowList;
                     root.windowByAddress = tempWinByAddress;
-                    root.addresses = root.windowList.map(win => win.address);
+                    root.addresses = nextWindowList.map(win => win.address);
                 } catch (e) {
                     console.error("Error parsing clients:", e);
                 }

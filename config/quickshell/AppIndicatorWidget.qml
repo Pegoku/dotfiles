@@ -26,6 +26,8 @@ Rectangle {
             return "file:///usr/share/icons/Adwaita/symbolic/devices/bluetooth-symbolic.svg";
         if (icon === "bluetooth-disabled-symbolic")
             return "file:///usr/share/icons/Adwaita/symbolic/status/bluetooth-disabled-symbolic.svg";
+        if (icon === "bluetooth-disconnected-symbolic")
+            return "file:///usr/share/icons/Adwaita/symbolic/status/bluetooth-disconnected-symbolic.svg";
         if (icon === "application-x-addon-symbolic")
             return "file:///usr/share/icons/Adwaita/symbolic/mimetypes/application-x-addon-symbolic.svg";
 

@@ -43,7 +43,7 @@ has_active_recording() {
         recorder_pid=""
     fi
 
-    is_wf_recorder_pid "$recorder_pid" || pgrep -x wf-recorder > /dev/null
+    is_wf_recorder_pid "$recorder_pid" || pgrep -u "$UID" -x wf-recorder > /dev/null
 }
 
 start_recording() {
@@ -66,11 +66,16 @@ mkdir -p "$(xdg-user-dir VIDEOS)"
 cd "$(xdg-user-dir VIDEOS)" || exit
 if has_active_recording; then
     notify-send "Recording Stopped" "Stopped" -a 'record-script.sh' &
-    read -r _ recorder_pid < "$statefile" 2>/dev/null || recorder_pid=""
+    if [[ -r "$statefile" ]]; then
+        read -r _ recorder_pid < "$statefile" || recorder_pid=""
+    else
+        recorder_pid=""
+    fi
+
     if is_wf_recorder_pid "$recorder_pid"; then
         kill "$recorder_pid" 2>/dev/null || true
     else
-        pkill -x wf-recorder 2>/dev/null || true
+        pkill -u "$UID" -x wf-recorder 2>/dev/null || true
     fi
     rm -f "$statefile"
 else

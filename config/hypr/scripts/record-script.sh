@@ -82,7 +82,7 @@ else
     rm -f "$statefile"
     notify-send "Starting recording" 'recording_'"$(getdate)"'.mkv' -a 'record-script.sh'
     render_device="$(getrenderdevice)"
-    recorder_args=(--codec h264_vaapi --device "$render_device" --no-dmabuf --no-damage --bframes 0 -f './recording_'"$(getdate)"'.mkv')
+    recorder_args=(--codec h264_vaapi --device "$render_device" --no-damage --bframes 0 -f './recording_'"$(getdate)"'.mkv')
 
     if [[ "$1" == "--sound" ]]; then
         geometry="$(slurp)" || exit

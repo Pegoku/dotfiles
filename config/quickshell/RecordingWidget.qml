@@ -59,9 +59,12 @@ Rectangle {
             "while true; do " +
             "statefile=\"${XDG_RUNTIME_DIR:-/tmp}/record-script.active\"; " +
             "if [ -e \"$statefile\" ]; then " +
-            "started=$(cat \"$statefile\" 2>/dev/null); " +
+            "read -r started pid < \"$statefile\" 2>/dev/null || { echo 'REC OFF 0'; sleep 1; continue; }; " +
             "case $started in ''|*[!0-9]*) started=0 ;; esac; " +
+            "case $pid in ''|*[!0-9]*) rm -f \"$statefile\"; echo 'REC OFF 0'; sleep 1; continue ;; esac; " +
+            "if [ -r \"/proc/$pid/comm\" ] && [ \"$(cat \"/proc/$pid/comm\")\" = wf-recorder ]; then " +
             "echo \"REC ON $started\"; " +
+            "else rm -f \"$statefile\"; echo 'REC OFF 0'; fi; " +
             "else echo 'REC OFF 0'; fi; " +
             "sleep 1; " +
             "done"

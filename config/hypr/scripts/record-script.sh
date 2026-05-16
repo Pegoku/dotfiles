@@ -26,25 +26,58 @@ getrenderdevice() {
 
 statefile="${XDG_RUNTIME_DIR:-/tmp}/record-script.active"
 
+is_wf_recorder_pid() {
+    local pid="$1"
+
+    [[ "$pid" =~ ^[0-9]+$ ]] || return 1
+    [[ -r "/proc/$pid/comm" ]] || return 1
+    [[ "$(<"/proc/$pid/comm")" == "wf-recorder" ]]
+}
+
+has_active_recording() {
+    local recorder_pid
+
+    if [[ -r "$statefile" ]]; then
+        read -r _ recorder_pid < "$statefile" || recorder_pid=""
+    else
+        recorder_pid=""
+    fi
+
+    is_wf_recorder_pid "$recorder_pid" || pgrep -x wf-recorder > /dev/null
+}
+
 start_recording() {
-    date +%s > "$statefile"
+    local started tmpfile
+
+    started="$(date +%s)"
+    tmpfile="$(mktemp "${statefile}.XXXXXX")" || return 1
 
     (
-        trap 'rm -f "$statefile"' EXIT
-        "$@"
+        trap 'rm -f "$statefile" "$tmpfile"' EXIT
+
+        "$@" &
+        recorder_pid=$!
+        printf '%s %s\n' "$started" "$recorder_pid" > "$tmpfile" && mv "$tmpfile" "$statefile"
+        wait "$recorder_pid"
     ) & disown
 }
 
 mkdir -p "$(xdg-user-dir VIDEOS)"
 cd "$(xdg-user-dir VIDEOS)" || exit
-if pgrep wf-recorder > /dev/null; then
+if has_active_recording; then
     notify-send "Recording Stopped" "Stopped" -a 'record-script.sh' &
+    read -r _ recorder_pid < "$statefile" 2>/dev/null || recorder_pid=""
+    if is_wf_recorder_pid "$recorder_pid"; then
+        kill "$recorder_pid" 2>/dev/null || true
+    else
+        pkill -x wf-recorder 2>/dev/null || true
+    fi
     rm -f "$statefile"
-    pkill wf-recorder &
 else
+    rm -f "$statefile"
     notify-send "Starting recording" 'recording_'"$(getdate)"'.mkv' -a 'record-script.sh'
     render_device="$(getrenderdevice)"
-    recorder_args=(--codec h264_vaapi --device "$render_device" -f './recording_'"$(getdate)"'.mkv')
+    recorder_args=(--codec h264_vaapi --device "$render_device" --no-dmabuf --no-damage --bframes 0 -f './recording_'"$(getdate)"'.mkv')
 
     if [[ "$1" == "--sound" ]]; then
         geometry="$(slurp)" || exit

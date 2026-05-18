@@ -44,6 +44,10 @@ Item {
     property bool commandProbeExists: false
     property bool commandProbeResolved: true
     property string commandProbePending: ""
+    property string pathProbe: ""
+    property bool pathProbeResolved: true
+    property string pathProbePending: ""
+    property var pathProbeActions: []
     readonly property bool hasSearchQuery: appQuery.trim().length > 0
     readonly property int resultCount: launcherActions.length + filteredApps.length
     readonly property string adwaitaSymbolicBase: "file:///usr/share/icons/Adwaita/symbolic/"
@@ -206,6 +210,52 @@ Item {
         return t.indexOf(" ") === -1;
     }
 
+    function isLikelyPath(text) {
+        var t = String(text).trim();
+        return t.startsWith("/") || t.startsWith("~/") || t === "~" || t.startsWith("./") || t.startsWith("../");
+    }
+
+    function pathTitle(path) {
+        var p = String(path);
+        while (p.length > 1 && p.endsWith("/"))
+            p = p.slice(0, -1);
+        if (p === "/")
+            return "/";
+        var idx = p.lastIndexOf("/");
+        return idx >= 0 ? p.slice(idx + 1) : p;
+    }
+
+    function pathIcon(kind) {
+        return kind === "d" ? "image://icon/folder" : "image://icon/text-x-generic";
+    }
+
+    function parsePathProbeActions(output) {
+        var actions = [];
+        var lines = String(output).split("\n");
+
+        for (var i = 0; i < lines.length; i++) {
+            var line = lines[i];
+            if (line.length === 0)
+                continue;
+
+            var tab = line.indexOf("\t");
+            if (tab < 0)
+                continue;
+
+            var kind = line.slice(0, tab);
+            var path = line.slice(tab + 1);
+            actions.push({
+                kind: "path",
+                icon: pathIcon(kind),
+                title: pathTitle(path),
+                detail: kind === "d" ? "Folder" : "File",
+                value: path
+            });
+        }
+
+        return actions;
+    }
+
     function commandProbeFor(text) {
         var t = String(text).trim();
         if (!isLikelyCommand(t))
@@ -231,6 +281,26 @@ Item {
 
         if (!commandCheckProc.running)
             startCommandProbeCheck();
+    }
+
+    function requestPathProbe(text) {
+        var probe = String(text).trim();
+        if (!isLikelyPath(probe))
+            probe = "";
+
+        if (probe === pathProbe && pathProbeResolved)
+            return;
+
+        pathProbe = probe;
+        pathProbeActions = [];
+        pathProbeResolved = probe.length === 0;
+        pathProbePending = probe;
+
+        if (probe.length === 0)
+            return;
+
+        if (!pathCheckProc.running)
+            startPathProbeCheck();
     }
 
     function resultIsAction(index) {
@@ -272,6 +342,30 @@ Item {
         commandCheckProc.running = true;
     }
 
+    function startPathProbeCheck() {
+        if (pathProbePending.length === 0)
+            return;
+
+        pathCheckProc.probe = pathProbePending;
+        pathProbePending = "";
+        pathCheckProc.outputBuffer = "";
+
+        var escaped = shellEscape(pathCheckProc.probe);
+        pathCheckProc.command = [
+            "bash",
+            "-lc",
+            "q=" + escaped + "; " +
+            "if [[ \"$q\" == ~* ]]; then q=\"${q/#\\~/$HOME}\"; fi; " +
+            "if [[ \"$q\" == */\\* ]]; then " +
+            "d=\"${q%/*}\"; " +
+            "[[ -d \"$d\" ]] && find \"$d\" -mindepth 1 -maxdepth 1 -printf '%y\\t%p\\n' | sort -k2; " +
+            "elif [[ -e \"$q\" ]]; then " +
+            "if [[ -d \"$q\" ]]; then printf 'd\\t%s\\n' \"$q\"; else printf 'f\\t%s\\n' \"$q\"; fi; " +
+            "fi"
+        ];
+        pathCheckProc.running = true;
+    }
+
     function copyToClipboard(text) {
         var escaped = shellEscape(text);
         Quickshell.execDetached(["bash", "-lc", "printf %s " + escaped + " | (wl-copy || xclip -selection clipboard || xsel --clipboard --input)"]);
@@ -284,6 +378,15 @@ Item {
 
         var target = isLikelyUrl(t) ? normalizeUrl(t) : "https://search.brave.com/search?q=" + encodeURIComponent(t);
         Quickshell.execDetached(["xdg-open", target]);
+        GlobalStates.setOverviewOpen(false);
+    }
+
+    function openPath(path) {
+        var p = String(path).trim();
+        if (p.length === 0)
+            return;
+
+        Quickshell.execDetached(["xdg-open", p]);
         GlobalStates.setOverviewOpen(false);
     }
 
@@ -369,6 +472,12 @@ Item {
             return;
         }
 
+        if (isLikelyPath(q)) {
+            requestPathProbe(q);
+            launcherActions = pathProbe === q && pathProbeResolved ? pathProbeActions : [];
+            return;
+        }
+
         var calcResult = evaluateArithmetic(q);
         if (calcResult !== null) {
             next.push({
@@ -420,6 +529,8 @@ Item {
                 openInBrowser(action.value);
             } else if (action.kind === "command") {
                 runCommandInTerminal(action.value);
+            } else if (action.kind === "path") {
+                openPath(action.value);
             } else if (action.kind === "shortcut") {
                 searchInput.text = action.value;
                 searchInput.forceActiveFocus();
@@ -514,6 +625,14 @@ Item {
         }
 
         if (activeQueryMode !== "auto") {
+            filteredApps = [];
+            refreshLauncherActions(activeQueryMode, rawQuery, 0, 0);
+            if (selectedAppIndex >= resultCount)
+                selectedAppIndex = Math.max(0, resultCount - 1);
+            return;
+        }
+
+        if (isLikelyPath(rawQuery)) {
             filteredApps = [];
             refreshLauncherActions(activeQueryMode, rawQuery, 0, 0);
             if (selectedAppIndex >= resultCount)
@@ -938,6 +1057,34 @@ Item {
 
             if (root.commandProbePending.length > 0)
                 root.startCommandProbeCheck();
+        }
+    }
+
+    Process {
+        id: pathCheckProc
+
+        property string probe: ""
+        property string outputBuffer: ""
+
+        running: false
+
+        stdout: SplitParser {
+            onRead: data => {
+                pathCheckProc.outputBuffer += data;
+            }
+        }
+
+        onExited: {
+            if (pathCheckProc.probe === root.pathProbe) {
+                root.pathProbeActions = root.parsePathProbeActions(pathCheckProc.outputBuffer);
+                root.pathProbeResolved = true;
+                root.refreshFilteredApps();
+            }
+
+            pathCheckProc.outputBuffer = "";
+
+            if (root.pathProbePending.length > 0)
+                root.startPathProbeCheck();
         }
     }
 }

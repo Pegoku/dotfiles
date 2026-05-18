@@ -357,16 +357,13 @@ Item {
         }
 
         if (mode === "command") {
-            requestCommandProbe(q);
-            if (isLikelyCommand(q) && commandProbeFor(q) === commandProbe && commandProbeResolved && commandProbeExists) {
-                next.push({
-                    kind: "command",
-                    icon: adwaitaSymbolicBase + "legacy/utilities-terminal-symbolic.svg",
-                    title: "Run command",
-                    detail: q,
-                    value: q
-                });
-            }
+            next.push({
+                kind: "command",
+                icon: adwaitaSymbolicBase + "legacy/utilities-terminal-symbolic.svg",
+                title: "Run command",
+                detail: q,
+                value: q
+            });
 
             launcherActions = next;
             return;
@@ -934,7 +931,7 @@ Item {
             if (commandCheckProc.probe === root.commandProbe) {
                 root.commandProbeExists = exists;
                 root.commandProbeResolved = true;
-                root.refreshLauncherActions(root.appQuery);
+                root.refreshFilteredApps();
             }
 
             commandCheckProc.outputBuffer = "";

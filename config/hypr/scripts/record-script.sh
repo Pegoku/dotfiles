@@ -46,6 +46,29 @@ has_active_recording() {
     is_wf_recorder_pid "$recorder_pid" || pgrep -u "$UID" -x wf-recorder > /dev/null
 }
 
+stop_recording_pid() {
+    local pid="$1"
+
+    is_wf_recorder_pid "$pid" || return 1
+    kill -INT "$pid" 2>/dev/null || return 1
+
+    for _ in {1..20}; do
+        is_wf_recorder_pid "$pid" || return 0
+        sleep 0.5
+    done
+
+    notify-send "Stopping recording" "wf-recorder ignored SIGINT; sending SIGTERM." -a 'record-script.sh' &
+    kill -TERM "$pid" 2>/dev/null || return 1
+
+    for _ in {1..20}; do
+        is_wf_recorder_pid "$pid" || return 0
+        sleep 0.5
+    done
+
+    notify-send "Force stopping recording" "wf-recorder ignored SIGINT and SIGTERM." -a 'record-script.sh' &
+    kill -KILL "$pid" 2>/dev/null || return 1
+}
+
 start_recording() {
     local started tmpfile
 
@@ -65,7 +88,7 @@ start_recording() {
 mkdir -p "$(xdg-user-dir VIDEOS)"
 cd "$(xdg-user-dir VIDEOS)" || exit
 if has_active_recording; then
-    notify-send "Recording Stopped" "Stopped" -a 'record-script.sh' &
+    notify-send "Stopping recording" "Finalizing file..." -a 'record-script.sh' &
     if [[ -r "$statefile" ]]; then
         read -r _ recorder_pid < "$statefile" || recorder_pid=""
     else
@@ -73,16 +96,19 @@ if has_active_recording; then
     fi
 
     if is_wf_recorder_pid "$recorder_pid"; then
-        kill "$recorder_pid" 2>/dev/null || true
+        stop_recording_pid "$recorder_pid" || exit
     else
-        pkill -u "$UID" -x wf-recorder 2>/dev/null || true
+        while read -r recorder_pid; do
+            stop_recording_pid "$recorder_pid" || exit
+        done < <(pgrep -u "$UID" -x wf-recorder)
     fi
     rm -f "$statefile"
+    notify-send "Recording Saved" "Stopped" -a 'record-script.sh' &
 else
     rm -f "$statefile"
     notify-send "Starting recording" 'recording_'"$(getdate)"'.mkv' -a 'record-script.sh'
     render_device="$(getrenderdevice)"
-    recorder_args=(--codec hevc_vaapi --device "$render_device" --framerate 60 --bframes 0 -p rc_mode=CQP -p qp=32 -f './recording_'"$(getdate)"'.mkv')
+    recorder_args=(--codec h264_vaapi --device "$render_device" --framerate 60 --no-damage --bframes 0 -f './recording_'"$(getdate)"'.mkv')
 
     if [[ "$1" == "--sound" ]]; then
         geometry="$(slurp)" || exit

@@ -4,34 +4,37 @@ getdate() {
     date '+%Y-%m-%d_%H.%M.%S'
 }
 getaudiooutput() {
-    pactl list sources | grep 'Name' | grep 'monitor' | cut -d ' ' -f2
+    local sink
+
+    sink="$(pactl get-default-sink 2>/dev/null)" && [[ -n "$sink" ]] && {
+        printf '%s.monitor\n' "$sink"
+        return
+    }
+
+    pactl list sources | grep 'Name' | grep 'monitor' | cut -d ' ' -f2 | head -n 1
 }
 getactivemonitor() {
     hyprctl monitors -j | jq -r '.[] | select(.focused == true) | .name'
 }
-getrenderdevice() {
-    for render in /sys/class/drm/renderD*; do
-        [[ -e "$render/device/class" ]] || continue
+getregion() {
+    local selection position size x y
 
-        # On this laptop the integrated GPU shows up as a display controller,
-        # and matching the compositor's GPU avoids VAAPI hwupload failures.
-        if [[ "$(<"$render/device/class")" == "0x038000" ]]; then
-            printf '/dev/dri/%s\n' "${render##*/}"
-            return
-        fi
-    done
-
-    ls /dev/dri/renderD* 2>/dev/null | head -n 1
+    selection="$(slurp)" || return 1
+    read -r position size <<< "$selection"
+    x="${position%,*}"
+    y="${position#*,}"
+    printf '%s+%s+%s\n' "$size" "$x" "$y"
 }
 
 statefile="${XDG_RUNTIME_DIR:-/tmp}/record-script.active"
 
-is_wf_recorder_pid() {
+is_recorder_pid() {
     local pid="$1"
+    local exe
 
     [[ "$pid" =~ ^[0-9]+$ ]] || return 1
-    [[ -r "/proc/$pid/comm" ]] || return 1
-    [[ "$(<"/proc/$pid/comm")" == "wf-recorder" ]]
+    exe="$(readlink "/proc/$pid/exe" 2>/dev/null)" || return 1
+    [[ "${exe##*/}" == "gpu-screen-recorder" ]]
 }
 
 has_active_recording() {
@@ -43,29 +46,29 @@ has_active_recording() {
         recorder_pid=""
     fi
 
-    is_wf_recorder_pid "$recorder_pid" || pgrep -u "$UID" -x wf-recorder > /dev/null
+    is_recorder_pid "$recorder_pid" || pgrep -u "$UID" -f 'gpu-screen-recorder' > /dev/null
 }
 
 stop_recording_pid() {
     local pid="$1"
 
-    is_wf_recorder_pid "$pid" || return 1
+    is_recorder_pid "$pid" || return 1
     kill -INT "$pid" 2>/dev/null || return 1
 
     for _ in {1..20}; do
-        is_wf_recorder_pid "$pid" || return 0
+        is_recorder_pid "$pid" || return 0
         sleep 0.5
     done
 
-    notify-send "Stopping recording" "wf-recorder ignored SIGINT; sending SIGTERM." -a 'record-script.sh' &
+    notify-send "Stopping recording" "gpu-screen-recorder ignored SIGINT; sending SIGTERM." -a 'record-script.sh' &
     kill -TERM "$pid" 2>/dev/null || return 1
 
     for _ in {1..20}; do
-        is_wf_recorder_pid "$pid" || return 0
+        is_recorder_pid "$pid" || return 0
         sleep 0.5
     done
 
-    notify-send "Force stopping recording" "wf-recorder ignored SIGINT and SIGTERM." -a 'record-script.sh' &
+    notify-send "Force stopping recording" "gpu-screen-recorder ignored SIGINT and SIGTERM." -a 'record-script.sh' &
     kill -KILL "$pid" 2>/dev/null || return 1
 }
 
@@ -95,30 +98,30 @@ if has_active_recording; then
         recorder_pid=""
     fi
 
-    if is_wf_recorder_pid "$recorder_pid"; then
+    if is_recorder_pid "$recorder_pid"; then
         stop_recording_pid "$recorder_pid" || exit
     else
         while read -r recorder_pid; do
             stop_recording_pid "$recorder_pid" || exit
-        done < <(pgrep -u "$UID" -x wf-recorder)
+        done < <(pgrep -u "$UID" -f 'gpu-screen-recorder')
     fi
     rm -f "$statefile"
     notify-send "Recording Saved" "Stopped" -a 'record-script.sh' &
 else
     rm -f "$statefile"
-    notify-send "Starting recording" 'recording_'"$(getdate)"'.mkv' -a 'record-script.sh'
-    render_device="$(getrenderdevice)"
-    recorder_args=(--codec h264_vaapi --device "$render_device" --framerate 60 --no-damage --bframes 0 -f './recording_'"$(getdate)"'.mkv')
+    output_file='./recording_'"$(getdate)"'.mkv'
+    notify-send "Starting recording" "$output_file" -a 'record-script.sh'
+    recorder_args=(-c mkv -f 60 -k h264 -q high -o "$output_file")
 
     if [[ "$1" == "--sound" ]]; then
-        geometry="$(slurp)" || exit
-        start_recording wf-recorder "${recorder_args[@]}" --geometry "$geometry" --audio="$(getaudiooutput)"
+        geometry="$(getregion)" || exit
+        start_recording gpu-screen-recorder -w region -region "$geometry" "${recorder_args[@]}" -a "$(getaudiooutput)"
     elif [[ "$1" == "--fullscreen-sound" ]]; then
-        start_recording wf-recorder -o "$(getactivemonitor)" "${recorder_args[@]}" --audio="$(getaudiooutput)"
+        start_recording gpu-screen-recorder -w "$(getactivemonitor)" "${recorder_args[@]}" -a "$(getaudiooutput)"
     elif [[ "$1" == "--fullscreen" ]]; then
-        start_recording wf-recorder -o "$(getactivemonitor)" "${recorder_args[@]}"
+        start_recording gpu-screen-recorder -w "$(getactivemonitor)" "${recorder_args[@]}"
     else
-        geometry="$(slurp)" || exit
-        start_recording wf-recorder "${recorder_args[@]}" --geometry "$geometry"
+        geometry="$(getregion)" || exit
+        start_recording gpu-screen-recorder -w region -region "$geometry" "${recorder_args[@]}"
     fi
 fi

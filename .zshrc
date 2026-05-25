@@ -208,6 +208,8 @@ es() {
   easyeda2kicad --full --lcsc_id=$1
 }
 
+alias lcsc="easyeda2kicad --full --lcsc_id "
+
 alias rm='trash'   
 
 #alias n="nautilus"
@@ -215,6 +217,8 @@ alias n="nohup nautilus . > /dev/null 2>&1 &"
 
 alias ,="yay -F"
 alias killscreens='pkill -f "(^|/)grimblast\.sh([[:space:]]|$)" 2>/dev/null; pkill -x grim slurp swappy hyprpicker tesseract 2>/dev/null; sleep 0.2; pkill -9 -f "(^|/)grimblast\.sh([[:space:]]|$)" 2>/dev/null; pkill -9 -x grim slurp swappy hyprpicker tesseract 2>/dev/null'
+
+alias oo="opencode"
 
 export DOCKER_HOST=unix://$XDG_RUNTIME_DIR/docker.sock
 

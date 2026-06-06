@@ -44,6 +44,7 @@ FREEZE=yes
 WAIT=no
 SCALE=
 HYPRPICKER_PID=-1
+CURSOR_NO_HARDWARE_ORIGINAL=
 
 while [ $# -gt 0 ]; do
   key="$1"
@@ -140,14 +141,29 @@ resetFade() {
   fi
 }
 
+useHardwareCursor() {
+  CURSOR_NO_HARDWARE_ORIGINAL="$(hyprctl getoption cursor:no_hardware_cursors -j | jq -r '.int // empty')"
+  hyprctl keyword cursor:no_hardware_cursors false >/dev/null
+}
+
+resetCursorMode() {
+  if [ -n "$CURSOR_NO_HARDWARE_ORIGINAL" ]; then
+    hyprctl keyword cursor:no_hardware_cursors "$CURSOR_NO_HARDWARE_ORIGINAL" >/dev/null
+    CURSOR_NO_HARDWARE_ORIGINAL=
+  fi
+}
+
 killHyprpicker() {
-  if [ ! $HYPRPICKER_PID -eq -1 ]; then
-    kill $HYPRPICKER_PID
+  if [ ! "$HYPRPICKER_PID" -eq -1 ]; then
+    kill "$HYPRPICKER_PID" 2>/dev/null
+    command wait "$HYPRPICKER_PID" 2>/dev/null
+    HYPRPICKER_PID=-1
   fi
 }
 
 die() {
   killHyprpicker
+  resetCursorMode
   MSG=${1:-Bye}
   notifyError "Error: $MSG"
   exit 2
@@ -173,6 +189,8 @@ takeScreenshot() {
     grim ${CURSOR:+-c} ${SCALE:+-s "$SCALE"} "$FILE" || die "Unable to invoke grim"
   else
     grim ${CURSOR:+-c} ${SCALE:+-s "$SCALE"} -g "$GEOM" "$FILE" || die "Unable to invoke grim"
+    killHyprpicker
+    resetCursorMode
     resetFade
   fi
 }
@@ -210,6 +228,7 @@ elif [ "$SUBJECT" = "output" ]; then
   WHAT="$OUTPUT"
 elif [ "$SUBJECT" = "area" ]; then
   if [ "$FREEZE" = "yes" ] && [ "$(command -v "hyprpicker")" ] >/dev/null 2>&1; then
+    useHardwareCursor
     hyprpicker -r -z &
     sleep 0.2
     HYPRPICKER_PID=$!
@@ -230,6 +249,7 @@ elif [ "$SUBJECT" = "area" ]; then
   # Check if user exited slurp without selecting the area
   if [ -z "$GEOM" ]; then
     killHyprpicker
+    resetCursorMode
     resetFade
     exit 1
   fi

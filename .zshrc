@@ -220,6 +220,8 @@ alias killscreens='pkill -f "(^|/)grimblast\.sh([[:space:]]|$)" 2>/dev/null; pki
 
 alias oo="opencode"
 
+alias codex-auth="bunx @loongphy/codex-auth"
+
 export DOCKER_HOST=unix://$XDG_RUNTIME_DIR/docker.sock
 
 #typeset -g POWERLEVEL9K_INSTANT_PROMPT=quiet
@@ -254,6 +256,11 @@ path+=(
   /home/pegoku/.cargo/bin
 )
 
+if [ -f /opt/esp-idf/export.sh ]; then
+  export IDF_PATH=/opt/esp-idf
+  . /opt/esp-idf/export.sh >/dev/null 2>&1
+fi
+
 # >>> conda initialize >>>
 # !! Contents within this block are managed by 'conda init' !!
 __conda_setup="$('/home/pegoku/miniconda3/bin/conda' 'shell.zsh' 'hook' 2> /dev/null)"
@@ -268,4 +275,3 @@ else
 fi
 unset __conda_setup
 # <<< conda initialize <<<
-

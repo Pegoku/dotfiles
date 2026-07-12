@@ -221,6 +221,7 @@ alias killscreens='pkill -f "(^|/)grimblast\.sh([[:space:]]|$)" 2>/dev/null; pki
 alias oo="opencode"
 
 alias codex-auth="bunx @loongphy/codex-auth"
+alias ccusage="bunx ccusage"
 
 export DOCKER_HOST=unix://$XDG_RUNTIME_DIR/docker.sock
 

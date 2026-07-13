@@ -2,7 +2,30 @@
 
 set -u
 
-config_file="${VIKUNJA_CONFIG:-${XDG_CONFIG_HOME:-$HOME/.config}/vikunja-calendar/config}"
+config_home="${XDG_CONFIG_HOME:-$HOME/.config}"
+default_config_file="$config_home/vikunja-calendar/vikunja.conf"
+legacy_config_file="$config_home/vikunja-calendar/config"
+
+if [[ -n "${VIKUNJA_CONFIG:-}" ]]; then
+    config_file="$VIKUNJA_CONFIG"
+elif [[ ! -e "$default_config_file" && -r "$legacy_config_file" ]]; then
+    config_file="$legacy_config_file"
+else
+    config_file="$default_config_file"
+fi
+
+if [[ ! -e "$config_file" ]]; then
+    umask 077
+    mkdir -p "$(dirname "$config_file")"
+    printf '%s\n' \
+        '# Vikunja calendar integration. Keep this file private (mode 600).' \
+        'VIKUNJA_URL=""' \
+        'VIKUNJA_TOKEN=""' \
+        '' \
+        '# Optional. New tasks use the first non-archived project when set to 0.' \
+        'VIKUNJA_DEFAULT_PROJECT_ID=0' > "$config_file"
+    chmod 600 "$config_file"
+fi
 
 if [[ -r "$config_file" ]]; then
     # The file is user-owned and should be mode 600. It deliberately lives

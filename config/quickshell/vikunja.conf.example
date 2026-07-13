@@ -1,5 +1,6 @@
-# Copy this file to ~/.config/vikunja-calendar/config and run:
-# chmod 600 ~/.config/vikunja-calendar/config
+# This file is created automatically at:
+# ~/.config/vikunja-calendar/vikunja.conf
+# The copy here documents the available settings.
 
 VIKUNJA_URL="https://vikunja.example.com"
 VIKUNJA_TOKEN="tk_replace_with_an_api_token"

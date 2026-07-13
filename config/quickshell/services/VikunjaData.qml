@@ -8,7 +8,7 @@ Singleton {
     id: root
 
     readonly property string scriptPath: Qt.resolvedUrl("../scripts/vikunja-calendar.sh").toString().replace("file://", "")
-    readonly property string defaultConfigPath: "~/.config/vikunja-calendar/config"
+    readonly property string defaultConfigPath: "~/.config/vikunja-calendar/vikunja.conf"
 
     property var projects: []
     property var tasks: []

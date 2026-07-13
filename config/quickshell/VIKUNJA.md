@@ -5,15 +5,20 @@ tasks. Credentials intentionally live outside this dotfiles repository.
 
 1. In Vikunja, open **Settings → API Tokens** and create a token with permission
    to read projects/tasks and create/update tasks.
-2. Copy `vikunja.conf.example` to `~/.config/vikunja-calendar/config`.
-3. Fill in the server URL and token, then protect the file:
+2. Open the calendar once. It automatically creates:
 
    ```sh
-   chmod 600 ~/.config/vikunja-calendar/config
+   ~/.config/vikunja-calendar/vikunja.conf
    ```
+
+3. Fill in the server URL and token. The file is created with mode `600` so
+   only your user can read it.
 
 The URL may be the instance root or end in `/api/v1`. The integration supports
 the current `/tasks` endpoint and falls back to `/tasks/all` for older servers.
 
 `VIKUNJA_DEFAULT_PROJECT_ID` is optional. If it is missing or inaccessible, the
 first non-archived project is selected when adding a task.
+
+For compatibility, an existing `~/.config/vikunja-calendar/config` file is
+still used when `vikunja.conf` has not been created yet.

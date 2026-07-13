@@ -92,7 +92,7 @@ Scope {
                 readonly property int detailsHeight: {
                     if (!selectedDate)
                         return 0;
-                    if (!VikunjaData.configured)
+                    if (!VikunjaData.available)
                         return 118;
                     if (selectedTasks.length === 0)
                         return 154;
@@ -222,14 +222,14 @@ Scope {
                                 Text {
                                     anchors.centerIn: parent
                                     text: "↻"
-                                    color: VikunjaData.loading ? "#7181a0" : "#dce3f2"
+                                    color: VikunjaData.syncing ? "#d5a85c" : "#dce3f2"
                                     font.pixelSize: 15
                                 }
 
                                 MouseArea {
                                     id: refreshMouse
                                     anchors.fill: parent
-                                    enabled: !VikunjaData.loading && !VikunjaData.mutating
+                                    enabled: !VikunjaData.syncing
                                     hoverEnabled: true
                                     cursorShape: Qt.PointingHandCursor
                                     onClicked: VikunjaData.refresh()
@@ -444,7 +444,13 @@ Scope {
                                 width: 6
                                 height: 6
                                 radius: 3
-                                color: VikunjaData.loading ? "#d5a85c" : VikunjaData.configured ? "#73b982" : "#69717e"
+                                color: {
+                                    if (VikunjaData.syncing)
+                                        return "#d5a85c";
+                                    if (VikunjaData.outboxCount > 0)
+                                        return VikunjaData.error ? "#d47b72" : "#8fa7d8";
+                                    return VikunjaData.available ? "#73b982" : "#69717e";
+                                }
                             }
 
                             Text {
@@ -452,12 +458,18 @@ Scope {
                                 elide: Text.ElideRight
                                 text: {
                                     if (VikunjaData.loading)
-                                        return "Syncing Vikunja…";
-                                    if (!VikunjaData.configured)
+                                        return "Loading local calendar…";
+                                    if (VikunjaData.syncing)
+                                        return VikunjaData.outboxCount > 0 ? "Syncing " + VikunjaData.outboxCount + " queued…" : "Syncing Vikunja…";
+                                    if (!VikunjaData.available)
                                         return "Vikunja setup needed";
+                                    if (VikunjaData.outboxCount > 0)
+                                        return VikunjaData.outboxCount
+                                            + (VikunjaData.outboxCount === 1 ? " change queued" : " changes queued")
+                                            + (VikunjaData.error ? " · offline" : "");
                                     if (VikunjaData.error)
-                                        return VikunjaData.error;
-                                    return VikunjaData.tasks.length + " tasks synced";
+                                        return "Local data · sync unavailable";
+                                    return VikunjaData.tasks.length + " local tasks · synced";
                                 }
                                 color: VikunjaData.error ? "#d99898" : "#737c8d"
                                 font.pixelSize: 9
@@ -558,7 +570,7 @@ Scope {
                             }
 
                             Column {
-                                visible: !VikunjaData.configured
+                                visible: !VikunjaData.available
                                 width: parent.width
                                 spacing: 4
 
@@ -589,7 +601,7 @@ Scope {
                             }
 
                             Flickable {
-                                visible: VikunjaData.configured && calendarCard.selectedTasks.length > 0
+                                visible: VikunjaData.available && calendarCard.selectedTasks.length > 0
                                 width: parent.width
                                 height: calendarCard.editorOpen ? 96 : 92
                                 clip: true
@@ -643,7 +655,7 @@ Scope {
                                                 MouseArea {
                                                     id: completeMouse
                                                     anchors.fill: parent
-                                                    enabled: !VikunjaData.mutating && !VikunjaData.loading
+                                                    enabled: true
                                                     hoverEnabled: true
                                                     cursorShape: Qt.PointingHandCursor
                                                     onClicked: VikunjaData.completeTask(modelData.id)
@@ -657,7 +669,7 @@ Scope {
                                                 anchors.rightMargin: 8
                                                 anchors.verticalCenter: parent.verticalCenter
                                                 text: modelData.title
-                                                color: "#e0e3e9"
+                                                color: modelData._sync_state === "pending" ? "#cbd5e7" : "#e0e3e9"
                                                 font.pixelSize: 10
                                                 elide: Text.ElideRight
                                             }
@@ -667,9 +679,9 @@ Scope {
                                                 anchors.right: parent.right
                                                 anchors.rightMargin: 8
                                                 anchors.verticalCenter: parent.verticalCenter
-                                                width: Math.min(100, implicitWidth)
-                                                text: VikunjaData.projectTitle(modelData.project_id)
-                                                color: VikunjaData.projectColor(modelData.project_id)
+                                                width: Math.min(115, implicitWidth)
+                                                text: (modelData._sync_state === "pending" ? "queued · " : "") + VikunjaData.projectTitle(modelData.project_id)
+                                                color: modelData._sync_state === "pending" ? "#d5a85c" : VikunjaData.projectColor(modelData.project_id)
                                                 font.pixelSize: 8
                                                 font.bold: true
                                                 elide: Text.ElideRight
@@ -680,7 +692,7 @@ Scope {
                             }
 
                             Rectangle {
-                                visible: VikunjaData.configured && calendarCard.selectedTasks.length > 0 && !calendarCard.editorOpen
+                                visible: VikunjaData.available && calendarCard.selectedTasks.length > 0 && !calendarCard.editorOpen
                                 width: parent.width
                                 height: 28
                                 radius: 7
@@ -709,7 +721,7 @@ Scope {
                             }
 
                             Column {
-                                visible: VikunjaData.configured && (calendarCard.selectedTasks.length === 0 || calendarCard.editorOpen)
+                                visible: VikunjaData.available && (calendarCard.selectedTasks.length === 0 || calendarCard.editorOpen)
                                 width: parent.width
                                 spacing: 6
 
@@ -819,7 +831,7 @@ Scope {
 
                                         Text {
                                             anchors.centerIn: parent
-                                            text: VikunjaData.mutating ? "…" : "Add"
+                                            text: "Add"
                                             color: addTaskMouse.enabled ? "#ffffff" : "#6f7785"
                                             font.pixelSize: 10
                                             font.bold: true
@@ -830,7 +842,6 @@ Scope {
                                             anchors.fill: parent
                                             enabled: calendarCard.newTaskTitle.trim().length > 0
                                                 && calendarCard.selectedProjectId > 0
-                                                && !VikunjaData.mutating
                                                 && !VikunjaData.loading
                                             hoverEnabled: true
                                             cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
@@ -862,7 +873,7 @@ Scope {
                 Timer {
                     interval: 300000
                     repeat: true
-                    running: GlobalStates.calendarOpen && VikunjaData.configured
+                    running: GlobalStates.calendarOpen && VikunjaData.available
                     onTriggered: VikunjaData.refresh()
                 }
 

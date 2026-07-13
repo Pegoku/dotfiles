@@ -9,18 +9,23 @@ Singleton {
 
     readonly property string scriptPath: Qt.resolvedUrl("../scripts/vikunja-calendar.sh").toString().replace("file://", "")
     readonly property string defaultConfigPath: "~/.config/vikunja-calendar/vikunja.conf"
+    readonly property bool available: configured || projects.length > 0
 
     property var projects: []
     property var tasks: []
     property var tasksByDate: ({})
+    property var commandQueue: []
     property int defaultProjectId: 0
+    property int outboxCount: 0
+    property int localRevision: 0
+    property int localSequence: 0
     property bool configured: false
-    property bool loading: false
+    property bool loading: true
+    property bool syncing: false
     property bool mutating: false
-    property bool refreshQueued: false
     property string error: ""
     property string configPath: defaultConfigPath
-    property string lastAction: ""
+    property string lastSync: ""
 
     signal taskCreated(string dateKey)
 
@@ -34,10 +39,14 @@ Singleton {
         function status(): string {
             return JSON.stringify({
                 configured: root.configured,
+                available: root.available,
                 loading: root.loading,
+                syncing: root.syncing,
                 mutating: root.mutating,
                 projectCount: root.projects.length,
                 taskCount: Object.keys(root.tasksByDate).reduce((total, key) => total + root.tasksByDate[key].length, 0),
+                outboxCount: root.outboxCount,
+                lastSync: root.lastSync,
                 error: root.error
             });
         }
@@ -147,53 +156,153 @@ Singleton {
         return 0;
     }
 
-    function refresh() {
-        if (apiProcess.running) {
-            refreshQueued = true;
+    function hasQueuedKind(kind) {
+        if (apiProcess.running && apiProcess.currentKind === kind)
+            return true;
+        for (var i = 0; i < commandQueue.length; i++) {
+            if (commandQueue[i].kind === kind)
+                return true;
+        }
+        return false;
+    }
+
+    function queueCommand(kind, argumentsList, revision) {
+        if (kind === "sync" && hasQueuedKind("sync"))
             return;
+
+        var command = {
+            kind: kind,
+            argumentsList: argumentsList,
+            revision: revision === undefined ? localRevision : revision
+        };
+        var next = commandQueue.slice();
+
+        if (kind.startsWith("enqueue-")) {
+            var syncIndex = next.findIndex(entry => entry.kind === "sync");
+            if (syncIndex >= 0)
+                next.splice(syncIndex, 0, command);
+            else
+                next.push(command);
+        } else {
+            next.push(command);
         }
 
-        loading = true;
-        lastAction = "fetch";
+        commandQueue = next;
+        Qt.callLater(startNextCommand);
+    }
+
+    function startNextCommand() {
+        if (apiProcess.running || commandQueue.length === 0)
+            return;
+
+        var next = commandQueue[0];
+        commandQueue = commandQueue.slice(1);
+        apiProcess.currentKind = next.kind;
+        apiProcess.revisionAtStart = next.revision;
         apiProcess.outputBuffer = "";
-        apiProcess.command = ["bash", scriptPath, "fetch"];
+        apiProcess.command = ["bash", scriptPath].concat(next.argumentsList);
+
+        if (next.kind === "cache")
+            loading = true;
+        else if (next.kind === "sync")
+            syncing = true;
+        else if (next.kind.startsWith("enqueue-"))
+            mutating = true;
+
         apiProcess.running = true;
+    }
+
+    function loadCache() {
+        if (!hasQueuedKind("cache"))
+            queueCommand("cache", ["cache"], localRevision);
+    }
+
+    function refresh() {
+        queueCommand("sync", ["sync"], localRevision);
     }
 
     function createTask(title, projectId, dueDate) {
         var cleanTitle = String(title || "").trim();
-        if (!cleanTitle || apiProcess.running)
+        var numericProjectId = Number(projectId || 0);
+        if (!cleanTitle || numericProjectId <= 0)
             return false;
 
+        localSequence++;
+        localRevision++;
+
+        var localId = "local-" + Date.now() + "-" + localSequence;
         var localDue = new Date(dueDate.getFullYear(), dueDate.getMonth(), dueDate.getDate(), 12, 0, 0);
-        mutating = true;
-        error = "";
-        lastAction = "create";
-        apiProcess.outputBuffer = "";
-        apiProcess.pendingDateKey = dateKey(dueDate);
-        apiProcess.command = ["bash", scriptPath, "create", String(projectId), localDue.toISOString(), cleanTitle];
-        apiProcess.running = true;
+        var dueIso = localDue.toISOString();
+        var optimisticTask = {
+            id: localId,
+            title: cleanTitle,
+            project_id: numericProjectId,
+            due_date: dueIso,
+            done: false,
+            priority: 0,
+            hex_color: "",
+            _sync_state: "pending"
+        };
+
+        tasks = tasks.concat([optimisticTask]);
+        outboxCount++;
+        rebuildTaskIndex();
+        taskCreated(dateKey(dueDate));
+
+        queueCommand("enqueue-create", ["enqueue-create", localId, String(numericProjectId), dueIso, cleanTitle], localRevision);
+        queueCommand("sync", ["sync"], localRevision);
         return true;
     }
 
     function completeTask(taskId) {
-        if (apiProcess.running)
+        var wanted = String(taskId);
+        var wasPendingCreate = wanted.startsWith("local-");
+        var found = false;
+        var next = [];
+
+        for (var i = 0; i < tasks.length; i++) {
+            if (String(tasks[i].id) === wanted) {
+                found = true;
+                continue;
+            }
+            next.push(tasks[i]);
+        }
+        if (!found)
             return false;
 
-        mutating = true;
-        error = "";
-        lastAction = "complete";
-        apiProcess.outputBuffer = "";
-        apiProcess.command = ["bash", scriptPath, "complete", String(taskId)];
-        apiProcess.running = true;
+        localRevision++;
+        tasks = next;
+        outboxCount = wasPendingCreate ? Math.max(0, outboxCount - 1) : outboxCount + 1;
+        rebuildTaskIndex();
+
+        queueCommand("enqueue-complete", ["enqueue-complete", wanted], localRevision);
+        queueCommand("sync", ["sync"], localRevision);
         return true;
+    }
+
+    function applySnapshot(response, includeLocalState) {
+        configured = Boolean(response.configured);
+        configPath = String(response.config_path || defaultConfigPath);
+        defaultProjectId = Number(response.default_project_id || 0);
+        lastSync = String(response.last_sync || "");
+        error = String(response.sync_error || "");
+
+        if (response.projects instanceof Array)
+            projects = response.projects;
+
+        if (includeLocalState) {
+            tasks = response.tasks instanceof Array ? response.tasks : [];
+            outboxCount = Number(response.outbox_count || 0);
+            rebuildTaskIndex();
+        }
     }
 
     Process {
         id: apiProcess
 
         property string outputBuffer: ""
-        property string pendingDateKey: ""
+        property string currentKind: ""
+        property int revisionAtStart: 0
 
         running: false
 
@@ -202,43 +311,34 @@ Singleton {
         }
 
         onExited: (exitCode, exitStatus) => {
-            root.loading = false;
-            root.mutating = false;
+            var completedKind = apiProcess.currentKind;
+            if (completedKind === "cache")
+                root.loading = false;
+            else if (completedKind === "sync")
+                root.syncing = false;
+            else if (completedKind.startsWith("enqueue-"))
+                root.mutating = false;
 
             var response;
             try {
                 response = JSON.parse(apiProcess.outputBuffer.trim());
             } catch (parseError) {
-                root.error = "Vikunja returned an unreadable response";
+                root.error = "The local Vikunja worker returned an unreadable response";
                 response = null;
             }
 
             if (response && response.ok) {
-                root.configured = true;
-                root.error = "";
-
-                if (response.action === "fetch") {
-                    root.projects = response.projects || [];
-                    root.tasks = response.tasks || [];
-                    root.defaultProjectId = Number(response.default_project_id || 0);
-                    root.rebuildTaskIndex();
-                } else {
-                    if (response.action === "create")
-                        root.taskCreated(apiProcess.pendingDateKey);
-                    root.refreshQueued = true;
-                }
+                root.applySnapshot(response, apiProcess.revisionAtStart === root.localRevision);
             } else if (response) {
-                root.error = String(response.error || "Vikunja request failed");
-                root.configPath = String(response.config_path || root.defaultConfigPath);
-                if (root.lastAction === "fetch" && root.error === "Vikunja is not configured")
-                    root.configured = false;
+                root.error = String(response.error || "Local Vikunja operation failed");
             }
 
-            apiProcess.pendingDateKey = "";
-            if (root.refreshQueued) {
-                root.refreshQueued = false;
+            apiProcess.currentKind = "";
+            if (completedKind.startsWith("enqueue-"))
                 Qt.callLater(root.refresh);
-            }
+            Qt.callLater(root.startNextCommand);
         }
     }
+
+    Component.onCompleted: loadCache()
 }

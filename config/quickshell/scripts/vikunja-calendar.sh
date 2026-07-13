@@ -3,8 +3,12 @@
 set -u
 
 config_home="${XDG_CONFIG_HOME:-$HOME/.config}"
+state_home="${XDG_STATE_HOME:-$HOME/.local/state}"
 default_config_file="$config_home/vikunja-calendar/vikunja.conf"
 legacy_config_file="$config_home/vikunja-calendar/config"
+state_file="${VIKUNJA_STATE:-$state_home/vikunja-calendar/state.json}"
+state_dir="$(dirname "$state_file")"
+lock_file="$state_dir/state.lock"
 
 if [[ -n "${VIKUNJA_CONFIG:-}" ]]; then
     config_file="$VIKUNJA_CONFIG"
@@ -28,8 +32,8 @@ if [[ ! -e "$config_file" ]]; then
 fi
 
 if [[ -r "$config_file" ]]; then
-    # The file is user-owned and should be mode 600. It deliberately lives
-    # outside the dotfiles repository so API tokens are never committed.
+    # The file deliberately lives outside the dotfiles repository so API
+    # tokens are never committed.
     # shellcheck disable=SC1090
     source "$config_file"
 fi
@@ -37,36 +41,102 @@ fi
 vikunja_url="${VIKUNJA_URL:-}"
 vikunja_token="${VIKUNJA_TOKEN:-}"
 default_project_id="${VIKUNJA_DEFAULT_PROJECT_ID:-0}"
-
-emit_error() {
-    jq -cn --arg message "$1" --arg config "$config_file" \
-        '{ok: false, error: $message, config_path: $config}'
-}
-
-if [[ -z "$vikunja_url" || -z "$vikunja_token" ]]; then
-    emit_error "Vikunja is not configured"
-    exit 0
+configured=false
+if [[ -n "$vikunja_url" && -n "$vikunja_token" ]]; then
+    configured=true
 fi
 
-for dependency in curl jq; do
+for dependency in jq flock; do
     if ! command -v "$dependency" >/dev/null 2>&1; then
-        emit_error "Missing dependency: $dependency"
+        printf '{"ok":false,"error":"Missing dependency: %s"}\n' "$dependency"
         exit 0
     fi
 done
 
-api_base="${vikunja_url%/}"
-if [[ "$api_base" != */api/v1 ]]; then
-    api_base="$api_base/api/v1"
+umask 077
+mkdir -p "$state_dir"
+if [[ ! -e "$state_file" ]]; then
+    printf '%s\n' '{"version":1,"projects":[],"tasks":[],"outbox":[],"last_sync":"","sync_error":""}' > "$state_file"
+fi
+chmod 600 "$state_file"
+
+exec 9> "$lock_file"
+flock 9
+
+if ! jq -e 'type == "object" and (.projects | type == "array") and (.tasks | type == "array") and (.outbox | type == "array")' "$state_file" >/dev/null 2>&1; then
+    backup_file="$state_file.broken.$(date +%s)"
+    cp "$state_file" "$backup_file"
+    chmod 600 "$backup_file"
+    printf '%s\n' '{"version":1,"projects":[],"tasks":[],"outbox":[],"last_sync":"","sync_error":"Local cache was invalid and has been reset"}' > "$state_file"
 fi
 
-header_file="$(mktemp "${TMPDIR:-/tmp}/vikunja-calendar.XXXXXX")"
-chmod 600 "$header_file"
-printf 'Authorization: Bearer %s\nContent-Type: application/json\n' "$vikunja_token" > "$header_file"
-trap 'rm -f "$header_file"' EXIT
+write_state() {
+    local temporary
+    temporary="$(mktemp "$state_dir/state.XXXXXX")"
+    jq -c '.' > "$temporary"
+    chmod 600 "$temporary"
+    mv "$temporary" "$state_file"
+}
+
+emit_snapshot() {
+    local action="$1"
+    jq -c \
+        --arg action "$action" \
+        --argjson configured "$configured" \
+        --argjson default_project_id "${default_project_id:-0}" \
+        --arg config_path "$config_file" \
+        '{
+            ok: true,
+            action: $action,
+            configured: $configured,
+            projects: (.projects // []),
+            tasks: (.tasks // []),
+            outbox_count: ((.outbox // []) | length),
+            last_sync: (.last_sync // ""),
+            sync_error: (.sync_error // ""),
+            default_project_id: $default_project_id,
+            config_path: $config_path
+        }' "$state_file"
+}
+
+set_sync_error() {
+    local message="$1"
+    jq -c --arg message "$message" '.sync_error = $message' "$state_file" | write_state
+}
 
 response_body=""
 response_status=""
+header_file=""
+api_base=""
+
+initialize_remote() {
+    if [[ "$configured" != true ]]; then
+        set_sync_error "Vikunja is not configured"
+        return 1
+    fi
+    if ! command -v curl >/dev/null 2>&1; then
+        set_sync_error "Missing dependency: curl"
+        return 1
+    fi
+
+    api_base="${vikunja_url%/}"
+    if [[ "$api_base" != */api/v1 ]]; then
+        api_base="$api_base/api/v1"
+    fi
+
+    header_file="$(mktemp "${TMPDIR:-/tmp}/vikunja-calendar.XXXXXX")"
+    chmod 600 "$header_file"
+    printf 'Authorization: Bearer %s\nContent-Type: application/json\n' "$vikunja_token" > "$header_file"
+    return 0
+}
+
+cleanup_remote() {
+    if [[ -n "$header_file" ]]; then
+        rm -f "$header_file"
+        header_file=""
+    fi
+}
+trap cleanup_remote EXIT
 
 request() {
     local method="$1"
@@ -88,8 +158,12 @@ request() {
     fi
 
     if ! response="$(curl "${curl_args[@]}" "$api_base$path" 2>&1)"; then
-        response_body="$response"
-        response_status="000"
+        response_status="${response##*$'\n'}"
+        response_body="${response%$'\n'*}"
+        if [[ ! "$response_status" =~ ^[0-9][0-9][0-9]$ ]]; then
+            response_body="$response"
+            response_status="000"
+        fi
         return 1
     fi
 
@@ -115,6 +189,7 @@ paged_result='[]'
 
 fetch_pages() {
     local route="$1"
+    local kind="$2"
     local page=1
     local page_json
     local response_count
@@ -129,7 +204,6 @@ fetch_pages() {
         if ! request GET "$route${query_separator}per_page=100&page=$page"; then
             return 1
         fi
-
         if ! jq -e 'type == "array"' <<< "$response_body" >/dev/null 2>&1; then
             response_status="500"
             response_body='{"message":"Vikunja returned an unexpected response"}'
@@ -141,27 +215,13 @@ fetch_pages() {
             break
         fi
 
-        if [[ "$route" == "/projects" ]]; then
-            page_json="$(jq -c 'map({
-                id,
-                title,
-                hex_color,
-                is_archived,
-                max_permission
-            })' <<< "$response_body")"
+        if [[ "$kind" == "projects" ]]; then
+            page_json="$(jq -c 'map({id, title, hex_color, is_archived, max_permission})' <<< "$response_body")"
         else
             page_json="$(jq -c 'map(
                 select(.done != true)
                 | select(.due_date != null and (.due_date | startswith("0001-") | not))
-                | {
-                    id,
-                    title,
-                    project_id,
-                    due_date,
-                    done,
-                    priority,
-                    hex_color
-                }
+                | {id, title, project_id, due_date, done, priority, hex_color}
             )' <<< "$response_body")"
         fi
 
@@ -170,75 +230,176 @@ fetch_pages() {
     done
 }
 
-action="${1:-fetch}"
+sync_outbox() {
+    local entry
+    local operation
+    local payload
+    local local_id
+    local task_id
+    local remote_task
+
+    while (( $(jq '.outbox | length' "$state_file") > 0 )); do
+        entry="$(jq -c '.outbox[0]' "$state_file")"
+        operation="$(jq -r '.op' <<< "$entry")"
+
+        if [[ "$operation" == "create" ]]; then
+            local_id="$(jq -r '.local_id' <<< "$entry")"
+            payload="$(jq -c '{title, due_date}' <<< "$entry")"
+            task_id="$(jq -r '.project_id' <<< "$entry")"
+
+            if ! request PUT "/projects/$task_id/tasks" "$payload"; then
+                set_sync_error "$(api_error_message "Could not create queued Vikunja task")"
+                return 1
+            fi
+
+            remote_task="$(jq -c '{id, title, project_id, due_date, done, priority, hex_color}' <<< "$response_body")"
+            jq -c \
+                --arg local_id "$local_id" \
+                --argjson remote "$remote_task" \
+                '.outbox = .outbox[1:] | .tasks = [.tasks[] | if (.id | tostring) == $local_id then $remote else . end]' \
+                "$state_file" | write_state
+        elif [[ "$operation" == "complete" ]]; then
+            task_id="$(jq -r '.task_id' <<< "$entry")"
+            if ! request POST "/tasks/$task_id" '{"done":true}'; then
+                set_sync_error "$(api_error_message "Could not complete queued Vikunja task")"
+                return 1
+            fi
+
+            jq -c '.outbox = .outbox[1:]' "$state_file" | write_state
+        else
+            set_sync_error "Unknown local outbox operation"
+            return 1
+        fi
+    done
+}
+
+sync_remote_snapshot() {
+    local projects
+    local tasks
+    local task_route
+    local now
+
+    if ! fetch_pages "/projects" projects; then
+        set_sync_error "$(api_error_message "Could not load Vikunja projects")"
+        return 1
+    fi
+    projects="$paged_result"
+
+    task_route='/tasks?filter=done%20%3D%20false%20%26%26%20due_date%20%3E%20%220001-01-02%22'
+    if ! fetch_pages "$task_route" tasks; then
+        if [[ "$response_status" == "404" ]]; then
+            if ! fetch_pages "/tasks/all" tasks; then
+                set_sync_error "$(api_error_message "Could not load Vikunja tasks")"
+                return 1
+            fi
+        else
+            set_sync_error "$(api_error_message "Could not load Vikunja tasks")"
+            return 1
+        fi
+    fi
+    tasks="$paged_result"
+    now="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+
+    printf '%s\n%s\n%s\n' "$(jq -c '.' "$state_file")" "$projects" "$tasks" \
+        | jq -cs --arg now "$now" '
+            .[0] as $state
+            | .[1] as $projects
+            | .[2] as $remoteTasks
+            | ($state.tasks | map(select(._sync_state == "pending"))) as $pendingCreates
+            | ($state.outbox | map(select(.op == "complete") | (.task_id | tostring))) as $pendingCompletions
+            | $state
+            | .projects = $projects
+            | .tasks = (($remoteTasks | map(select((.id | tostring) as $id | ($pendingCompletions | index($id) | not)))) + $pendingCreates)
+            | .last_sync = $now
+            | .sync_error = ""
+        ' | write_state
+}
+
+action="${1:-sync}"
 
 case "$action" in
-    fetch)
-        if ! fetch_pages "/projects"; then
-            emit_error "$(api_error_message "Could not load Vikunja projects")"
-            exit 0
-        fi
-        projects="$paged_result"
-
-        task_route='/tasks?filter=done%20%3D%20false%20%26%26%20due_date%20%3E%20%220001-01-02%22'
-        if ! fetch_pages "$task_route"; then
-            if [[ "$response_status" == "404" ]]; then
-                task_route="/tasks/all"
-                if ! fetch_pages "$task_route"; then
-                    emit_error "$(api_error_message "Could not load Vikunja tasks")"
-                    exit 0
-                fi
-            else
-                emit_error "$(api_error_message "Could not load Vikunja tasks")"
-                exit 0
-            fi
-        fi
-        tasks="$paged_result"
-
-        printf '%s\n%s\n' "$projects" "$tasks" \
-            | jq -cs --argjson default_project_id "${default_project_id:-0}" \
-                '{ok: true, action: "fetch", projects: .[0], tasks: .[1], default_project_id: $default_project_id}'
+    cache)
+        emit_snapshot cache
         ;;
 
-    create)
-        project_id="${2:-0}"
-        due_date="${3:-}"
-        title="${4:-}"
+    enqueue-create)
+        local_id="${2:-}"
+        project_id="${3:-0}"
+        due_date="${4:-}"
+        title="${5:-}"
 
-        if [[ ! "$project_id" =~ ^[0-9]+$ ]] || (( project_id <= 0 )); then
-            emit_error "Choose a Vikunja project before creating a task"
-            exit 0
-        fi
-        if [[ -z "$due_date" || -z "$title" ]]; then
-            emit_error "Task title and due date are required"
+        if [[ -z "$local_id" || ! "$project_id" =~ ^[0-9]+$ ]] || (( project_id <= 0 )) || [[ -z "$due_date" || -z "$title" ]]; then
+            jq -cn --arg error "Task title, project, local ID, and due date are required" '{ok:false,error:$error}'
             exit 0
         fi
 
-        payload="$(jq -cn --arg title "$title" --arg due_date "$due_date" '{title: $title, due_date: $due_date}')"
-        if ! request PUT "/projects/$project_id/tasks" "$payload"; then
-            emit_error "$(api_error_message "Could not create Vikunja task")"
-            exit 0
-        fi
-
-        jq -cn --argjson task "$response_body" '{ok: true, action: "create", task: $task}'
+        jq -c \
+            --arg local_id "$local_id" \
+            --argjson project_id "$project_id" \
+            --arg due_date "$due_date" \
+            --arg title "$title" \
+            --arg created_at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" '
+                if any(.tasks[]; (.id | tostring) == $local_id) then . else
+                    .tasks += [{
+                        id: $local_id,
+                        title: $title,
+                        project_id: $project_id,
+                        due_date: $due_date,
+                        done: false,
+                        priority: 0,
+                        hex_color: "",
+                        _sync_state: "pending"
+                    }]
+                    | .outbox += [{
+                        op: "create",
+                        local_id: $local_id,
+                        title: $title,
+                        project_id: $project_id,
+                        due_date: $due_date,
+                        created_at: $created_at
+                    }]
+                end
+            ' "$state_file" | write_state
+        emit_snapshot enqueue-create
         ;;
 
-    complete)
-        task_id="${2:-0}"
-        if [[ ! "$task_id" =~ ^[0-9]+$ ]] || (( task_id <= 0 )); then
-            emit_error "Invalid Vikunja task"
+    enqueue-complete)
+        task_id="${2:-}"
+        if [[ -z "$task_id" ]]; then
+            jq -cn --arg error "Task ID is required" '{ok:false,error:$error}'
             exit 0
         fi
 
-        if ! request POST "/tasks/$task_id" '{"done":true}'; then
-            emit_error "$(api_error_message "Could not complete Vikunja task")"
+        if [[ "$task_id" == local-* ]]; then
+            jq -c --arg task_id "$task_id" '
+                .tasks = [.tasks[] | select((.id | tostring) != $task_id)]
+                | .outbox = [.outbox[] | select(.op != "create" or .local_id != $task_id)]
+            ' "$state_file" | write_state
+        else
+            jq -c --arg task_id "$task_id" --arg created_at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" '
+                .tasks = [.tasks[] | select((.id | tostring) != $task_id)]
+                | if any(.outbox[]; .op == "complete" and (.task_id | tostring) == $task_id) then . else
+                    .outbox += [{op:"complete", task_id:($task_id | tonumber), created_at:$created_at}]
+                  end
+            ' "$state_file" | write_state
+        fi
+        emit_snapshot enqueue-complete
+        ;;
+
+    fetch|sync)
+        if ! initialize_remote; then
+            emit_snapshot sync
             exit 0
         fi
-
-        jq -cn --argjson task "$response_body" '{ok: true, action: "complete", task: $task}'
+        if ! sync_outbox; then
+            emit_snapshot sync
+            exit 0
+        fi
+        sync_remote_snapshot || true
+        emit_snapshot sync
         ;;
 
     *)
-        emit_error "Unknown Vikunja calendar action: $action"
+        jq -cn --arg error "Unknown Vikunja calendar action: $action" '{ok:false,error:$error}'
         ;;
 esac

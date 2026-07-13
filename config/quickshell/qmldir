@@ -27,5 +27,6 @@ AppIndicatorWidget 1.0 AppIndicatorWidget.qml
 ActiveWindowWidget 1.0 ActiveWindowWidget.qml
 NowPlayingWidget 1.0 NowPlayingWidget.qml
 NowPlayingOverlay 1.0 NowPlayingOverlay.qml
+CalendarOverlay 1.0 CalendarOverlay.qml
 AiChatOverlay 1.0 AiChatOverlay.qml
 singleton Time 1.0 Time.qml

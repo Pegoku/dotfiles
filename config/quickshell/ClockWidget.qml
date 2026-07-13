@@ -4,8 +4,11 @@ import "."
 Rectangle {
     id: containerRect
 
-
     property int padding: 6
+
+    function updateAnchorX() {
+        GlobalStates.calendarAnchorX = containerRect.x + containerRect.width / 2;
+    }
 
     anchors.verticalCenter: parent.verticalCenter
 
@@ -35,5 +38,22 @@ Rectangle {
         // keep left padding only (padding on the left side of the text)
         width: clockText.implicitWidth + dayText.implicitWidth + padding*2
     height: clockText.implicitHeight + padding * 2
+
+    MouseArea {
+        anchors.fill: parent
+        hoverEnabled: true
+        acceptedButtons: Qt.LeftButton
+        cursorShape: Qt.PointingHandCursor
+
+        onClicked: {
+            containerRect.updateAnchorX();
+            GlobalStates.nowPlayingOpen = false;
+            GlobalStates.calendarOpen = !GlobalStates.calendarOpen;
+        }
+    }
+
+    onXChanged: containerRect.updateAnchorX()
+    onWidthChanged: containerRect.updateAnchorX()
+    Component.onCompleted: containerRect.updateAnchorX()
 
 }

@@ -6,6 +6,7 @@ import Quickshell.Io
 Scope {
     Bar {}
     NowPlayingOverlay {}
+    CalendarOverlay {}
     AiChatOverlay {}
     OnScreenDisplay {}
     Overview {}

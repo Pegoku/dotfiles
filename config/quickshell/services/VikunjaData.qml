@@ -24,6 +24,25 @@ Singleton {
 
     signal taskCreated(string dateKey)
 
+    IpcHandler {
+        target: "vikunja"
+
+        function refresh(): void {
+            root.refresh();
+        }
+
+        function status(): string {
+            return JSON.stringify({
+                configured: root.configured,
+                loading: root.loading,
+                mutating: root.mutating,
+                projectCount: root.projects.length,
+                taskCount: Object.keys(root.tasksByDate).reduce((total, key) => total + root.tasksByDate[key].length, 0),
+                error: root.error
+            });
+        }
+    }
+
     function dateKey(value) {
         var date = value instanceof Date ? value : new Date(value);
         if (isNaN(date.getTime()))

@@ -117,11 +117,16 @@ fetch_pages() {
     local route="$1"
     local page=1
     local page_json
-    local count
+    local response_count
+    local query_separator="?"
+
+    if [[ "$route" == *\?* ]]; then
+        query_separator="&"
+    fi
 
     paged_result='[]'
     while (( page <= 100 )); do
-        if ! request GET "$route?per_page=100&page=$page"; then
+        if ! request GET "$route${query_separator}per_page=100&page=$page"; then
             return 1
         fi
 
@@ -131,13 +136,36 @@ fetch_pages() {
             return 1
         fi
 
-        page_json="$(jq -c '.' <<< "$response_body")"
-        count="$(jq 'length' <<< "$page_json")"
-        if (( count == 0 )); then
+        response_count="$(jq 'length' <<< "$response_body")"
+        if (( response_count == 0 )); then
             break
         fi
 
-        paged_result="$(jq -cn --argjson accumulated "$paged_result" --argjson page "$page_json" '$accumulated + $page')"
+        if [[ "$route" == "/projects" ]]; then
+            page_json="$(jq -c 'map({
+                id,
+                title,
+                hex_color,
+                is_archived,
+                max_permission
+            })' <<< "$response_body")"
+        else
+            page_json="$(jq -c 'map(
+                select(.done != true)
+                | select(.due_date != null and (.due_date | startswith("0001-") | not))
+                | {
+                    id,
+                    title,
+                    project_id,
+                    due_date,
+                    done,
+                    priority,
+                    hex_color
+                }
+            )' <<< "$response_body")"
+        fi
+
+        paged_result="$(printf '%s\n%s\n' "$paged_result" "$page_json" | jq -cs '.[0] + .[1]')"
         ((page++))
     done
 }
@@ -152,7 +180,7 @@ case "$action" in
         fi
         projects="$paged_result"
 
-        task_route="/tasks"
+        task_route='/tasks?filter=done%20%3D%20false%20%26%26%20due_date%20%3E%20%220001-01-02%22'
         if ! fetch_pages "$task_route"; then
             if [[ "$response_status" == "404" ]]; then
                 task_route="/tasks/all"
@@ -167,11 +195,9 @@ case "$action" in
         fi
         tasks="$paged_result"
 
-        jq -cn \
-            --argjson projects "$projects" \
-            --argjson tasks "$tasks" \
-            --argjson default_project_id "${default_project_id:-0}" \
-            '{ok: true, action: "fetch", projects: $projects, tasks: $tasks, default_project_id: $default_project_id}'
+        printf '%s\n%s\n' "$projects" "$tasks" \
+            | jq -cs --argjson default_project_id "${default_project_id:-0}" \
+                '{ok: true, action: "fetch", projects: .[0], tasks: .[1], default_project_id: $default_project_id}'
         ;;
 
     create)

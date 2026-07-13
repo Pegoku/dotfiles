@@ -2,6 +2,7 @@ singleton GlobalStates 1.0 GlobalStates.qml
 singleton HyprlandData 1.0 services/HyprlandData.qml
 singleton NowPlayingData 1.0 services/NowPlayingData.qml
 singleton AiChatConfig 1.0 services/AiChatConfig.qml
+singleton VikunjaData 1.0 services/VikunjaData.qml
 
 Bar 1.0 Bar.qml
 OnScreenDisplay 1.0 OnScreenDisplay.qml

@@ -1,0 +1,8 @@
+# Copy this file to ~/.config/vikunja-calendar/config and run:
+# chmod 600 ~/.config/vikunja-calendar/config
+
+VIKUNJA_URL="https://vikunja.example.com"
+VIKUNJA_TOKEN="tk_replace_with_an_api_token"
+
+# Optional. New tasks default to the first writable project when omitted.
+VIKUNJA_DEFAULT_PROJECT_ID=1

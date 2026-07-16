@@ -1,5 +1,3 @@
-command -v fastfetch >/dev/null && fastfetch
-
 # Enable Powerlevel10k instant prompt. Should stay close to the top of ~/.zshrc.
 # Initialization code that may require console input (password prompts, [y/n]
 # confirmations, etc.) must go above this block; everything else may go below.
@@ -129,9 +127,24 @@ source $ZSH/oh-my-zsh.sh
 
 export NVM_DIR="$HOME/.nvm"
 autoload -U add-zsh-hook
-load_nvm() { [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"; }
-add-zsh-hook chpwd load_nvm
-load_nvm
+_load_nvm() {
+  unfunction nvm node npm npx corepack 2>/dev/null
+  [[ -s "$NVM_DIR/nvm.sh" ]] || return 127
+  source "$NVM_DIR/nvm.sh"
+  typeset -g _NVM_LOADED=1
+}
+
+# Loading NVM costs a few hundred milliseconds. Defer it until a Node command
+# is actually used, then keep the normal NVM directory-switching behavior.
+nvm() { _load_nvm || return; nvm "$@"; }
+node() { _load_nvm || return; command node "$@"; }
+npm() { _load_nvm || return; command npm "$@"; }
+npx() { _load_nvm || return; command npx "$@"; }
+corepack() { _load_nvm || return; command corepack "$@"; }
+_nvm_auto_use() {
+  [[ -n $_NVM_LOADED ]] && nvm_auto use >/dev/null 2>&1
+}
+add-zsh-hook chpwd _nvm_auto_use
 
 # export NVM_DIR="$HOME/.nvm"
 # [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"  # This loads nvm
@@ -241,8 +254,8 @@ function r(){
     gcc ${1%.c}.c -o ${1%.c} && ./${1%.c}
 }
 
-export PHPENV_ROOT="/home/pegoku/.phpenv"
-if [ -d "${PHPENV_ROOT}" ]; then
+export PHPENV_ROOT="$HOME/.phpenv"
+if [[ -x "$PHPENV_ROOT/bin/phpenv" ]]; then
   export PATH="${PHPENV_ROOT}/bin:${PATH}"
   eval "$(phpenv init -)"
 fi
@@ -257,22 +270,35 @@ path+=(
   /home/pegoku/.cargo/bin
 )
 
-if [ -f /opt/esp-idf/export.sh ]; then
+_load_esp_idf() {
+  unfunction idf.py 2>/dev/null
+  [[ -f /opt/esp-idf/export.sh ]] || return 127
   export IDF_PATH=/opt/esp-idf
-  . /opt/esp-idf/export.sh >/dev/null 2>&1
-fi
+  source /opt/esp-idf/export.sh >/dev/null 2>&1
+}
 
-# >>> conda initialize >>>
-# !! Contents within this block are managed by 'conda init' !!
-__conda_setup="$('/home/pegoku/miniconda3/bin/conda' 'shell.zsh' 'hook' 2> /dev/null)"
-if [ $? -eq 0 ]; then
-    eval "$__conda_setup"
-else
-    if [ -f "/home/pegoku/miniconda3/etc/profile.d/conda.sh" ]; then
-        . "/home/pegoku/miniconda3/etc/profile.d/conda.sh"
-    else
-        export PATH="/home/pegoku/miniconda3/bin:$PATH"
-    fi
-fi
-unset __conda_setup
-# <<< conda initialize <<<
+# ESP-IDF's export script is the largest startup cost. Load it transparently
+# for idf.py, or explicitly with get_idf when its other tools are needed.
+idf.py() { _load_esp_idf || return; command idf.py "$@"; }
+get_idf() { _load_esp_idf; }
+
+_load_conda() {
+  unfunction conda 2>/dev/null
+  local conda_setup
+
+  if [[ -x "$HOME/miniconda3/bin/conda" ]]; then
+    conda_setup="$("$HOME/miniconda3/bin/conda" shell.zsh hook 2>/dev/null)"
+  fi
+
+  if [[ -n $conda_setup ]]; then
+    eval "$conda_setup"
+  elif [[ -f "$HOME/miniconda3/etc/profile.d/conda.sh" ]]; then
+    source "$HOME/miniconda3/etc/profile.d/conda.sh"
+  else
+    return 127
+  fi
+}
+
+# Generating Conda's shell hook starts Python. Pay that cost only when Conda is
+# first used; activation still modifies the current shell as expected.
+conda() { _load_conda || return; conda "$@"; }

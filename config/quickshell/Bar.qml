@@ -119,6 +119,48 @@ Scope {
                 anchors.rightMargin: 10
             }
 
+            MouseArea {
+                id: brightnessCorner
+
+                anchors.left: parent.left
+                anchors.top: parent.top
+                anchors.bottom: parent.bottom
+                width: 120
+                z: 1000
+                acceptedButtons: Qt.NoButton
+
+                onWheel: wheel => {
+                    if (wheel.angleDelta.y > 0) {
+                        Quickshell.execDetached(["bash", "-lc", "brightnessctl set +5% && quickshell ipc call osd brightness"]);
+                    } else if (wheel.angleDelta.y < 0) {
+                        Quickshell.execDetached(["bash", "-lc", "brightnessctl set 5%- && quickshell ipc call osd brightness"]);
+                    }
+                }
+            }
+
+            MouseArea {
+                id: volumeCorner
+
+                anchors.right: parent.right
+                anchors.top: parent.top
+                anchors.bottom: parent.bottom
+                width: 120
+                z: 1000
+                acceptedButtons: Qt.LeftButton
+
+                onWheel: wheel => {
+                    if (wheel.angleDelta.y > 0) {
+                        Quickshell.execDetached(["wpctl", "set-volume", "-l", "1", "@DEFAULT_AUDIO_SINK@", "5%+"]);
+                    } else if (wheel.angleDelta.y < 0) {
+                        Quickshell.execDetached(["wpctl", "set-volume", "@DEFAULT_AUDIO_SINK@", "5%-"]);
+                    }
+                }
+
+                onClicked: {
+                    Quickshell.execDetached(["wpctl", "set-mute", "@DEFAULT_AUDIO_SINK@", "toggle"]);
+                }
+            }
+
         }
 
     }

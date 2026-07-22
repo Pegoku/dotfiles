@@ -146,7 +146,7 @@ Scope {
                 anchors.bottom: parent.bottom
                 width: 120
                 z: 1000
-                acceptedButtons: Qt.LeftButton
+                acceptedButtons: Qt.LeftButton | Qt.MiddleButton
 
                 onWheel: wheel => {
                     if (wheel.angleDelta.y > 0) {

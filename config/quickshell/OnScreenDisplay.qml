@@ -19,8 +19,8 @@ Scope {
         }
     }
 
-    property bool open: false
-    property string currentKind: "volume"
+    property var visibleKinds: []
+    readonly property bool open: visibleKinds.length > 0
     property real volumeValue: 0
     property bool volumeMuted: false
     property bool volumeAvailable: true
@@ -51,9 +51,18 @@ Scope {
     }
 
     function trigger(kind) {
-        root.currentKind = kind;
-        root.open = true;
-        osdTimeout.restart();
+        var orderedKinds = root.visibleKinds.filter(item => item !== kind);
+        orderedKinds.push(kind);
+        root.visibleKinds = orderedKinds;
+
+        if (kind === "brightness")
+            brightnessTimeout.restart();
+        else
+            volumeTimeout.restart();
+    }
+
+    function dismiss(kind) {
+        root.visibleKinds = root.visibleKinds.filter(item => item !== kind);
     }
 
     function formatPercent(value) {
@@ -178,11 +187,19 @@ Scope {
     }
 
     Timer {
-        id: osdTimeout
+        id: volumeTimeout
         interval: 2500
         repeat: false
         running: false
-        onTriggered: root.open = false
+        onTriggered: root.dismiss("volume")
+    }
+
+    Timer {
+        id: brightnessTimeout
+        interval: 2500
+        repeat: false
+        running: false
+        onTriggered: root.dismiss("brightness")
     }
 
     Timer {
@@ -410,92 +427,96 @@ Scope {
         }
         exclusionMode: ExclusionMode.Ignore
         exclusiveZone: 0
-        implicitWidth: osdWrapper.implicitWidth
-        implicitHeight: osdWrapper.implicitHeight
+        implicitWidth: osdColumn.implicitWidth
+        implicitHeight: osdColumn.implicitHeight
 
-        Item {
-            id: osdWrapper
+        Column {
+            id: osdColumn
             anchors.centerIn: parent
-            implicitWidth: osdPill.implicitWidth
-            implicitHeight: osdPill.implicitHeight
+            spacing: 6
 
-            Rectangle {
-                id: osdPill
+            Repeater {
+                model: root.visibleKinds
 
-                radius: 999
-                color: root.bgColor
-                opacity: 0.9
-                layer.enabled: true
-                implicitWidth: contentRow.implicitWidth + 20
-                implicitHeight: contentRow.implicitHeight + 10
+                delegate: Rectangle {
+                    required property string modelData
+                    readonly property string kind: modelData
 
-                Row {
-                    id: contentRow
+                    radius: 999
+                    color: root.bgColor
+                    opacity: 0.9
+                    layer.enabled: true
+                    implicitWidth: contentRow.implicitWidth + 20
+                    implicitHeight: contentRow.implicitHeight + 10
 
-                    anchors.centerIn: parent
-                    spacing: 10
+                    Row {
+                        id: contentRow
 
-                    Image {
-                        id: osdIcon
+                        anchors.centerIn: parent
+                        spacing: 10
 
-                        width: 16
-                        height: 16
-                        source: root.iconBase + (root.currentKind === "brightness" ? root.brightnessIconName() : root.volumeIconName()) + ".svg"
-                        smooth: true
-                        layer.enabled: true
+                        Image {
+                            id: osdIcon
 
-                        layer.effect: ColorOverlay {
+                            width: 16
+                            height: 16
+                            source: root.iconBase + (kind === "brightness" ? root.brightnessIconName() : root.volumeIconName()) + ".svg"
+                            smooth: true
+                            layer.enabled: true
+
+                            layer.effect: ColorOverlay {
+                                color: root.fgColor
+                            }
+                        }
+
+                        Text {
+                            id: osdLabel
+
+                            text: kind === "brightness" ? "Brightness" : "Volume"
+                            color: root.fgColor
+                            font.bold: true
+                        }
+
+                        Text {
+                            id: osdValue
+
+                            text: kind === "brightness" ? root.formatPercent(root.brightnessValue) : root.formatPercent(root.volumeValue)
                             color: root.fgColor
                         }
-                    }
-
-                    Text {
-                        id: osdLabel
-
-                        text: root.currentKind === "brightness" ? "Brightness" : "Volume"
-                        color: root.fgColor
-                        font.bold: true
-                    }
-
-                    Text {
-                        id: osdValue
-
-                        text: root.currentKind === "brightness" ? root.formatPercent(root.brightnessValue) : root.formatPercent(root.volumeValue)
-                        color: root.fgColor
-                    }
-
-                    Rectangle {
-                        id: osdBar
-
-                        width: 90
-                        height: 4
-                        radius: 2
-                        color: root.barBg
 
                         Rectangle {
-                            id: osdFill
+                            id: osdBar
 
-                            anchors.left: parent.left
-                            anchors.verticalCenter: parent.verticalCenter
-                            height: parent.height
-                            width: Math.max(2, parent.width * Math.max(0, Math.min(1, root.currentKind === "brightness" ? root.brightnessValue : root.volumeValue)))
+                            width: 90
+                            height: 4
                             radius: 2
-                            color: root.currentKind === "volume" && root.volumeMuted ? "#7f7f7f" : root.fgColor
+                            color: root.barBg
 
-                            Behavior on width {
-                                NumberAnimation {
-                                    duration: 180
-                                    easing.type: Easing.InOutQuad
+                            Rectangle {
+                                id: osdFill
+
+                                anchors.left: parent.left
+                                anchors.verticalCenter: parent.verticalCenter
+                                height: parent.height
+                                width: Math.max(2, parent.width * Math.max(0, Math.min(1, kind === "brightness" ? root.brightnessValue : root.volumeValue)))
+                                radius: 2
+                                color: kind === "volume" && root.volumeMuted ? "#7f7f7f" : root.fgColor
+
+                                Behavior on width {
+                                    NumberAnimation {
+                                        duration: 180
+                                        easing.type: Easing.InOutQuad
+                                    }
                                 }
                             }
                         }
                     }
-                }
 
-                MouseArea {
-                    anchors.fill: parent
-                    hoverEnabled: true
-                    onClicked: root.open = false
+                    MouseArea {
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        onClicked: root.dismiss(kind)
+                    }
                 }
             }
         }

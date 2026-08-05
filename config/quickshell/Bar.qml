@@ -145,7 +145,7 @@ Scope {
                 anchors.top: parent.top
                 anchors.bottom: parent.bottom
                 width: 120
-                z: 1000
+                z: -1
                 acceptedButtons: Qt.LeftButton | Qt.MiddleButton
 
                 onWheel: wheel => {

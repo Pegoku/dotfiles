@@ -13,9 +13,15 @@ Scope {
     IpcHandler {
         target: "osd"
 
-        function brightness(): void {
+        function brightness(percent: int): void {
+            root.applyBrightnessPercent(percent, "ipc", false);
             root.trigger("brightness");
             ipcBrightnessRefresh.restart();
+        }
+
+        function volume(value: real): void {
+            root.applyVolume(value, root.volumeMuted, "ipc", false);
+            root.trigger("volume");
         }
     }
 
@@ -217,7 +223,7 @@ Scope {
 
     Timer {
         id: pipewirePoll
-        interval: 200
+        interval: 50
         repeat: true
         running: root.usePipewire
         onTriggered: {
@@ -249,7 +255,7 @@ Scope {
             "if [ \"$val\" != \"$prev\" ] || [ \"$muted\" != \"$prevm\" ]; then " +
             "echo \"VOL $val $muted\"; prev=$val; prevm=$muted; fi; " +
             "fi; " +
-            "sleep 0.2; done"
+            "sleep 0.1; done"
         ]
 
         stdout: SplitParser {
@@ -340,16 +346,16 @@ Scope {
     Process {
         id: brightnessFallbackProc
 
-        running: true
+        running: !root.brightnessPath
         command: [
             "bash",
             "-lc",
             "prev=; " +
             "while true; do " +
-            "val=$(brightnessctl -m 2>/dev/null | awk -F',' '{gsub(/%/,\"\",$5); print $5}'); " +
+            "val=$(brightnessctl -m 2>/dev/null | awk -F',' '{gsub(/%/,\"\",$4); print $4}'); " +
             "if [ -z \"$val\" ]; then echo 'BRT NA'; else " +
             "if [ \"$val\" != \"$prev\" ]; then echo \"BRT $val\"; prev=$val; fi; fi; " +
-            "sleep 0.3; done"
+            "sleep 0.1; done"
         ]
 
         stdout: SplitParser {
@@ -446,6 +452,7 @@ Scope {
                     color: root.bgColor
                     opacity: 0.9
                     layer.enabled: true
+                    anchors.horizontalCenter: parent.horizontalCenter
                     implicitWidth: contentRow.implicitWidth + 20
                     implicitHeight: contentRow.implicitHeight + 10
 
@@ -501,13 +508,6 @@ Scope {
                                 width: Math.max(2, parent.width * Math.max(0, Math.min(1, kind === "brightness" ? root.brightnessValue : root.volumeValue)))
                                 radius: 2
                                 color: kind === "volume" && root.volumeMuted ? "#7f7f7f" : root.fgColor
-
-                                Behavior on width {
-                                    NumberAnimation {
-                                        duration: 180
-                                        easing.type: Easing.InOutQuad
-                                    }
-                                }
                             }
                         }
                     }

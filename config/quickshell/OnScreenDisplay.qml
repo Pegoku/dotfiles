@@ -16,7 +16,6 @@ Scope {
         function brightness(percent: int): void {
             root.applyBrightnessPercent(percent, "ipc", false);
             root.trigger("brightness");
-            ipcBrightnessRefresh.restart();
         }
 
         function volume(value: real): void {
@@ -209,16 +208,11 @@ Scope {
     }
 
     Timer {
-        id: ipcBrightnessRefresh
-        interval: 80
-        repeat: false
-        running: false
-        onTriggered: {
-            if (root.brightnessPath) {
-                brightnessView.reload();
-                root.updateBrightness(false);
-            }
-        }
+        id: brightnessPoll
+        interval: 50
+        repeat: true
+        running: root.brightnessPath !== ""
+        onTriggered: brightnessView.reload()
     }
 
     Timer {
@@ -325,7 +319,7 @@ Scope {
         preload: true
         watchChanges: true
 
-        onLoaded: root.updateBrightness(false)
+        onLoaded: root.updateBrightness(root._brightnessInitialized)
         onFileChanged: root.updateBrightness(true)
     }
 

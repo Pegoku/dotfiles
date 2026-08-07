@@ -131,9 +131,9 @@ Scope {
 
                 onWheel: wheel => {
                     if (wheel.angleDelta.y > 0) {
-                        Quickshell.execDetached(["bash", "-lc", "brightnessctl set +5% >/dev/null && value=$(brightnessctl -m | awk -F',' 'NR==1 { gsub(/%/, \"\", $4); print $4 }'); [ -n \"$value\" ] && quickshell ipc call osd brightness \"$value\""]);
+                        Quickshell.execDetached(["brightnessctl", "set", "+5%"]);
                     } else if (wheel.angleDelta.y < 0) {
-                        Quickshell.execDetached(["bash", "-lc", "brightnessctl set 5%- >/dev/null && value=$(brightnessctl -m | awk -F',' 'NR==1 { gsub(/%/, \"\", $4); print $4 }'); [ -n \"$value\" ] && quickshell ipc call osd brightness \"$value\""]);
+                        Quickshell.execDetached(["brightnessctl", "set", "5%-"]);
                     }
                 }
             }
@@ -150,9 +150,9 @@ Scope {
 
                 onWheel: wheel => {
                     if (wheel.angleDelta.y > 0) {
-                        Quickshell.execDetached(["bash", "-lc", "wpctl set-volume -l 1 @DEFAULT_AUDIO_SINK@ 5%+ && value=$(wpctl get-volume @DEFAULT_AUDIO_SINK@ | awk '{ print $2 }'); [ -n \"$value\" ] && quickshell ipc call osd volume \"$value\""]);
+                        Quickshell.execDetached(["wpctl", "set-volume", "-l", "1", "@DEFAULT_AUDIO_SINK@", "5%+"]);
                     } else if (wheel.angleDelta.y < 0) {
-                        Quickshell.execDetached(["bash", "-lc", "wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%- && value=$(wpctl get-volume @DEFAULT_AUDIO_SINK@ | awk '{ print $2 }'); [ -n \"$value\" ] && quickshell ipc call osd volume \"$value\""]);
+                        Quickshell.execDetached(["wpctl", "set-volume", "@DEFAULT_AUDIO_SINK@", "5%-"]);
                     }
                 }
 

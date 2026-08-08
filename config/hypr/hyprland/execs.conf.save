@@ -3,9 +3,6 @@ exec-once = swww-daemon --format xrgb
 exec-once = /usr/lib/geoclue-2.0/demos/agent & gammastep
 exec-once = ags &
 
-# Input method
-exec-once = fcitx5
-
 # Core components (authentication, lock screen, notification daemon)
 exec-once = gnome-keyring-daemon --start --components=secrets
 exec-once = /usr/lib/polkit-gnome/polkit-gnome-authentication-agent-1 || /usr/libexec/polkit-gnome-authentication-agent-1
@@ -21,4 +18,3 @@ exec-once = wl-paste --type image --watch cliphist store -max-items 10000
 
 # Cursor
 exec-once = hyprctl setcursor Bibata-Modern-Classic 24
-

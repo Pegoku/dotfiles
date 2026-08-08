@@ -227,6 +227,8 @@ alias lcsc="easyeda2kicad --full --lcsc_id "
 
 alias rm='trash'   
 
+alias open="xdg-open"
+
 #alias n="nautilus"
 alias n="nohup nautilus . > /dev/null 2>&1 &"
 

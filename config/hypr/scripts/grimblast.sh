@@ -136,19 +136,30 @@ notifyError() {
 
 resetFade() {
   if [[ -n $FADE && -n $FADEOUT ]]; then
-    hyprctl keyword animation "$FADE" >/dev/null
-    hyprctl keyword animation "$FADEOUT" >/dev/null
+    setAnimation "$FADE"
+    setAnimation "$FADEOUT"
   fi
 }
 
+setAnimation() {
+  local spec=$1 name enabled speed bezier
+  IFS=, read -r name enabled speed bezier <<< "$spec"
+  [ "$enabled" = 1 ] && enabled=true || enabled=false
+  hyprctl eval "hl.animation({ leaf = \"$name\", enabled = $enabled, speed = $speed, bezier = \"$bezier\" })" >/dev/null
+}
+
 useHardwareCursor() {
-  CURSOR_NO_HARDWARE_ORIGINAL="$(hyprctl getoption cursor:no_hardware_cursors -j | jq -r '.int // empty')"
-  hyprctl keyword cursor:no_hardware_cursors false >/dev/null
+  CURSOR_NO_HARDWARE_ORIGINAL="$(hyprctl getoption cursor.no_hardware_cursors -j | jq -r '.int // empty')"
+  hyprctl eval 'hl.config({ cursor = { no_hardware_cursors = false } })' >/dev/null
 }
 
 resetCursorMode() {
   if [ -n "$CURSOR_NO_HARDWARE_ORIGINAL" ]; then
-    hyprctl keyword cursor:no_hardware_cursors "$CURSOR_NO_HARDWARE_ORIGINAL" >/dev/null
+    if [ "$CURSOR_NO_HARDWARE_ORIGINAL" = 1 ]; then
+      hyprctl eval 'hl.config({ cursor = { no_hardware_cursors = true } })' >/dev/null
+    else
+      hyprctl eval 'hl.config({ cursor = { no_hardware_cursors = false } })' >/dev/null
+    fi
     CURSOR_NO_HARDWARE_ORIGINAL=
   fi
 }
@@ -238,8 +249,8 @@ elif [ "$SUBJECT" = "area" ]; then
   # this removes the black border seen around screenshots
   FADE="$(hyprctl -j animations | jq -jr '.[0][] | select(.name == "fade") | .name, ",", (if .enabled == true then "1" else "0" end), ",", (.speed|floor), ",", .bezier')"
   FADEOUT="$(hyprctl -j animations | jq -jr '.[0][] | select(.name == "fadeOut") | .name, ",", (if .enabled == true then "1" else "0" end), ",", (.speed|floor), ",", .bezier')"
-  hyprctl keyword animation 'fade,0,1,default' >/dev/null
-  hyprctl keyword animation 'fadeOut,0,1,default' >/dev/null
+  hyprctl eval 'hl.animation({ leaf = "fade", enabled = false, speed = 1, bezier = "default" })' >/dev/null
+  hyprctl eval 'hl.animation({ leaf = "fadeOut", enabled = false, speed = 1, bezier = "default" })' >/dev/null
 
   WORKSPACES="$(hyprctl monitors -j | jq -r 'map(.activeWorkspace.id)')"
   WINDOWS="$(hyprctl clients -j | jq -r --argjson workspaces "$WORKSPACES" 'map(select([.workspace.id] | inside($workspaces)))')"

@@ -8,7 +8,7 @@ if [ -f "$STATE_FILE" ]; then
     rm "$STATE_FILE"
     # Get all window addresses and remove the tag
     hyprctl clients -j | jq -r '.[] | .address' | while read addr; do
-        hyprctl dispatch tagwindow -- -opaque_toggle "address:$addr"
+        hyprctl dispatch "hl.dsp.window.tag({ tag = \"-opaque_toggle\", window = \"address:$addr\" })"
     done
     notify-send "Global opacity" "OFF" -t 1000
 else
@@ -16,8 +16,7 @@ else
     touch "$STATE_FILE"
     # Get all window addresses and add the tag
     hyprctl clients -j | jq -r '.[] | .address' | while read addr; do
-        hyprctl dispatch tagwindow +opaque_toggle "address:$addr"
+        hyprctl dispatch "hl.dsp.window.tag({ tag = \"+opaque_toggle\", window = \"address:$addr\" })"
     done
     notify-send "Global opacity" "ON" -t 1000
 fi
-

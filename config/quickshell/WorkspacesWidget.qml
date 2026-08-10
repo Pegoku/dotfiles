@@ -27,6 +27,10 @@ Rectangle {
         return ws && ws.active;
     }
 
+    function focusWorkspace(id) {
+        Hyprland.dispatch("hl.dsp.focus({ workspace = \"" + id + "\" })");
+    }
+
     function shouldConnect(leftId, rightId) {
         return workspaceHasWindows(leftId)
             && workspaceHasWindows(rightId)
@@ -91,7 +95,7 @@ Rectangle {
                 occupied: containerRect.workspaceHasWindows(number)
 
                 onPressed: id => {
-                    Hyprland.dispatch("workspace " + id);
+                    containerRect.focusWorkspace(id);
                 }
             }
         }
@@ -111,7 +115,7 @@ Rectangle {
         height: 100
         acceptedButtons: Qt.NoButton
 
-        onWheel: {
+        onWheel: wheel => {
             containerRect.wheelAccum += wheel.angleDelta.y;
             wheelResetTimer.restart();
 
@@ -119,10 +123,10 @@ Rectangle {
             var focused = containerRect.focusedWorkspaceId;
 
             if (containerRect.wheelAccum >= threshold && focused > 1) {
-                Hyprland.dispatch("workspace " + (focused - 1));
+                containerRect.focusWorkspace(focused - 1);
                 containerRect.wheelAccum = 0;
             } else if (containerRect.wheelAccum <= -threshold) {
-                Hyprland.dispatch("workspace " + (focused + 1));
+                containerRect.focusWorkspace(focused + 1);
                 containerRect.wheelAccum = 0;
             }
         }

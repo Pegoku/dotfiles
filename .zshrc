@@ -196,6 +196,81 @@ gpp() {
   git pull && git push
 }
 
+_mkp_create() {
+  local visibility="$1"
+  shift
+
+  local project_name="$1"
+  if [[ -z "$project_name" ]]; then
+    echo "Usage: mkp <name> | mkp gh <name> [--public] | mkp ghp <name>"
+    return 1
+  fi
+  shift
+
+  if [[ "$project_name" == */* || "$project_name" == "." || "$project_name" == ".." ]]; then
+    echo "mkp: project name must not contain a path"
+    return 1
+  fi
+
+  local project_dir="$HOME/Media/Projects/Code/GitHub/$project_name"
+  if [[ -e "$project_dir" ]]; then
+    echo "mkp: project already exists: $project_dir"
+    return 1
+  fi
+
+  if [[ "$visibility" != "local" ]] && ! command -v gh >/dev/null; then
+    echo "mkp: gh CLI is required to create a GitHub repository"
+    return 1
+  fi
+
+  local -a gh_args
+  local arg
+  for arg in "$@"; do
+    if [[ "$visibility" != "local" && "$arg" == "--public" ]]; then
+      visibility="public"
+    else
+      gh_args+=("$arg")
+    fi
+  done
+
+  if [[ "$visibility" == "local" && ${#gh_args[@]} -gt 0 ]]; then
+    echo "Usage: mkp <name>"
+    return 1
+  fi
+
+  mkdir -p -- "$project_dir" || return
+  git -C "$project_dir" init || return
+  builtin cd -- "$project_dir" || return
+
+  if [[ "$visibility" != "local" ]]; then
+    gh repo create "$project_name" "--$visibility" --source=. --remote=origin "${gh_args[@]}"
+  fi
+}
+
+mkp() {
+  case "$1" in
+    gh)
+      shift
+      _mkp_create private "$@"
+      ;;
+    ghp)
+      shift
+      _mkp_create public "$@"
+      ;;
+    *)
+      _mkp_create local "$@"
+      ;;
+  esac
+}
+
+mkg() {
+  _mkp_create private "$@"
+}
+
+mkgp() {
+  _mkp_create public "$@"
+}
+
 setb() {
   ddcutil setvcp 10 $1 --display 1
 }

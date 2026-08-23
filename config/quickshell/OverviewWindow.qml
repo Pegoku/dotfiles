@@ -153,7 +153,7 @@ Item {
                 overviewWidget.draggingFromWorkspace = -1
                 overviewWidget.draggingTargetWorkspace = -1
                 if (targetWorkspace !== -1 && targetWorkspace !== windowData?.workspace?.id) {
-                    Hyprland.dispatch(`movetoworkspacesilent ${targetWorkspace}, address:${windowData?.address}`)
+                    Hyprland.dispatch(`hl.dsp.window.move({ workspace = "${targetWorkspace}", window = "address:${windowData?.address}", follow = false })`)
                 }
                 // Snap back to computed position; data refresh will place it correctly.
                 root.x = initX
@@ -167,10 +167,10 @@ Item {
             
             if (event.button === Qt.LeftButton) {
                 GlobalStates.setOverviewOpen(false)
-                Hyprland.dispatch(`focuswindow address:${windowData.address}`)
+                Hyprland.dispatch(`hl.dsp.focus({ window = "address:${windowData.address}" })`)
                 event.accepted = true
             } else if (event.button === Qt.MiddleButton) {
-                Hyprland.dispatch(`closewindow address:${windowData.address}`)
+                Hyprland.dispatch(`hl.dsp.window.close({ window = "address:${windowData.address}" })`)
                 event.accepted = true
             }
         }

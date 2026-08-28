@@ -15,6 +15,7 @@ SystemRingsWidget 1.0 SystemRingsWidget.qml
 WorkspacesWidget 1.0 WorkspacesWidget.qml
 WorkspaceButton 1.0 WorkspaceButton.qml
 BatteryWidget 1.0 BatteryWidget.qml
+PowerProfileWidget 1.0 PowerProfileWidget.qml
 BrightnessWidget 1.0 BrightnessWidget.qml
 ClockWidget 1.0 ClockWidget.qml
 VolumeWidget 1.0 VolumeWidget.qml

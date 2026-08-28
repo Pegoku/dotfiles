@@ -77,10 +77,17 @@ Scope {
 
             BatteryWidget {
                 id: batteryWidget
-                anchors.right: dndWidget.left
+                anchors.right: powerProfileWidget.left
                 anchors.verticalCenter: parent.verticalCenter
                 anchors.rightMargin: 8
                 visible: UPower.displayDevice.percentage != 0
+            }
+
+            PowerProfileWidget {
+                id: powerProfileWidget
+                anchors.right: dndWidget.left
+                anchors.verticalCenter: parent.verticalCenter
+                anchors.rightMargin: 8
             }
 
             AppIndicatorWidget {

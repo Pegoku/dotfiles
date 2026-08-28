@@ -1,6 +1,5 @@
 import Qt5Compat.GraphicalEffects
 import QtQuick
-import QtQuick.Controls
 import Quickshell
 import Quickshell.Io
 
@@ -11,14 +10,6 @@ Rectangle {
     property bool profileAvailable: true
     readonly property string iconBase: "file:///usr/share/icons/Adwaita/symbolic/status/"
     readonly property string nextProfile: profile === "performance" ? "balanced" : profile === "balanced" ? "power-saver" : "performance"
-
-    function displayName(value) {
-        if (value === "performance")
-            return "Performance";
-        if (value === "power-saver")
-            return "Battery saver";
-        return "Balanced";
-    }
 
     function setProfile(value) {
         profile = value;
@@ -47,18 +38,8 @@ Rectangle {
         }
     }
 
-    ToolTip.visible: hoverArea.containsMouse
-    ToolTip.text: profileAvailable
-        ? "Power mode: " + displayName(profile) + "\nClick for " + displayName(nextProfile)
-        : "Power profiles are unavailable"
-    ToolTip.delay: 150
-    ToolTip.timeout: 0
-
     MouseArea {
-        id: hoverArea
-
         anchors.fill: parent
-        hoverEnabled: true
         enabled: containerRect.profileAvailable
         acceptedButtons: Qt.LeftButton
         cursorShape: Qt.PointingHandCursor

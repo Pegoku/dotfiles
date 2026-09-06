@@ -94,12 +94,39 @@ class BridgeTests(unittest.IsolatedAsyncioTestCase):
         await task
         b.rpc.assert_awaited_with('turn/interrupt', dict(threadId='new', turnId='running'))
 
+    async def test_model_change_uses_recommendation_and_slider_override(self):
+        b = self.bridge
+        b.models = [dict(id='fast', defaultEffort='low', efforts=[dict(id='low'), dict(id='high')]),
+                    dict(id='deep', defaultEffort='medium', efforts=[dict(id='medium'), dict(id='high')])]
+        b.model, b.effort, b.thread = 'fast', 'high', 'existing'
+        self.assertEqual(b.selection({'model': 'deep'}), ('deep', 'medium'))
+        self.assertEqual(b.selection({'model': 'deep', 'effort': 'high'}), ('deep', 'high'))
+        b.rpc = AsyncMock(return_value={'turn': {'id': 'turn'}})
+        await b.action(dict(action='send', model='deep', effort='high', text='test', cwd=self.tmp.name))
+        self.assertEqual(b.rpc.call_args.args[1]['model'], 'deep')
+        self.assertEqual(b.rpc.call_args.args[1]['effort'], 'high')
+        self.assertEqual((b.model, b.effort), ('deep', 'high'))
+        b.busy = False
+        with self.assertRaisesRegex(RuntimeError, 'Unsupported reasoning'):
+            await b.action(dict(action='send', model='deep', effort='ultra', text='test', cwd=self.tmp.name))
+        self.assertFalse(b.busy)
+
+    async def test_new_thread_receives_reasoning_and_english_preference(self):
+        b = self.bridge
+        b.rpc = AsyncMock(side_effect=[{'thread': {'id': 'thread'}, 'model': 'chosen'}, {'turn': {'id': 'turn'}}])
+        await b.action(dict(action='send', model='chosen', effort='medium', text='test', cwd=self.tmp.name))
+        settings = b.rpc.call_args_list[0].args[1]
+        self.assertEqual(settings['config']['model_reasoning_effort'], 'medium')
+        self.assertIn('English by default', settings['developerInstructions'])
+
     async def test_resume_rehydrates_history(self):
         b = self.bridge
-        b.rpc = AsyncMock(return_value={'model': 'model', 'thread': {'id': 'saved', 'cwd': self.tmp.name, 'turns': [{'items': [{'id': 'u', 'type': 'userMessage', 'content': [{'type': 'text', 'text': 'remember me'}]}]}]}})
+        b.rpc = AsyncMock(return_value={'model': 'model', 'reasoningEffort': 'high', 'thread': {'id': 'saved', 'cwd': self.tmp.name, 'turns': [{'items': [{'id': 'u', 'type': 'userMessage', 'content': [{'type': 'text', 'text': 'remember me'}]}]}]}})
         await b.action(dict(action='resume', thread='saved', cwd=self.tmp.name))
         self.assertEqual(b.items[0]['text'], 'remember me')
         self.assertEqual(b.thread, 'saved')
+        self.assertEqual((b.model, b.effort), ('model', 'high'))
+        self.assertIn('English by default', b.rpc.call_args.args[1]['developerInstructions'])
         self.assertFalse(b.busy)
 
     async def test_failed_turn_can_retry(self):

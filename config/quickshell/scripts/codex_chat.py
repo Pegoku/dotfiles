@@ -48,6 +48,9 @@ class Bridge:
         self.account = 'Connecting…'
         self.models = []
         self.model = ''
+        self.effort = ''
+        self.default_model = ''
+        self.language_instructions = 'Respond in English by default, including for short or ambiguous messages. Use another language when the user explicitly asks for it.'
         self.error = ''
         self.cwd = str(Path.home())
         self.state_file = Path(os.environ.get('XDG_STATE_HOME', str(Path.home() / '.local/state'))) / 'quickshell/codex-chat.json'
@@ -62,7 +65,7 @@ class Bridge:
 
     def emit(self):
         print(json.dumps(dict(type='state', ready=self.ready, busy=self.busy,
-                              account=self.account, models=self.models, model=self.model,
+                              account=self.account, models=self.models, model=self.model, effort=self.effort, defaultModel=self.default_model,
                               error=self.error, cwd=self.cwd, thread=self.thread,
                               chats=self.chats, items=self.items,
                               requests=list(self.requests.values())), ensure_ascii=False), flush=True)
@@ -165,6 +168,20 @@ class Bridge:
         self.account = ('ChatGPT · ' + (account.get('planType') or 'subscription')) if self.ready else 'Run codex login to connect your ChatGPT subscription'
         self.emit()
 
+    def model_info(self, model):
+        return next((m for m in self.models if m['id'] == model), {})
+
+    def selection(self, data):
+        model = data.get('model') or self.model or self.default_model
+        info = self.model_info(model)
+        effort = data.get('effort')
+        if not effort:
+            effort = (self.effort if model == self.model else '') or info.get('defaultEffort', '')
+        supported = [e['id'] for e in info.get('efforts', [])]
+        if effort and supported and effort not in supported:
+            raise RuntimeError('Unsupported reasoning level for ' + model + ': ' + effort)
+        return model, effort
+
     async def action(self, data):
         action = data.get('action')
         if action == 'stop':
@@ -208,16 +225,20 @@ class Bridge:
         self.emit()
         try:
             settings = dict(cwd=cwd, modelProvider='openai', approvalPolicy='on-request',
-                            sandbox='workspace-write', config={'web_search': 'live'})
-            model = data.get('model')
-            if model:
+                            sandbox='workspace-write', config={'web_search': 'live'},
+                            developerInstructions=self.language_instructions)
+            model, effort = self.selection(data)
+            if action == 'send' and model:
                 settings['model'] = model
+            if action == 'send' and effort:
+                settings['config']['model_reasoning_effort'] = effort
             if action == 'resume':
                 settings['threadId'] = data['thread']
                 result = await self.rpc('thread/resume', settings)
                 self.thread = result['thread']['id']
                 self.cwd = result['thread'].get('cwd', cwd)
                 self.model = result.get('model', '')
+                self.effort = result.get('reasoningEffort') or self.model_info(self.model).get('defaultEffort', '')
                 self.items = [render_item(i) for t in result['thread'].get('turns', []) for i in t.get('items', [])]
                 self.busy = False
             else:
@@ -229,6 +250,7 @@ class Bridge:
                     result = await self.rpc('thread/start', settings)
                     self.thread = result['thread']['id']
                     self.model = result.get('model', '')
+                    self.effort = effort or result.get('reasoningEffort') or self.model_info(self.model).get('defaultEffort', '')
                     self.chats.insert(0, dict(id=self.thread, title=prompt[:70], cwd=cwd))
                     self.chats = self.chats[:50]
                     self.save()
@@ -236,7 +258,11 @@ class Bridge:
                 params = dict(threadId=self.thread, cwd=cwd, input=[dict(type='text', text=prompt)])
                 if model:
                     params['model'] = model
+                if effort:
+                    params['effort'] = effort
                 result = await self.rpc('turn/start', params)
+                self.model = model or self.model
+                self.effort = effort
                 self.turn = result['turn']['id'] if self.busy else ''
                 if self.stop_requested and self.turn:
                     await self.rpc('turn/interrupt', dict(threadId=self.thread, turnId=self.turn))
@@ -304,7 +330,21 @@ class Bridge:
             await self.write(dict(method='initialized', params={}))
             await self.refresh_account()
             result = await self.rpc('model/list', {})
-            self.models = [dict(id=m['id'], label=m['displayName']) for m in result.get('data', []) if not m.get('hidden')]
+            catalog = result.get('data', [])
+            while result.get('nextCursor'):
+                result = await self.rpc('model/list', {'cursor': result['nextCursor']})
+                catalog.extend(result.get('data', []))
+            self.models = [dict(id=m['model'], label=m['displayName'],
+                                defaultEffort=m['defaultReasoningEffort'],
+                                efforts=[dict(id=e['reasoningEffort'], description=e['description'])
+                                         for e in m['supportedReasoningEfforts']])
+                           for m in catalog if not m.get('hidden')]
+            config = (await self.rpc('config/read', {})).get('config', {})
+            self.default_model = config.get('model') or next((m['model'] for m in catalog if m.get('isDefault')), '')
+            self.model = self.default_model
+            self.effort = config.get('model_reasoning_effort') or self.model_info(self.model).get('defaultEffort', '')
+            if config.get('developer_instructions'):
+                self.language_instructions = config['developer_instructions'] + '\n\n' + self.language_instructions
             self.emit()
             ui = asyncio.create_task(self.read_ui())
             done, _ = await asyncio.wait([reader, ui], return_when=asyncio.FIRST_COMPLETED)

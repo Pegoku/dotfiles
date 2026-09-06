@@ -13,7 +13,12 @@ Scope {
     property string draft: ""
     property string selectedModel: AiChatConfig.model
     property bool started: false
-    property var availableModels: [{ id: "", label: "CLI / thread default" }]
+    property var availableModels: []
+    property string selectedEffort: ""
+    property bool selectionInitialized: false
+    readonly property var modelInfo: availableModels.find(m => m.id === selectedModel) || ({ efforts: [], defaultEffort: "" })
+    readonly property var effortOptions: modelInfo.efforts
+    property bool historyOpen: true
     property var pendingRequests: []
     property var savedChats: []
     property var activeScreen: Quickshell.screens[0]
@@ -48,7 +53,7 @@ Scope {
     }
     function submit() {
         if (!draft.trim() || state.busy || !state.ready) return;
-        send({ action: "send", text: draft, cwd: folder.text, model: selectedModel });
+        send({ action: "send", text: draft, cwd: folder.text, model: selectedModel, effort: selectedEffort });
         draft = "";
         conversation.follow = true;
     }
@@ -68,10 +73,20 @@ Scope {
                     var next = JSON.parse(line);
                     if (next.type !== "state") return;
                     if (JSON.stringify(root.state.models) !== JSON.stringify(next.models)) {
-                        root.availableModels = [{ id: "", label: "CLI / thread default" }].concat(next.models);
+                        root.availableModels = next.models;
                     }
                     if (JSON.stringify(root.state.requests) !== JSON.stringify(next.requests)) root.pendingRequests = next.requests;
                     if (JSON.stringify(root.state.chats) !== JSON.stringify(next.chats)) root.savedChats = next.chats;
+                    if (!root.selectionInitialized && next.models.length && next.model) {
+                        root.selectedModel = AiChatConfig.model || next.model;
+                        root.selectedEffort = AiChatConfig.model ? root.modelInfo.defaultEffort : next.effort;
+                        root.selectionInitialized = true;
+                    } else if ((next.thread !== root.state.thread && next.thread) || (root.state.model && next.model && next.model !== root.state.model)) {
+                        root.selectedModel = next.model;
+                        root.selectedEffort = next.effort || root.modelInfo.defaultEffort;
+                    }
+                    if (root.state.effort && next.effort && next.effort !== root.state.effort) root.selectedEffort = next.effort;
+                    if (!root.selectedEffort) root.selectedEffort = root.modelInfo.defaultEffort;
                     root.state = next;
                     if (!folder.activeFocus && next.cwd) folder.text = next.cwd;
                     // Update rows in place: streaming must not destroy text selection or scroll position.
@@ -115,24 +130,56 @@ Scope {
         }
     }
 
+    component ChatCombo: ComboBox {
+        id: control
+        implicitHeight: 38
+        padding: 10
+        hoverEnabled: true
+        background: Rectangle { radius: 9; color: control.hovered ? "#30313e" : "#242530"; border.color: control.activeFocus ? root.accent : "#41404f" }
+        contentItem: Text { text: control.displayText; color: root.ink; font.pixelSize: 12; verticalAlignment: Text.AlignVCenter; elide: Text.ElideRight; rightPadding: 22 }
+        indicator: Text { x: control.width - 25; anchors.verticalCenter: parent.verticalCenter; text: "⌄"; color: root.muted; font.pixelSize: 16 }
+        delegate: ItemDelegate {
+            id: option
+            required property int index
+            required property var modelData
+            width: control.width - 12
+            height: 40
+            highlighted: control.highlightedIndex === index
+            background: Rectangle { radius: 7; color: option.highlighted ? "#393047" : "transparent" }
+            contentItem: Text { text: option.modelData[control.textRole]; color: option.index === control.currentIndex ? root.accent : root.ink; font.pixelSize: 12; verticalAlignment: Text.AlignVCenter }
+        }
+        popup: Popup {
+            y: control.height + 6
+            width: control.width
+            padding: 6
+            implicitHeight: Math.min(contentItem.implicitHeight + 12, 330)
+            background: Rectangle { radius: 12; color: "#23242f"; border.color: "#4c455f" }
+            contentItem: ListView {
+                clip: true
+                implicitHeight: contentHeight
+                model: control.popup.visible ? control.delegateModel : null
+                currentIndex: control.highlightedIndex
+                ScrollBar.vertical: ScrollBar {}
+            }
+        }
+    }
+
     PanelWindow {
         id: window
         screen: root.activeScreen
         visible: GlobalStates.aiChatOpen
         color: "transparent"
-        anchors { top: true; bottom: true; left: true; right: true }
+        anchors { top: true; bottom: true; left: true }
+        implicitWidth: Math.min(780, (screen ? screen.width : 1920) - 24)
+        margins { top: 52; bottom: 12; left: 12 }
         exclusionMode: ExclusionMode.Ignore
         WlrLayershell.namespace: "quickshell:aichat"
-        WlrLayershell.layer: WlrLayer.Overlay
-        WlrLayershell.keyboardFocus: visible ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
+        WlrLayershell.layer: WlrLayer.Top
+        WlrLayershell.keyboardFocus: visible ? WlrKeyboardFocus.OnDemand : WlrKeyboardFocus.None
 
-        Rectangle { anchors.fill: parent; color: "#66000000" }
-        MouseArea { anchors.fill: parent; onClicked: GlobalStates.aiChatOpen = false }
         Rectangle {
             id: card
-            anchors.centerIn: parent
-            width: Math.min(1000, parent.width - 48)
-            height: Math.min(820, parent.height - 80)
+            anchors.fill: parent
             radius: 22
             color: "#191a22"
             border.color: "#41404f"
@@ -142,7 +189,7 @@ Scope {
 
             ColumnLayout {
                 anchors.fill: parent
-                anchors.margins: 24
+                anchors.margins: 20
                 spacing: 16
                 RowLayout {
                     Layout.fillWidth: true
@@ -156,6 +203,7 @@ Scope {
                         Text { text: root.state.account; color: root.muted; font.pixelSize: 12 }
                     }
                     Item { Layout.fillWidth: true }
+                    ChatButton { text: root.historyOpen ? "Hide history" : "History"; onClicked: root.historyOpen = !root.historyOpen }
                     ChatButton { text: "+ New chat"; enabled: !root.state.busy; onClicked: root.send({ action: "new" }) }
                     ChatButton {
                         text: "Reconnect"; visible: !root.state.ready
@@ -169,40 +217,78 @@ Scope {
                     TextField {
                         id: folder
                         Layout.fillWidth: true
+                        Layout.preferredHeight: 38
+                        leftPadding: 10
                         text: AiChatConfig.workingDirectory
                         enabled: !root.state.busy
                         color: root.ink; selectByMouse: true; font.pixelSize: 12
                         background: Rectangle { radius: 8; color: "#23242f"; border.color: folder.activeFocus ? root.accent : "#343541" }
                     }
-                    ComboBox {
-                        id: modelPicker
-                        Layout.preferredWidth: 190
-                        enabled: !root.state.busy
-                        model: root.availableModels
-                        currentIndex: Math.max(0, root.availableModels.findIndex(m => m.id === root.selectedModel))
-                        textRole: "label"
-                        onActivated: index => { root.selectedModel = model[index].id; }
-                        background: Rectangle { radius: 8; color: "#292a35"; border.color: "#41404f" }
-                        contentItem: Text { leftPadding: 10; rightPadding: 24; text: modelPicker.displayText; color: root.ink; font.pixelSize: 12; verticalAlignment: Text.AlignVCenter; elide: Text.ElideRight }
-                    }
                 }
-                ComboBox {
+                RowLayout {
                     Layout.fillWidth: true
-                    visible: card.width <= 740 && root.savedChats.length > 0
-                    enabled: !root.state.busy
-                    model: root.savedChats
-                    textRole: "title"
-                    displayText: "Open a saved conversation…"
-                    onActivated: index => { var chat = root.savedChats[index]; root.send({ action: "resume", thread: chat.id, cwd: chat.cwd }); }
+                    spacing: 14
+                    ChatCombo {
+                        id: modelPicker
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: 38
+                        enabled: !root.state.busy && root.availableModels.length > 0
+                        model: root.availableModels
+                        currentIndex: root.availableModels.findIndex(m => m.id === root.selectedModel)
+                        textRole: "label"
+                        displayText: currentIndex >= 0 ? root.availableModels[currentIndex].label : (root.selectedModel || "Loading models…")
+                        onActivated: index => {
+                            root.selectedModel = root.availableModels[index].id;
+                            root.selectedEffort = root.modelInfo.defaultEffort;
+                        }
+                    }
+                    ColumnLayout {
+                        Layout.preferredWidth: 240
+                        Layout.maximumWidth: 280
+                        spacing: 0
+                        RowLayout {
+                            Layout.fillWidth: true
+                            Text { text: "Reasoning"; color: root.muted; font.pixelSize: 11 }
+                            Item { Layout.fillWidth: true }
+                            Text {
+                                text: root.selectedEffort ? root.selectedEffort + (root.selectedEffort === root.modelInfo.defaultEffort ? " · recommended" : "") : "Unavailable"
+                                color: root.accent; font.pixelSize: 11
+                            }
+                        }
+                        Slider {
+                            id: reasoning
+                            Accessible.name: "Reasoning effort"
+                            Layout.fillWidth: true
+                            implicitHeight: 23
+                            from: 0; to: Math.max(1, root.effortOptions.length - 1); stepSize: 1
+                            snapMode: Slider.SnapAlways
+                            enabled: !root.state.busy && root.effortOptions.length > 1
+                            value: Math.max(0, root.effortOptions.findIndex(e => e.id === root.selectedEffort))
+                            onMoved: root.selectedEffort = root.effortOptions[Math.round(value)].id
+                            ToolTip.visible: hovered || pressed
+                            ToolTip.text: (root.effortOptions[Math.round(value)] || {}).description || ""
+                            background: Rectangle {
+                                x: reasoning.leftPadding; y: reasoning.topPadding + reasoning.availableHeight / 2 - height / 2
+                                width: reasoning.availableWidth; height: 4; radius: 2; color: "#42404f"
+                                Rectangle { width: reasoning.visualPosition * parent.width; height: parent.height; radius: 2; color: root.accent }
+                            }
+                            handle: Rectangle {
+                                x: reasoning.leftPadding + reasoning.visualPosition * (reasoning.availableWidth - width)
+                                y: reasoning.topPadding + reasoning.availableHeight / 2 - height / 2
+                                width: 13; height: 13; radius: 7; color: reasoning.pressed ? "#e2daff" : root.accent
+                            }
+                        }
+                    }
                 }
                 RowLayout {
                     Layout.fillWidth: true
                     Layout.fillHeight: true
                     spacing: 20
                     ColumnLayout {
-                        Layout.preferredWidth: 180
+                        Layout.preferredWidth: 164
+                        Layout.maximumWidth: 164
                         Layout.fillHeight: true
-                        visible: card.width > 740
+                        visible: root.historyOpen
                         Text { text: "CONVERSATIONS"; color: root.muted; font.pixelSize: 10; font.letterSpacing: 1.4 }
                         ListView {
                             Layout.fillWidth: true; Layout.fillHeight: true
@@ -214,14 +300,19 @@ Scope {
                                 width: ListView.view.width
                                 height: 62
                                 enabled: !root.state.busy
-                                background: Rectangle { radius: 10; color: modelData.id === root.state.thread ? "#302c40" : (parent.hovered ? "#242530" : "transparent") }
+                                background: Rectangle {
+                                    radius: 10
+                                    color: modelData.id === root.state.thread ? "#342d49" : (parent.hovered ? "#2b2c39" : "#22232e")
+                                    border.color: modelData.id === root.state.thread ? "#8473b0" : "#3c3d4d"
+                                    Rectangle { width: 3; height: 22; radius: 2; anchors.left: parent.left; anchors.verticalCenter: parent.verticalCenter; color: root.accent; visible: modelData.id === root.state.thread }
+                                }
                                 contentItem: Text { text: modelData.title; color: modelData.id === root.state.thread ? root.accent : root.muted; font.pixelSize: 12; wrapMode: Text.Wrap; maximumLineCount: 2; elide: Text.ElideRight; verticalAlignment: Text.AlignVCenter }
                                 onClicked: { conversation.follow = true; root.send({ action: "resume", thread: modelData.id, cwd: modelData.cwd }); }
                             }
                         }
                         Text { text: "Super+B  toggle\nEsc  hide"; color: root.muted; font.pixelSize: 11; lineHeight: 1.5 }
                     }
-                    Rectangle { Layout.fillHeight: true; width: 1; color: "#30303c"; visible: card.width > 740 }
+                    Rectangle { Layout.fillHeight: true; width: 1; color: "#30303c"; visible: root.historyOpen }
                     ColumnLayout {
                         Layout.fillWidth: true; Layout.fillHeight: true
                         spacing: 12

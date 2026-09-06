@@ -33,7 +33,13 @@ Scope {
         }
         if (!started) { started = true; bridge.running = true; }
         GlobalStates.aiChatOpen = true;
-        Qt.callLater(() => composer.forceActiveFocus());
+        Qt.callLater(() => { openingGrab.active = true; composer.forceActiveFocus(); });
+    }
+    // The compositor releases this grab on an outside click. Keep the panel
+    // open when that happens, so other apps remain usable while Codex works.
+    HyprlandFocusGrab {
+        id: openingGrab
+        windows: [window]
     }
     function send(data) {
         if (bridge.running) bridge.write(JSON.stringify(data) + "\n");
@@ -174,8 +180,13 @@ Scope {
         margins { top: 52; bottom: 12; left: 12 }
         exclusionMode: ExclusionMode.Ignore
         WlrLayershell.namespace: "quickshell:aichat"
-        WlrLayershell.layer: WlrLayer.Top
+        WlrLayershell.layer: WlrLayer.Overlay
         WlrLayershell.keyboardFocus: visible ? WlrKeyboardFocus.OnDemand : WlrKeyboardFocus.None
+        onVisibleChanged: {
+            if (!visible) {
+                openingGrab.active = false;
+            }
+        }
 
         Rectangle {
             id: card

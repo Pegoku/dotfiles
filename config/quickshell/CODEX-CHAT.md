@@ -1,8 +1,9 @@
 # Desktop Codex
 
-Super+B opens the chat along the left edge of the focused monitor. Click inside
-to type, or click any other app to keep using your desktop while Codex works.
-The panel does not dim the desktop or grab exclusive keyboard focus. Escape
+Super+B opens the chat along the left edge of the focused monitor and focuses
+the composer immediately. A Hyprland focus grab keeps typing in the chat until
+you click outside; that click releases the grab without hiding the panel.
+The panel appears above fullscreen apps and does not dim the desktop. Escape
 (while the panel has focus), Super+B, or the close button hides it; work continues
 in the background. Enter sends, Shift+Enter adds a line.
 Stop interrupts the active turn. New chat starts a fresh context; the outlined conversation cards

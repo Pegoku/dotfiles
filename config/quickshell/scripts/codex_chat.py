@@ -41,6 +41,8 @@ class Bridge:
         self.thread = ''
         self.turn = ''
         self.items = []
+        self.received_message = ''
+        self.pending_message = ''
         self.requests = {}
         self.busy = False
         self.stop_requested = False
@@ -67,7 +69,7 @@ class Bridge:
         print(json.dumps(dict(type='state', ready=self.ready, busy=self.busy,
                               account=self.account, models=self.models, model=self.model, effort=self.effort, defaultModel=self.default_model,
                               error=self.error, cwd=self.cwd, thread=self.thread,
-                              chats=self.chats, items=self.items,
+                              chats=self.chats, items=self.items, receivedMessage=self.received_message,
                               requests=list(self.requests.values())), ensure_ascii=False), flush=True)
         self.dirty = False
 
@@ -148,6 +150,12 @@ class Bridge:
         raise RuntimeError('Codex disconnected. Reconnect to continue your saved conversation.')
 
     def upsert(self, item):
+        if item['kind'] == 'userMessage' and self.pending_message:
+            for i, old in enumerate(self.items):
+                if old['id'] == self.pending_message:
+                    self.items[i] = item
+                    self.pending_message = ''
+                    return
         for i, old in enumerate(self.items):
             if old['id'] == item['id']:
                 self.items[i] = item
@@ -211,10 +219,16 @@ class Bridge:
             raise RuntimeError('Stop the current response before changing conversations.')
         if action == 'new':
             self.thread, self.turn, self.items, self.error = '', '', [], ''
+            self.pending_message = ''
             self.emit()
             return
         if action not in ('send', 'resume'):
             return
+        if action == 'send' and data.get('text', '').strip():
+            self.received_message = data.get('clientMessageId', '')
+            self.pending_message = self.received_message or 'local-message'
+            self.items.append(dict(id=self.pending_message, kind='userMessage', title='You',
+                                   text=data['text'].strip(), status=''))
         if not self.ready:
             raise RuntimeError('Sign in with codex login, then reconnect.')
         cwd = str(Path(data.get('cwd') or self.cwd).expanduser().resolve())
@@ -236,6 +250,7 @@ class Bridge:
                 settings['threadId'] = data['thread']
                 result = await self.rpc('thread/resume', settings)
                 self.thread = result['thread']['id']
+                self.pending_message = ''
                 self.cwd = result['thread'].get('cwd', cwd)
                 self.model = result.get('model', '')
                 self.effort = result.get('reasoningEffort') or self.model_info(self.model).get('defaultEffort', '')

@@ -119,6 +119,35 @@ class BridgeTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(settings['config']['model_reasoning_effort'], 'medium')
         self.assertIn('English by default', settings['developerInstructions'])
 
+    async def test_message_appears_before_network_and_reconciles_once(self):
+        b = self.bridge
+        entered, release = asyncio.Event(), asyncio.Event()
+        async def rpc(method, params):
+            if method == 'thread/start':
+                entered.set()
+                await release.wait()
+                return {'thread': {'id': 'thread'}, 'model': 'default'}
+            return {'turn': {'id': 'turn'}}
+        b.rpc = AsyncMock(side_effect=rpc)
+        task = asyncio.create_task(b.action(dict(action='send', text='instant', clientMessageId='local-1', cwd=self.tmp.name)))
+        await entered.wait()
+        self.assertEqual(b.items[0]['text'], 'instant')
+        self.assertEqual(b.received_message, 'local-1')
+        b.upsert(module.render_item(dict(id='server-1', type='userMessage', content=[dict(type='text', text='instant')])))
+        b.upsert(module.render_item(dict(id='server-1', type='userMessage', content=[dict(type='text', text='instant')])))
+        self.assertEqual(len(b.items), 1)
+        self.assertEqual(b.items[0]['id'], 'server-1')
+        release.set()
+        await task
+
+    async def test_failed_send_keeps_message_visible(self):
+        b = self.bridge
+        b.rpc = AsyncMock(side_effect=RuntimeError('offline'))
+        with self.assertRaisesRegex(RuntimeError, 'offline'):
+            await b.action(dict(action='send', text='keep this', clientMessageId='local-2', cwd=self.tmp.name))
+        self.assertEqual(b.items[0]['text'], 'keep this')
+        self.assertFalse(b.busy)
+
     async def test_resume_rehydrates_history(self):
         b = self.bridge
         b.rpc = AsyncMock(return_value={'model': 'model', 'reasoningEffort': 'high', 'thread': {'id': 'saved', 'cwd': self.tmp.name, 'turns': [{'items': [{'id': 'u', 'type': 'userMessage', 'content': [{'type': 'text', 'text': 'remember me'}]}]}]}})

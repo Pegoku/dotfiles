@@ -11,6 +11,8 @@ Scope {
     id: root
     property var state: ({ ready: false, busy: false, account: "Connecting…", error: "", chats: [], items: [], requests: [], models: [], thread: "" })
     property string draft: ""
+    property var optimisticMessage: null
+    property int messageSequence: 0
     property string selectedModel: AiChatConfig.model
     property bool started: false
     property var availableModels: []
@@ -59,9 +61,15 @@ Scope {
     }
     function submit() {
         if (!draft.trim() || state.busy || !state.ready) return;
-        send({ action: "send", text: draft, cwd: folder.text, model: selectedModel, effort: selectedEffort });
+        var text = draft.trim();
+        var id = "local-" + Date.now() + "-" + (++messageSequence);
+        optimisticMessage = { id: id, kind: "userMessage", title: "You", text: text, status: "" };
+        messages.append({ itemId: id, kind: "userMessage", title: "You", body: text, status: "" });
+        root.state = Object.assign({}, root.state, { busy: true, error: "" });
         draft = "";
         conversation.follow = true;
+        Qt.callLater(() => conversation.positionViewAtEnd());
+        send({ action: "send", text: text, clientMessageId: id, cwd: folder.text, model: selectedModel, effort: selectedEffort });
     }
     IpcHandler {
         target: "aichat"
@@ -93,16 +101,19 @@ Scope {
                     }
                     if (root.state.effort && next.effort && next.effort !== root.state.effort) root.selectedEffort = next.effort;
                     if (!root.selectedEffort) root.selectedEffort = root.modelInfo.defaultEffort;
+                    if (root.optimisticMessage && next.receivedMessage === root.optimisticMessage.id) root.optimisticMessage = null;
+                    if (root.optimisticMessage) next.busy = true;
                     root.state = next;
                     if (!folder.activeFocus && next.cwd) folder.text = next.cwd;
                     // Update rows in place: streaming must not destroy text selection or scroll position.
-                    var rows = next.items;
+                    var rows = next.items.slice();
+                    if (root.optimisticMessage) rows.push(root.optimisticMessage);
                     if (messages.count > rows.length || (messages.count && rows.length && messages.get(0).itemId !== rows[0].id)) messages.clear();
                     for (var i = 0; i < rows.length; i++) {
                         var r = rows[i];
                         var row = { itemId: r.id, kind: r.kind, title: r.title, body: r.text, status: r.status };
                         if (i >= messages.count) messages.append(row);
-                        else if (messages.get(i).body !== r.text || messages.get(i).status !== r.status) messages.set(i, row);
+                        else if (messages.get(i).itemId !== r.id || messages.get(i).body !== r.text || messages.get(i).status !== r.status) messages.set(i, row);
                     }
                     if (conversation.follow) Qt.callLater(() => conversation.positionViewAtEnd());
                 } catch (e) { console.warn("Codex bridge: " + e); }

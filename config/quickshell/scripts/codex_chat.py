@@ -43,6 +43,7 @@ class Bridge:
         self.items = []
         self.requests = {}
         self.busy = False
+        self.stop_requested = False
         self.ready = False
         self.account = 'Connecting…'
         self.models = []
@@ -167,6 +168,7 @@ class Bridge:
     async def action(self, data):
         action = data.get('action')
         if action == 'stop':
+            self.stop_requested = self.busy
             if self.turn:
                 await self.rpc('turn/interrupt', dict(threadId=self.thread, turnId=self.turn))
             return
@@ -202,6 +204,7 @@ class Bridge:
         if not Path(cwd).is_dir():
             raise RuntimeError('Working folder does not exist: ' + cwd)
         self.busy, self.error = True, ''
+        self.stop_requested = False
         self.emit()
         try:
             settings = dict(cwd=cwd, modelProvider='openai', approvalPolicy='on-request',
@@ -228,12 +231,18 @@ class Bridge:
                     self.model = result.get('model', '')
                     self.chats.insert(0, dict(id=self.thread, title=prompt[:70], cwd=cwd))
                     self.chats = self.chats[:50]
+                    self.save()
                 self.cwd = cwd
                 params = dict(threadId=self.thread, cwd=cwd, input=[dict(type='text', text=prompt)])
                 if model:
                     params['model'] = model
                 result = await self.rpc('turn/start', params)
                 self.turn = result['turn']['id'] if self.busy else ''
+                if self.stop_requested and self.turn:
+                    await self.rpc('turn/interrupt', dict(threadId=self.thread, turnId=self.turn))
+                for chat in self.chats:
+                    if chat['id'] == self.thread:
+                        chat['cwd'] = cwd
             self.save()
         except Exception:
             self.busy = False
@@ -317,7 +326,12 @@ class Bridge:
 async def main():
     bridge = Bridge()
     try:
+        task = asyncio.current_task()
+        for sig in (signal.SIGTERM, signal.SIGINT):
+            asyncio.get_running_loop().add_signal_handler(sig, task.cancel)
         await bridge.run()
+    except asyncio.CancelledError:
+        pass
     except Exception as exc:
         bridge.ready = bridge.busy = False
         bridge.error = str(exc)

@@ -1,3 +1,4 @@
+import asyncio
 import importlib.util
 import json
 import tempfile
@@ -72,6 +73,26 @@ class BridgeTests(unittest.IsolatedAsyncioTestCase):
         b.requests['2'] = dict(id=2, method='item/permissions/requestApproval', params={'permissions': {'network': {'enabled': True}}})
         await b.action(dict(action='reply', id=2, allow=True))
         b.write.assert_awaited_with(dict(id=2, result=dict(permissions={'network': {'enabled': True}}, scope='turn')))
+
+    async def test_stop_during_startup_interrupts_created_turn(self):
+        b = self.bridge
+        entered = asyncio.Event()
+        release = asyncio.Event()
+        async def rpc(method, params):
+            if method == 'thread/start':
+                entered.set()
+                await release.wait()
+                return {'thread': {'id': 'new'}, 'model': 'default'}
+            if method == 'turn/start':
+                return {'turn': {'id': 'running'}}
+            return {}
+        b.rpc = AsyncMock(side_effect=rpc)
+        task = asyncio.create_task(b.action(dict(action='send', text='hello', cwd=self.tmp.name)))
+        await entered.wait()
+        await b.action(dict(action='stop'))
+        release.set()
+        await task
+        b.rpc.assert_awaited_with('turn/interrupt', dict(threadId='new', turnId='running'))
 
     async def test_resume_rehydrates_history(self):
         b = self.bridge

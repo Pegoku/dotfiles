@@ -13,6 +13,9 @@ Scope {
     property string draft: ""
     property string selectedModel: AiChatConfig.model
     property bool started: false
+    property var availableModels: [{ id: "", label: "CLI / thread default" }]
+    property var pendingRequests: []
+    property var savedChats: []
     property var activeScreen: Quickshell.screens[0]
     readonly property color ink: "#edf0f7"
     readonly property color muted: "#969daf"
@@ -30,6 +33,19 @@ Scope {
     function send(data) {
         if (bridge.running) bridge.write(JSON.stringify(data) + "\n");
     }
+    function requestDetails(request) {
+        var p = request.params;
+        if (request.method === "item/tool/requestUserInput") return "";
+        var details = [p.reason || "", p.command || ""];
+        if (p.permissions) details.push(JSON.stringify(p.permissions, null, 2));
+        if (p.networkApprovalContext) details.push(JSON.stringify(p.networkApprovalContext, null, 2));
+        if (p.grantRoot) details.push("Folder: " + p.grantRoot);
+        if (request.method === "item/fileChange/requestApproval") {
+            var item = root.state.items.find(i => i.id === p.itemId);
+            if (item) details.push(item.text);
+        }
+        return details.filter(s => s).join("\n\n") || JSON.stringify(p, null, 2);
+    }
     function submit() {
         if (!draft.trim() || state.busy || !state.ready) return;
         send({ action: "send", text: draft, cwd: folder.text, model: selectedModel });
@@ -44,13 +60,18 @@ Scope {
     }
     Process {
         id: bridge
-        command: ["python3", "-u", Qt.resolvedUrl("scripts/codex_chat.py").toString().replace("file://", "")]
+        command: ["python3", "-u", decodeURIComponent(Qt.resolvedUrl("scripts/codex_chat.py").toString().replace("file://", ""))]
         stdinEnabled: true
         stdout: SplitParser {
             onRead: line => {
                 try {
                     var next = JSON.parse(line);
                     if (next.type !== "state") return;
+                    if (JSON.stringify(root.state.models) !== JSON.stringify(next.models)) {
+                        root.availableModels = [{ id: "", label: "CLI / thread default" }].concat(next.models);
+                    }
+                    if (JSON.stringify(root.state.requests) !== JSON.stringify(next.requests)) root.pendingRequests = next.requests;
+                    if (JSON.stringify(root.state.chats) !== JSON.stringify(next.chats)) root.savedChats = next.chats;
                     root.state = next;
                     if (!folder.activeFocus && next.cwd) folder.text = next.cwd;
                     // Update rows in place: streaming must not destroy text selection or scroll position.
@@ -157,13 +178,22 @@ Scope {
                         id: modelPicker
                         Layout.preferredWidth: 190
                         enabled: !root.state.busy
-                        model: [{ id: "", label: "CLI default" }].concat(root.state.models)
+                        model: root.availableModels
+                        currentIndex: Math.max(0, root.availableModels.findIndex(m => m.id === root.selectedModel))
                         textRole: "label"
-                        onActivated: root.selectedModel = model[index].id
-                        Component.onCompleted: {
-                            if (root.selectedModel) displayText = root.selectedModel;
-                        }
+                        onActivated: index => { root.selectedModel = model[index].id; }
+                        background: Rectangle { radius: 8; color: "#292a35"; border.color: "#41404f" }
+                        contentItem: Text { leftPadding: 10; rightPadding: 24; text: modelPicker.displayText; color: root.ink; font.pixelSize: 12; verticalAlignment: Text.AlignVCenter; elide: Text.ElideRight }
                     }
+                }
+                ComboBox {
+                    Layout.fillWidth: true
+                    visible: card.width <= 740 && root.savedChats.length > 0
+                    enabled: !root.state.busy
+                    model: root.savedChats
+                    textRole: "title"
+                    displayText: "Open a saved conversation…"
+                    onActivated: index => { var chat = root.savedChats[index]; root.send({ action: "resume", thread: chat.id, cwd: chat.cwd }); }
                 }
                 RowLayout {
                     Layout.fillWidth: true
@@ -177,7 +207,7 @@ Scope {
                         ListView {
                             Layout.fillWidth: true; Layout.fillHeight: true
                             clip: true; spacing: 6
-                            model: root.state.chats
+                            model: root.savedChats
                             ScrollBar.vertical: ScrollBar {}
                             delegate: ItemDelegate {
                                 required property var modelData
@@ -272,7 +302,7 @@ Scope {
                                 id: requestColumn
                                 width: parent.width
                                 Repeater {
-                                    model: root.state.requests
+                                    model: root.pendingRequests
                                     delegate: Rectangle {
                                         id: requestCard
                                         required property var modelData
@@ -287,7 +317,7 @@ Scope {
                                             TextEdit {
                                                 Layout.fillWidth: true
                                                 readOnly: true; selectByMouse: true; wrapMode: TextEdit.Wrap; color: root.ink; font.pixelSize: 12
-                                                text: requestCard.modelData.params.command || requestCard.modelData.params.reason || JSON.stringify(requestCard.modelData.params.permissions || {}, null, 2)
+                                                text: root.requestDetails(requestCard.modelData)
                                             }
                                             Repeater {
                                                 model: requestCard.modelData.params.questions || []

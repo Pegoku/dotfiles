@@ -381,3 +381,6 @@ _load_conda() {
 # Generating Conda's shell hook starts Python. Pay that cost only when Conda is
 # first used; activation still modifies the current shell as expected.
 conda() { _load_conda || return; conda "$@"; }
+
+# opencode
+export PATH=/home/pegoku/.opencode/bin:$PATH

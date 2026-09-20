@@ -23,6 +23,35 @@ Singleton {
     property bool overviewAnimationsSuspended: false
     readonly property int overviewAnimationSuspendMs: 350
 
+    // Open overview instances by screen name, so a window drag started on one
+    // monitor can find the workspace grid on another. Workspace ids are unique
+    // across monitors, so a single drag target covers every overview.
+    property var overviews: ({})
+    property int overviewDragTargetWorkspace: -1
+
+    function registerOverview(name, overview) {
+        overviews[name] = overview;
+    }
+
+    function unregisterOverview(name) {
+        delete overviews[name];
+    }
+
+    // Workspace under a point given in Hyprland layout coordinates, whichever
+    // monitor it falls on. -1 when the point is not over a workspace.
+    function overviewWorkspaceAt(layoutX, layoutY) {
+        for (var name in overviews) {
+            var overview = overviews[name];
+            if (!overview)
+                continue;
+
+            var workspace = overview.workspaceAtLayoutPosition(layoutX, layoutY);
+            if (workspace !== -1)
+                return workspace;
+        }
+        return -1;
+    }
+
     function suspendOverviewAnimations() {
         if (!overviewAnimationsSuspended)
             Quickshell.execDetached(["hyprctl", "keyword", "animations:enabled", "0"]);

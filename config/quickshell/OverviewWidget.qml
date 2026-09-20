@@ -14,24 +14,24 @@ Item {
     readonly property int workspacesShown: 10
     readonly property int rows: 2
     readonly property int columns: 5
-    readonly property int focusedWorkspaceId: Math.max(1, monitor.activeWorkspace?.id ?? 1)
+    readonly property int focusedWorkspaceId: Math.max(1, monitor?.activeWorkspace?.id ?? 1)
     readonly property int workspaceGroupStart: Math.floor((focusedWorkspaceId - 1) / workspacesShown) * workspacesShown + 1
     readonly property real baseScale: 0.15
     readonly property real minScale: 0.08
     readonly property real topClearance: 72
     readonly property real outerMargin: 24
     readonly property real launcherCollapsedHeight: 50
-    readonly property real availableWidth: Math.max(320, screen.width - outerMargin * 2)
-    readonly property real availableHeight: Math.max(240, screen.height - topClearance - outerMargin * 2)
-    readonly property real widthLimitedScale: (availableWidth - padding * 4 - workspaceSpacing * Math.max(0, columns - 1)) / Math.max(1, monitor.width * columns)
-    readonly property real heightLimitedScale: (availableHeight - padding * 4 - launcherCollapsedHeight - workspaceSpacing * Math.max(0, rows - 1)) / Math.max(1, monitor.height * rows)
+    readonly property real availableWidth: Math.max(320, (screen?.width ?? 0) - outerMargin * 2)
+    readonly property real availableHeight: Math.max(240, (screen?.height ?? 0) - topClearance - outerMargin * 2)
+    readonly property real widthLimitedScale: (availableWidth - padding * 4 - workspaceSpacing * Math.max(0, columns - 1)) / Math.max(1, (monitor?.width ?? 1) * columns)
+    readonly property real heightLimitedScale: (availableHeight - padding * 4 - launcherCollapsedHeight - workspaceSpacing * Math.max(0, rows - 1)) / Math.max(1, (monitor?.height ?? 1) * rows)
     readonly property real scale: Math.max(minScale, Math.min(baseScale, widthLimitedScale, heightLimitedScale))
 
     property int draggingFromWorkspace: -1
-    property int draggingTargetWorkspace: -1
+    readonly property int draggingTargetWorkspace: GlobalStates.overviewDragTargetWorkspace
     
-    property real workspaceImplicitWidth: monitor.width * scale
-    property real workspaceImplicitHeight: monitor.height * scale
+    property real workspaceImplicitWidth: (monitor?.width ?? 0) * scale
+    property real workspaceImplicitHeight: (monitor?.height ?? 0) * scale
     property real workspaceSpacing: 10
     property real padding: 20
     property int zCounter: 0
@@ -107,6 +107,23 @@ Item {
         if (withinX < 0 || withinX > workspaceImplicitWidth) return -1
         if (withinY < 0 || withinY > workspaceImplicitHeight) return -1
         return workspaceGroupStart + row * columns + col
+    }
+
+    // Hyprland lays its monitors out in one coordinate space, which is what a
+    // drag needs to speak to reach an overview on another monitor.
+    function toLayoutPosition(sceneX, sceneY) {
+        return Qt.point((monitor?.x ?? 0) + sceneX, (monitor?.y ?? 0) + sceneY);
+    }
+
+    // Inverse of toLayoutPosition, resolved against this monitor's grid.
+    function workspaceAtLayoutPosition(layoutX, layoutY) {
+        if (!GlobalStates.overviewOpen || !workspaceSection.visible)
+            return -1;
+
+        const local = windowSpace.mapFromItem(null,
+            layoutX - (monitor?.x ?? 0),
+            layoutY - (monitor?.y ?? 0));
+        return workspaceAtPosition(local.x, local.y);
     }
 
     function requestTopZ() {
@@ -907,7 +924,7 @@ Item {
                                     required property int index
                                     property int colIndex: index
                                     property int workspaceValue: root.workspaceGroupStart + row.index * root.columns + colIndex
-                                    property bool isActive: monitor.activeWorkspace?.id === workspaceValue
+                                    property bool isActive: monitor?.activeWorkspace?.id === workspaceValue
                                     property bool hoveredWhileDragging: root.draggingTargetWorkspace === workspaceValue
                                     
                                     width: root.workspaceImplicitWidth
@@ -993,8 +1010,8 @@ Item {
                                 windowData: windowLoader.modelData
                                 monitorData: root.monitor
                                 scale: root.scale
-                                widgetMonitorWidth: root.monitor.width
-                                widgetMonitorHeight: root.monitor.height
+                                widgetMonitorWidth: root.monitor?.width ?? 1
+                                widgetMonitorHeight: root.monitor?.height ?? 1
                                 xOffset: windowLoader.xOffset
                                 yOffset: windowLoader.yOffset
                             }
@@ -1029,7 +1046,17 @@ Item {
 
     onSelectedAppIndexChanged: Qt.callLater(root.ensureSelectedVisible)
 
-    Component.onCompleted: root.refreshFilteredApps()
+    // Kept as a plain string: by the time this instance is torn down its screen
+    // may already be gone.
+    property string registeredScreenName: ""
+
+    Component.onCompleted: {
+        root.refreshFilteredApps();
+        root.registeredScreenName = root.screen?.name ?? "";
+        GlobalStates.registerOverview(root.registeredScreenName, root);
+    }
+
+    Component.onDestruction: GlobalStates.unregisterOverview(root.registeredScreenName)
 
     Process {
         id: commandCheckProc

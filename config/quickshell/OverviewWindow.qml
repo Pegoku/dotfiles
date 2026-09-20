@@ -37,10 +37,19 @@ Item {
     property bool hovered: false
     property bool isPressed: false
     property bool wasDragged: false
-    property real lastMouseX: x + width / 2
-    property real lastMouseY: y + height / 2
+    // Last drag position in Hyprland layout coordinates, so the drop can land
+    // on a workspace belonging to another monitor's overview.
+    property real lastLayoutX: 0
+    property real lastLayoutY: 0
     property int dynamicZ: 0
     readonly property var currentWindowData: HyprlandData.windowByAddress[windowData?.address] ?? windowData
+
+    function trackDragPosition(mouse) {
+        const scenePos = root.mapToItem(null, mouse.x, mouse.y);
+        const layoutPos = overviewWidget.toLayoutPosition(scenePos.x, scenePos.y);
+        root.lastLayoutX = layoutPos.x;
+        root.lastLayoutY = layoutPos.y;
+    }
     
     x: initX
     y: initY
@@ -128,16 +137,16 @@ Item {
             overviewWidget.draggingFromWorkspace = windowData?.workspace?.id ?? -1
             dynamicZ = overviewWidget.requestTopZ()
             isPressed = true
+            root.trackDragPosition(mouse)
         }
 
         onPositionChanged: mouse => {
             if (root.Drag.active) {
                 wasDragged = true
-                lastMouseX = root.x + mouse.x
-                lastMouseY = root.y + mouse.y
-                overviewWidget.draggingTargetWorkspace = overviewWidget.workspaceAtPosition(
-                    lastMouseX,
-                    lastMouseY
+                root.trackDragPosition(mouse)
+                GlobalStates.overviewDragTargetWorkspace = GlobalStates.overviewWorkspaceAt(
+                    root.lastLayoutX,
+                    root.lastLayoutY
                 )
             }
         }
@@ -145,13 +154,13 @@ Item {
         onReleased: {
             isPressed = false
             if (root.Drag.active) {
-                const targetWorkspace = overviewWidget.workspaceAtPosition(
-                    lastMouseX,
-                    lastMouseY
+                const targetWorkspace = GlobalStates.overviewWorkspaceAt(
+                    root.lastLayoutX,
+                    root.lastLayoutY
                 )
                 root.Drag.active = false
                 overviewWidget.draggingFromWorkspace = -1
-                overviewWidget.draggingTargetWorkspace = -1
+                GlobalStates.overviewDragTargetWorkspace = -1
                 if (targetWorkspace !== -1 && targetWorkspace !== windowData?.workspace?.id) {
                     Hyprland.dispatch(`hl.dsp.window.move({ workspace = "${targetWorkspace}", window = "address:${windowData?.address}", follow = false })`)
                 }

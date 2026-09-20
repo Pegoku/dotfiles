@@ -5,13 +5,22 @@ import Quickshell.Hyprland
 Rectangle {
     id: containerRect
 
+    // The screen this bar instance belongs to. Each monitor owns a block of ten
+    // workspaces (see hypr/hyprland/workspaces.lua), so the bar shows that
+    // monitor's block and stays put while other monitors change workspace.
+    required property var screen
+
     property int wheelAccum: 0
     readonly property int buttonWidth: 24
     readonly property int buttonHeight: 20
     readonly property int buttonSpacing: 0
-    readonly property int focusedWorkspaceId: Math.max(1, Hyprland.focusedWorkspace?.id ?? 1)
-    readonly property int groupStart: Math.floor((focusedWorkspaceId - 1) / 10) * 10 + 1
-    readonly property int groupEnd: groupStart + 9
+    readonly property int workspacesPerMonitor: 10
+    readonly property HyprlandMonitor monitor: Hyprland.monitorFor(screen)
+    readonly property int activeWorkspaceId: Math.max(1, monitor?.activeWorkspace?.id ?? 1)
+    // Normally the monitor's own block. Workspaces past the last block are not
+    // bound to any monitor, so a bar showing one of those follows it instead.
+    readonly property int groupStart: Math.floor((activeWorkspaceId - 1) / workspacesPerMonitor) * workspacesPerMonitor + 1
+    readonly property int groupEnd: groupStart + workspacesPerMonitor - 1
 
     function workspaceById(id) {
         return Hyprland.workspaces.values.find((item) => item.id === id) ?? null;
@@ -22,9 +31,9 @@ Rectangle {
         return ws && ws.toplevels && ws.toplevels.values.length > 0;
     }
 
+    // Active on this monitor, not globally: each bar highlights its own monitor.
     function workspaceIsActive(id) {
-        var ws = workspaceById(id);
-        return ws && ws.active;
+        return id === activeWorkspaceId;
     }
 
     function focusWorkspace(id) {
@@ -56,7 +65,7 @@ Rectangle {
         z: 1
 
         Repeater {
-            model: 9
+            model: containerRect.workspacesPerMonitor - 1
 
             delegate: Rectangle {
                 required property int index
@@ -83,7 +92,7 @@ Rectangle {
         z: 3
 
         Repeater {
-            model: 10
+            model: containerRect.workspacesPerMonitor
 
             delegate: WorkspaceButton {
                 required property int index
@@ -120,13 +129,13 @@ Rectangle {
             wheelResetTimer.restart();
 
             var threshold = 120;
-            var focused = containerRect.focusedWorkspaceId;
+            var active = containerRect.activeWorkspaceId;
 
-            if (containerRect.wheelAccum >= threshold && focused > 1) {
-                containerRect.focusWorkspace(focused - 1);
+            if (containerRect.wheelAccum >= threshold && active > containerRect.groupStart) {
+                containerRect.focusWorkspace(active - 1);
                 containerRect.wheelAccum = 0;
-            } else if (containerRect.wheelAccum <= -threshold) {
-                containerRect.focusWorkspace(focused + 1);
+            } else if (containerRect.wheelAccum <= -threshold && active < containerRect.groupEnd) {
+                containerRect.focusWorkspace(active + 1);
                 containerRect.wheelAccum = 0;
             }
         }

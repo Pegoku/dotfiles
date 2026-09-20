@@ -63,6 +63,7 @@ Scope {
 
             WorkspacesWidget {
                 id: workspacesWidget
+                screen: panelWindow.screen
                 anchors.horizontalCenter: parent.horizontalCenter
                 anchors.verticalCenter: parent.verticalCenter
                 anchors.leftMargin: 10

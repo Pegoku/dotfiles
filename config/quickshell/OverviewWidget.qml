@@ -109,23 +109,6 @@ Item {
         return workspaceGroupStart + row * columns + col
     }
 
-    // Hyprland lays its monitors out in one coordinate space, which is what a
-    // drag needs to speak to reach an overview on another monitor.
-    function toLayoutPosition(sceneX, sceneY) {
-        return Qt.point((monitor?.x ?? 0) + sceneX, (monitor?.y ?? 0) + sceneY);
-    }
-
-    // Inverse of toLayoutPosition, resolved against this monitor's grid.
-    function workspaceAtLayoutPosition(layoutX, layoutY) {
-        if (!GlobalStates.overviewOpen || !workspaceSection.visible)
-            return -1;
-
-        const local = windowSpace.mapFromItem(null,
-            layoutX - (monitor?.x ?? 0),
-            layoutY - (monitor?.y ?? 0));
-        return workspaceAtPosition(local.x, local.y);
-    }
-
     function requestTopZ() {
         zCounter += 1
         return zCounter
@@ -969,6 +952,44 @@ Item {
                     }
                 }
 
+                // Accepts window drags anywhere over this monitor's grid. Wayland
+                // routes a drag to whichever surface is under the cursor, so this
+                // fires even for a drag that started on a different monitor.
+                DropArea {
+                    id: workspaceDropArea
+
+                    anchors.fill: parent
+                    z: 50
+
+                    function workspaceAt(event) {
+                        const local = windowSpace.mapFromItem(workspaceDropArea, event.x, event.y);
+                        return root.workspaceAtPosition(local.x, local.y);
+                    }
+
+                    function windowAddress(event) {
+                        const text = event.text ?? "";
+                        return text.startsWith("0x") ? text : "";
+                    }
+
+                    onEntered: event => {
+                        if (workspaceDropArea.windowAddress(event))
+                            event.accept(Qt.MoveAction);
+                    }
+                    onPositionChanged: event => {
+                        GlobalStates.overviewDragTargetWorkspace = workspaceDropArea.workspaceAt(event);
+                    }
+                    onExited: GlobalStates.overviewDragTargetWorkspace = -1
+                    onDropped: event => {
+                        const workspace = workspaceDropArea.workspaceAt(event);
+                        const address = workspaceDropArea.windowAddress(event);
+                        GlobalStates.overviewDragTargetWorkspace = -1;
+                        event.accept(Qt.MoveAction);
+
+                        if (workspace !== -1 && address)
+                            Hyprland.dispatch(`hl.dsp.window.move({ workspace = "${workspace}", window = "address:${address}", follow = false })`);
+                    }
+                }
+
                 // Windows overlay
                 Item {
                     id: windowSpace
@@ -1046,17 +1067,7 @@ Item {
 
     onSelectedAppIndexChanged: Qt.callLater(root.ensureSelectedVisible)
 
-    // Kept as a plain string: by the time this instance is torn down its screen
-    // may already be gone.
-    property string registeredScreenName: ""
-
-    Component.onCompleted: {
-        root.refreshFilteredApps();
-        root.registeredScreenName = root.screen?.name ?? "";
-        GlobalStates.registerOverview(root.registeredScreenName, root);
-    }
-
-    Component.onDestruction: GlobalStates.unregisterOverview(root.registeredScreenName)
+    Component.onCompleted: root.refreshFilteredApps()
 
     Process {
         id: commandCheckProc

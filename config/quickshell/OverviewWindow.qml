@@ -37,19 +37,33 @@ Item {
     property bool hovered: false
     property bool isPressed: false
     property bool wasDragged: false
-    // Last drag position in Hyprland layout coordinates, so the drop can land
-    // on a workspace belonging to another monitor's overview.
-    property real lastLayoutX: 0
-    property real lastLayoutY: 0
+    property real pressX: 0
+    property real pressY: 0
+    // Held so the grabbed image stays valid for as long as Drag.imageSource
+    // points at it.
+    property var dragImage: null
     property int dynamicZ: 0
     readonly property var currentWindowData: HyprlandData.windowByAddress[windowData?.address] ?? windowData
 
-    function trackDragPosition(mouse) {
-        const scenePos = root.mapToItem(null, mouse.x, mouse.y);
-        const layoutPos = overviewWidget.toLayoutPosition(scenePos.x, scenePos.y);
-        root.lastLayoutX = layoutPos.x;
-        root.lastLayoutY = layoutPos.y;
+    // A real Wayland drag, not an in-scene one: the compositor drops the
+    // pointer grab at the edge of the monitor the drag started on, so an
+    // in-scene drag can never reach another monitor's overview. The drop is
+    // handled by the DropArea in whichever OverviewWidget receives it.
+    readonly property bool dragging: Drag.active
+
+    // The drag takes over the grab, so the press ends in a cancel, not a release.
+    onDraggingChanged: {
+        if (!dragging) {
+            isPressed = false;
+            overviewWidget.draggingFromWorkspace = -1;
+            GlobalStates.overviewDragTargetWorkspace = -1;
+        }
     }
+
+    Drag.dragType: Drag.Automatic
+    Drag.supportedActions: Qt.MoveAction
+    Drag.proposedAction: Qt.MoveAction
+    Drag.mimeData: ({ "text/plain": String(windowData?.address ?? "") })
     
     x: initX
     y: initY
@@ -122,54 +136,39 @@ Item {
         anchors.fill: parent
         hoverEnabled: true
         acceptedButtons: Qt.LeftButton | Qt.MiddleButton
-        drag.target: parent
-        
+
         onEntered: hovered = true
         onExited: hovered = false
 
         onPressed: mouse => {
             if (mouse.button !== Qt.LeftButton) return;
             wasDragged = false;
-            root.Drag.active = true
-            root.Drag.source = root
-            root.Drag.hotSpot.x = mouse.x
-            root.Drag.hotSpot.y = mouse.y
-            overviewWidget.draggingFromWorkspace = windowData?.workspace?.id ?? -1
+            root.pressX = mouse.x
+            root.pressY = mouse.y
             dynamicZ = overviewWidget.requestTopZ()
             isPressed = true
-            root.trackDragPosition(mouse)
+
+            // Qt needs something to show under the cursor while dragging.
+            root.grabToImage(result => {
+                root.dragImage = result
+                root.Drag.imageSource = result.url
+            })
         }
 
         onPositionChanged: mouse => {
-            if (root.Drag.active) {
-                wasDragged = true
-                root.trackDragPosition(mouse)
-                GlobalStates.overviewDragTargetWorkspace = GlobalStates.overviewWorkspaceAt(
-                    root.lastLayoutX,
-                    root.lastLayoutY
-                )
-            }
+            if (!isPressed || root.Drag.active) return;
+            if (Math.abs(mouse.x - root.pressX) + Math.abs(mouse.y - root.pressY) < Qt.styleHints.startDragDistance) return;
+
+            wasDragged = true
+            root.Drag.hotSpot.x = mouse.x
+            root.Drag.hotSpot.y = mouse.y
+            overviewWidget.draggingFromWorkspace = windowData?.workspace?.id ?? -1
+            root.Drag.active = true
         }
-        
-        onReleased: {
-            isPressed = false
-            if (root.Drag.active) {
-                const targetWorkspace = GlobalStates.overviewWorkspaceAt(
-                    root.lastLayoutX,
-                    root.lastLayoutY
-                )
-                root.Drag.active = false
-                overviewWidget.draggingFromWorkspace = -1
-                GlobalStates.overviewDragTargetWorkspace = -1
-                if (targetWorkspace !== -1 && targetWorkspace !== windowData?.workspace?.id) {
-                    Hyprland.dispatch(`hl.dsp.window.move({ workspace = "${targetWorkspace}", window = "address:${windowData?.address}", follow = false })`)
-                }
-                // Snap back to computed position; data refresh will place it correctly.
-                root.x = initX
-                root.y = initY
-            }
-        }
-        
+
+        onReleased: isPressed = false
+        onCanceled: isPressed = false
+
         onClicked: event => {
             if (!windowData) return;
             if (wasDragged) return;

@@ -6,6 +6,8 @@ require("hyprland.env")
 require("hyprland.execs")
 -- Source: ~/.config/hypr/hyprland/general.conf — convert this file to Lua and ensure it is on Lua's package.path.
 require("hyprland.general")
+-- Per-monitor workspace blocks (1-10 built-in, 11-20 first external, ...).
+require("hyprland.workspaces")
 -- Source: ~/.config/hypr/hyprland/rules.conf — convert this file to Lua and ensure it is on Lua's package.path.
 require("hyprland.rules")
 -- Source: ~/.config/hypr/hyprland/colors.conf — convert this file to Lua and ensure it is on Lua's package.path.

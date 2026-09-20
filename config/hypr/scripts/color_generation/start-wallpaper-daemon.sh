@@ -22,3 +22,6 @@ fi
 
 sleep 1
 "$client_bin" restore >/dev/null 2>&1 || true
+
+# Outputs the daemon has no cache for stay on a flat colour after a restore.
+"$(dirname -- "${BASH_SOURCE[0]}")/wallpaper-fill-outputs.sh" || true

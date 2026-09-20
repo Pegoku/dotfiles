@@ -32,3 +32,9 @@ hl.on("hyprland.start", function()
     hl.exec_cmd("~/.config/ags/scripts/hyprland/fix_portals.sh")
     hl.exec_cmd("kdeconnect-indicator &")
 end)
+
+-- The wallpaper daemon caches per output name, so a monitor it has never
+-- seen comes up blank until the current wallpaper is pushed to it.
+hl.on("monitor.added", function()
+    hl.exec_cmd("~/.config/hypr/scripts/color_generation/wallpaper-fill-outputs.sh")
+end)

@@ -1,0 +1,11 @@
+# Framework 16 Goodix fingerprint reader (27c6:609c).
+#
+# The reader defaults to USB autosuspend (power/control=auto, 2s delay) and it
+# cannot signal remote wakeup, so after a system resume the first command the
+# goodixmoc driver sends can outlive its 1s timeout. fprintd turns that into a
+# VerifyStatus of verify-unknown-error, and hyprlock treats an unknown error as
+# fatal: it stops verification without scheduling a retry and the lock screen
+# shows "Fingerprint auth disabled (unknown error)" until it is restarted.
+#
+# Keeping the reader powered removes the resume-time timeout.
+ACTION!="remove", SUBSYSTEM=="usb", ATTR{idVendor}=="27c6", ATTR{idProduct}=="609c", TEST=="power/control", ATTR{power/control}="on"

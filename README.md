@@ -1,6 +1,37 @@
 # Pegoku Dotfiles
 Laptop branch (v2)
 
+## Hyprland configuration
+
+Hyprland 0.56+ uses `config/hypr/hyprland.lua`, with modules in
+`config/hypr/hyprland/`. Edit the Lua files for monitors, rules, bindings,
+startup commands, and environment settings. Hyprland prefers the Lua entry
+point on startup. A session already using the legacy parser needs a logout
+and login to switch; `hyprctl reload` does not switch parsers.
+
+The old Hyprland `.conf` files remain as a fallback for existing legacy
+sessions. They are not loaded by the Lua entry point. Wallpaper colors are
+generated in both formats during this transition. Hypridle, Hyprlock, and
+xdg-desktop-portal-hyprland still use their own `.conf` files.
+
+Optional machine-specific settings belong in the ignored
+`config/hypr/hyprland/env.local.lua`, for example:
+
+```lua
+hl.env("MY_VARIABLE", "value")
+```
+
+Validate before logging back in:
+
+```sh
+Hyprland --verify-config -c ~/.config/hypr/hyprland.lua
+```
+
+The keybinding overlay reads the Lua bindings using the `lua` interpreter,
+including generated workspace shortcuts. Use `--#! Section name` headings,
+`-- help: Description` on callback bindings, and `-- [hidden]` to hide a
+binding. The help reader uses inert dispatcher stubs and does not run commands.
+
 ## System updates and T3 Code
 
 Run `up` in Zsh to update with Yay and then synchronize the separately installed

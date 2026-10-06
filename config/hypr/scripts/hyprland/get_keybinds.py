@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import argparse
 import re
+import subprocess
 import os
 from os.path import expandvars as os_expandvars
 from pathlib import Path
@@ -12,7 +13,7 @@ MOD_SEPARATORS = ['+', ' ']
 COMMENT_BIND_PATTERN = "#/#"
 
 parser = argparse.ArgumentParser(description='Hyprland keybind reader')
-parser.add_argument('--path', type=str, default="$HOME/.config/hypr/hyprland.conf", help='path to keybind file (sourcing isn\'t supported)')
+parser.add_argument('--path', type=str, default=str(Path(os.environ.get("XDG_CONFIG_HOME", str(Path.home() / ".config"))) / "hypr/hyprland/keybinds.lua"), help='path to Lua or legacy keybind file')
 args = parser.parse_args()
 content_lines = []
 reading_line = 0
@@ -254,6 +255,21 @@ def parse_keys(path: str) -> Dict[str, List[KeyBinding]]:
     propagate this sentinel. Includes are expanded via `source =`.
     """
     global content_lines, reading_line
+    if path.endswith(".lua"):
+        result = subprocess.run(
+            ["lua", str(Path(__file__).with_name("keybinds-help.lua")),
+             os.path.expanduser(os.path.expandvars(path))],
+            check=True, capture_output=True, text=True,
+        )
+        sections = {}
+        for line in result.stdout.splitlines():
+            fields = line.split("\t")
+            if fields[0] == "ENTRY":
+                _, title, shortcut, description, action = fields
+                section = sections.setdefault(title, Section([], [], title))
+                parts = re.split(r"\s*\+\s*", shortcut)
+                section["keybinds"].append(KeyBinding(parts[:-1], parts[-1], action, "", description))
+        return Section(list(sections.values()), [], "")
     raw = read_content(path)
     if raw == "error" or raw.strip() == "":
         return "error"

@@ -318,7 +318,7 @@ Scope {
 
                                 Text {
                                     width: parent.width
-                                    text: "Pages are read from ~/.config/hypr/hyprland/keybinds.conf headings."
+                                    text: "Pages are read from ~/.config/hypr/hyprland/keybinds.lua headings."
                                     color: "#9f9cab"
                                     font.pixelSize: 13
                                     wrapMode: Text.Wrap

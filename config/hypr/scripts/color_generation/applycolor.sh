@@ -88,20 +88,22 @@ apply_term() {
 }
 
 apply_hyprland() {
-    # Check if scripts/templates/hypr/hyprland/colors.conf exists
-    if [ ! -f "scripts/templates/hypr/hyprland/colors.conf" ]; then
-        echo "Template file not found for Hyprland colors. Skipping that."
-        return
-    fi
-    # Copy template
-    mkdir -p "$CACHE_DIR"/user/generated/hypr/hyprland
-    cp "scripts/templates/hypr/hyprland/colors.conf" "$CACHE_DIR"/user/generated/hypr/hyprland/colors.conf
-    # Apply colors
-    for i in "${!colorlist[@]}"; do
-        sed -i "s/{{ ${colorlist[$i]} }}/${colorvalues[$i]#\#}/g" "$CACHE_DIR"/user/generated/hypr/hyprland/colors.conf
+    local format template generated i
+    mkdir -p "$CACHE_DIR/user/generated/hypr/hyprland"
+    # Lua is the primary config; keep the current legacy session themed too.
+    for format in lua conf; do
+        template="scripts/templates/hypr/hyprland/colors.$format"
+        generated="$CACHE_DIR/user/generated/hypr/hyprland/colors.$format"
+        if [ ! -f "$template" ]; then
+            echo "Template file not found: $template" >&2
+            continue
+        fi
+        cp "$template" "$generated"
+        for i in "${!colorlist[@]}"; do
+            sed -i "s/{{ ${colorlist[$i]} }}/${colorvalues[$i]#\#}/g" "$generated"
+        done
+        cp "$generated" "$XDG_CONFIG_HOME/hypr/hyprland/colors.$format"
     done
-
-    cp "$CACHE_DIR"/user/generated/hypr/hyprland/colors.conf "$XDG_CONFIG_HOME"/hypr/hyprland/colors.conf
 }
 
 apply_hyprlock() {

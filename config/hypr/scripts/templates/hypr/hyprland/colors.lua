@@ -4,12 +4,12 @@
 hl.config({
     general = {
         col = {
-            active_border = "rgba(DEE2EF39)",
-            inactive_border = "rgba(8B919F30)",
+            active_border = "rgba({{ $onSurface }}39)",
+            inactive_border = "rgba({{ $outline }}30)",
         },
     },
     misc = {
-        background_color = "rgba(0F131CFF)",
+        background_color = "rgba({{ $surface }}FF)",
     },
 })
 
@@ -23,13 +23,13 @@ if hl.plugin.hyprbars then
                 bar_button_padding = 5,
                 bar_precedence_over_border = true,
                 bar_part_of_window = true,
-                bar_color = "rgba(0F131CFF)",
-                col = { text = "rgba(DEE2EFFF)" },
+                bar_color = "rgba({{ $background }}FF)",
+                col = { text = "rgba({{ $onBackground }}FF)" },
             },
         },
     })
 
-    local button_color = "rgb(DEE2EF)"
+    local button_color = "rgb({{ $onBackground }})"
     hl.plugin.hyprbars.add_button({ bg_color = button_color, fg_color = button_color, size = 13, icon = "󰆭", action = [[hyprctl dispatch 'hl.dsp.window.close()']] })
     hl.plugin.hyprbars.add_button({ bg_color = button_color, fg_color = button_color, size = 13, icon = "󰆯", action = [[hyprctl dispatch 'hl.dsp.window.fullscreen({ mode = "fullscreen", action = "toggle" })']] })
     hl.plugin.hyprbars.add_button({ bg_color = button_color, fg_color = button_color, size = 13, icon = "󰆰", action = [[hyprctl dispatch 'hl.dsp.window.move({ workspace = "special", follow = false })']] })
@@ -37,5 +37,5 @@ end
 
 hl.window_rule({
     match = { pin = true },
-    border_color = "rgba(A9C7FFAA) rgba(A9C7FF77)",
+    border_color = "rgba({{ $primary }}AA) rgba({{ $primary }}77)",
 })

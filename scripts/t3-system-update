@@ -1,0 +1,55 @@
+#!/usr/bin/env bash
+# Update packages, then align the independently installed T3 service.
+set -euo pipefail
+
+script_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
+mode=${1:-yay}
+if (($#)); then shift; fi
+
+case "$mode" in
+    yay)
+        yay --sudo "$script_dir/package-auth" --sudoflags '' --nosudoloop -Syu --devel "$@"
+        ;;
+    pacman)
+        "$script_dir/package-auth" /usr/bin/pacman -Syu "$@"
+        ;;
+    sync)
+        if (($#)); then
+            printf 'sync does not accept extra arguments\n' >&2
+            exit 2
+        fi
+        ;;
+    *)
+        printf 'Usage: t3-system-update [yay|pacman|sync] [package-manager arguments]\n' >&2
+        exit 2
+        ;;
+esac
+
+package_info=$(pacman -Q t3code-bin 2>/dev/null || pacman -Q t3code 2>/dev/null || true)
+if [[ -z "$package_info" ]]; then
+    printf 'T3 desktop package is not installed; skipping service update.\n'
+    exit 0
+fi
+package_version=${package_info#* }
+target_version=${package_version%-*}
+target_version=${target_version#*:}
+# Only release versions are valid inputs to the upstream downloader.
+if [[ ! "$target_version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+    printf 'Cannot map package version %s to a T3 release.\n' "$package_version" >&2
+    exit 1
+fi
+
+t3_bin=${T3_UPDATE_BIN:-$HOME/.local/bin/t3}
+if [[ ! -x "$t3_bin" ]]; then
+    printf 'T3 CLI not found at %s; install the T3 CLI/service first.\n' "$t3_bin" >&2
+    exit 1
+fi
+current_version=$("$t3_bin" --version)
+current_version=${current_version#v}
+if [[ "$current_version" == "$target_version" ]]; then
+    printf 'T3 CLI already matches desktop version %s; checking service.\n' "$target_version"
+else
+    printf 'Updating T3 to desktop version %s. Restarting the service interrupts active agent work.\n' "$target_version"
+fi
+# Even when the CLI matches, update handles a service left on a previous version.
+"$t3_bin" update "$target_version" --yes

@@ -167,7 +167,7 @@ add-zsh-hook chpwd _lazy_load_dart
 ## [/Completion]
 
 up() {
-  yay --devel || flatpak update
+  "$HOME/Media/Projects/Code/GitHub/dotfiles/scripts/t3-system-update" yay "$@"
 }
 
 # remove oh-my-zsh git aliases so we can declare our own functions

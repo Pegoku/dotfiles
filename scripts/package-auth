@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+# Yay's sudo replacement, also used by the Pacman update mode.
+set -euo pipefail
+
+# Yay may probe sudo credentials. Polkit authenticates each real operation.
+if [[ "${1:-}" == -v && $# == 1 ]]; then exit 0; fi
+if [[ "${1:-}" == -- ]]; then shift; fi
+case "${1:-}" in
+    pacman|/usr/bin/pacman) shift ;;
+    *) printf 'Only pacman operations are supported by this authentication helper.\n' >&2; exit 2 ;;
+esac
+
+printf -v operation '%q ' /usr/bin/pacman "$@"
+zenity --question --title='Codex: package update authorization' \
+    --text="Administrator access is needed to change system packages. Polkit will authenticate this Pacman operation:\n\n$operation" || exit 1
+exec /usr/bin/pkexec /usr/bin/pacman "$@"

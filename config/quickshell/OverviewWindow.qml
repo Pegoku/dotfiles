@@ -3,6 +3,7 @@ import QtQuick
 import Quickshell
 import Quickshell.Wayland
 import Quickshell.Hyprland
+import "HyprlandDispatch.js" as HyprlandDispatch
 import "./services"
 
 Item {
@@ -175,10 +176,10 @@ Item {
             
             if (event.button === Qt.LeftButton) {
                 GlobalStates.setOverviewOpen(false)
-                Hyprland.dispatch(`hl.dsp.focus({ window = "address:${windowData.address}" })`)
+                Hyprland.dispatch(HyprlandDispatch.focusWindow(windowData.address, Hyprland.usingLua))
                 event.accepted = true
             } else if (event.button === Qt.MiddleButton) {
-                Hyprland.dispatch(`hl.dsp.window.close({ window = "address:${windowData.address}" })`)
+                Hyprland.dispatch(HyprlandDispatch.closeWindow(windowData.address, Hyprland.usingLua))
                 event.accepted = true
             }
         }

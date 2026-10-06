@@ -5,6 +5,7 @@ import Quickshell.Io
 import Quickshell.Wayland
 import Quickshell.Hyprland
 import Quickshell.Widgets
+import "HyprlandDispatch.js" as HyprlandDispatch
 import "./services"
 
 Item {
@@ -941,7 +942,7 @@ Item {
                                         onClicked: {
                                             if (root.draggingTargetWorkspace === -1) {
                                                 GlobalStates.setOverviewOpen(false)
-                                                Hyprland.dispatch(`hl.dsp.focus({ workspace = "${workspace.workspaceValue}" })`)
+                                                Hyprland.dispatch(HyprlandDispatch.workspace(workspace.workspaceValue, Hyprland.usingLua))
                                             }
                                         }
                                     }
@@ -986,7 +987,7 @@ Item {
                         event.accept(Qt.MoveAction);
 
                         if (workspace !== -1 && address)
-                            Hyprland.dispatch(`hl.dsp.window.move({ workspace = "${workspace}", window = "address:${address}", follow = false })`);
+                            Hyprland.dispatch(HyprlandDispatch.moveWindow(workspace, address, Hyprland.usingLua));
                     }
                 }
 

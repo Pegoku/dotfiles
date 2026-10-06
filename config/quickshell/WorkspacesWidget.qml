@@ -1,6 +1,7 @@
 import QtQuick
 import Quickshell
 import Quickshell.Hyprland
+import "HyprlandDispatch.js" as HyprlandDispatch
 
 Rectangle {
     id: containerRect
@@ -37,7 +38,7 @@ Rectangle {
     }
 
     function focusWorkspace(id) {
-        Hyprland.dispatch("hl.dsp.focus({ workspace = \"" + id + "\" })");
+        Hyprland.dispatch(HyprlandDispatch.workspace(id, Hyprland.usingLua));
     }
 
     function shouldConnect(leftId, rightId) {
